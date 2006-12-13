@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -22,11 +23,30 @@ void dumpfile(int fd)
 {
     struct stat stat_buf;
     fstat(fd, &stat_buf);
+    int64_t size = 0;
+
+    char buf[4096];
 
     if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
         printf("file is no longer a regular file!\n");
         return;
     }
+
+    while (true) {
+        ssize_t res = read(fd, buf, sizeof(buf));
+        if (res < 0) {
+            if (errno == EINTR)
+                continue;
+            printf("Error while reading: %m\n");
+            return;
+        } else if (res == 0) {
+            break;
+        } else {
+            size += res;
+        }
+    }
+
+    printf("Bytes read: %Ld\n", size);
 }
 
 void scanfile(const string& path)
