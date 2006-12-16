@@ -1,0 +1,27 @@
+                       Backup Format Description
+                  for an LFS-Inspired Backup Solution
+
+NOTE: This is simply a proposal at this point in time, and not yet
+implemented.  Details are subject to change.
+
+========================================================================
+
+Goals: To provide a stable and extensible data storage format for
+efficient remote filesystem backups.  Among the features desired in the
+format are:
+  - Support for grouping unchanging file contents together, and reusing
+    it for future backups.
+  - Nonetheless allow old backups to be deleted (at least those parts
+    that are not also used by newer backups).
+  - Support some form of rdiff-style incremental differences within a
+    file.
+The current plan is to implement compression and encryption separately:
+not as part of the base format, but simply by passing the backup data
+through filters such as bzip2 or gpg.
+
+Data is organized into a collection of _objects_, which are grouped
+together for storage purposes into _segments_.  Objects may refer to
+other objects; a snapshot consists of a tree object which in turn refers
+to other objects containing file data.  A new snapshot may be created
+which refers to some of the old objects with file data, if those files
+have not changed.
