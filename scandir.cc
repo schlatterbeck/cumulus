@@ -46,7 +46,7 @@ void dumpfile(int fd)
         }
     }
 
-    printf("Bytes read: %Ld\n", size);
+    printf("    bytes=%Ld\n", size);
 }
 
 void scanfile(const string& path)
@@ -54,6 +54,9 @@ void scanfile(const string& path)
     int fd;
     long flags;
     struct stat stat_buf;
+    char *buf;
+    ssize_t len;
+
     lstat(path.c_str(), &stat_buf);
 
     printf("%s:\n", path.c_str());
@@ -67,11 +70,28 @@ void scanfile(const string& path)
     case S_IFSOCK:
     case S_IFCHR:
     case S_IFBLK:
+        printf("    special file\n");
+        break;
     case S_IFLNK:
-        printf("  special file\n");
+        printf("    symlink\n");
+
+        /* Use the reported file size to allocate a buffer large enough to read
+         * the symlink.  Allocate slightly more space, so that we ask for more
+         * bytes than we expect and so check for truncation. */
+        buf = new char[stat_buf.st_size + 2];
+        len = readlink(path.c_str(), buf, stat_buf.st_size + 1);
+        if (len < 0) {
+            printf("error reading symlink: %m\n");
+        } else if (len <= stat_buf.st_size) {
+            buf[len] = '\0';
+            printf("    contents=%s\n", buf);
+        } else if (len > stat_buf.st_size) {
+            printf("error reading symlink: name truncated\n");
+        }
+        delete[] buf;
         break;
     case S_IFREG:
-        printf("  regular file\n");
+        printf("    regular file\n");
         /* Be paranoid when opening the file.  We have no guarantee that the
          * file was not replaced between the stat() call above and the open()
          * call below, so we might not even be opening a regular file.  That
@@ -95,7 +115,7 @@ void scanfile(const string& path)
 
         break;
     case S_IFDIR:
-        printf("  directory\n");
+        printf("    directory\n");
         scandir(path);
         break;
     }
@@ -103,8 +123,6 @@ void scanfile(const string& path)
 
 void scandir(const string& path)
 {
-    printf("Scan directory: %s\n", path.c_str());
-
     DIR *dir = opendir(path.c_str());
 
     if (dir == NULL) {
@@ -126,7 +144,6 @@ void scandir(const string& path)
     for (vector<string>::iterator i = contents.begin();
          i != contents.end(); ++i) {
         const string& filename = *i;
-        printf("  d_name = '%s'\n", filename.c_str());
         scanfile(path + "/" + filename);
     }
 
