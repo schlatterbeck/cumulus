@@ -25,3 +25,37 @@ other objects; a snapshot consists of a tree object which in turn refers
 to other objects containing file data.  A new snapshot may be created
 which refers to some of the old objects with file data, if those files
 have not changed.
+
+========================================================================
+
+Object naming:
+  - Each segment is assigned a unique 128-bit identifier (uuid).  Each
+    segment is stored as a separate file whose name is based on its
+    uuid.
+  - Objects within a segment are numbered sequentially, with a 32-bit
+    counter.
+Thus, each object may be referred to with a unique 160 (128 + 32) bit
+identifier.
+
+Segment structure:
+There are two main options:
+  - Streaming format: Each object is prepended with a header, and then
+    all (header, object) pairs are concatenated.  This is inspired by
+    the tar file format.  Can be written out in one pass and also
+    processed when read back in one pass.  Well-adapted to streaming
+    transformations, such as compression.
+  - Indexed format: Each segment contains a table giving the starting
+    position and length of each object.  This is somewhat similar to
+    PDF.  Data can still be written out in a single pass, but reading
+    will require random access.
+
+File attributes: Metadata for each file is stored in a dictionary.
+Dictionary keys include:
+    type: uint8_t ('p', 's', 'c', 'b', 'l', 'd', '-')
+    mode: uint16_t
+    user: uint32_t
+    group: uint32_t
+    size: int64_t
+    atime: int64_t
+    mtime: int64_t
+    ctime: int64_t
