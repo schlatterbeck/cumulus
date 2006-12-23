@@ -71,11 +71,7 @@ void scanfile(const string& path)
 
     lstat(path.c_str(), &stat_buf);
 
-    printf("%s:\n", path.c_str());
-    printf("  ino=%Ld, perm=%04o, uid=%d, gid=%d, nlink=%d, blksize=%d, size=%Ld\n",
-           (int64_t)stat_buf.st_ino, stat_buf.st_mode & 07777,
-           stat_buf.st_uid, stat_buf.st_gid, stat_buf.st_nlink,
-           (int)stat_buf.st_blksize, (int64_t)stat_buf.st_size);
+    printf("%s\n", path.c_str());
 
     file_info["mode"] = encode_u16(stat_buf.st_mode & 07777);
     file_info["atime"] = encode_u64(encode_time(stat_buf.st_atime));
@@ -88,23 +84,18 @@ void scanfile(const string& path)
 
     switch (stat_buf.st_mode & S_IFMT) {
     case S_IFIFO:
-        printf("    FIFO\n");
         inode_type = 'p';
         break;
     case S_IFSOCK:
-        printf("    socket\n");
         inode_type = 's';
         break;
     case S_IFCHR:
-        printf("    character device\n");
         inode_type = 'c';
         break;
     case S_IFBLK:
-        printf("    block device\n");
         inode_type = 'b';
         break;
     case S_IFLNK:
-        printf("    symlink\n");
         inode_type = 'l';
 
         /* Use the reported file size to allocate a buffer large enough to read
@@ -126,7 +117,6 @@ void scanfile(const string& path)
         delete[] buf;
         break;
     case S_IFREG:
-        printf("    regular file\n");
         inode_type = '-';
 
         /* Be paranoid when opening the file.  We have no guarantee that the
@@ -153,7 +143,6 @@ void scanfile(const string& path)
 
         break;
     case S_IFDIR:
-        printf("    directory\n");
         inode_type = 'd';
         scandir(path);
         break;
@@ -210,7 +199,7 @@ int main(int argc, char *argv[])
     info_dump = &os;
 
     try {
-        scandir(".");
+        scanfile(".");
     } catch (IOException e) {
         fprintf(stderr, "IOException: %s\n", e.getError().c_str());
     }
