@@ -14,10 +14,20 @@
 #include <string>
 #include <vector>
 
+#include "store.h"
+
 using std::string;
 using std::vector;
 
+static OutputStream *info_dump = NULL;
+
 void scandir(const string& path);
+
+/* Converts time to microseconds since the epoch. */
+int64_t encode_time(time_t time)
+{
+    return (int64_t)time * 1000000;
+}
 
 void dumpfile(int fd)
 {
@@ -57,6 +67,8 @@ void scanfile(const string& path)
     char *buf;
     ssize_t len;
 
+    dictionary file_info;
+
     lstat(path.c_str(), &stat_buf);
 
     printf("%s:\n", path.c_str());
@@ -65,15 +77,35 @@ void scanfile(const string& path)
            stat_buf.st_uid, stat_buf.st_gid, stat_buf.st_nlink,
            (int)stat_buf.st_blksize, (int64_t)stat_buf.st_size);
 
+    file_info["mode"] = encode_u16(stat_buf.st_mode & 07777);
+    file_info["atime"] = encode_u64(encode_time(stat_buf.st_atime));
+    file_info["ctime"] = encode_u64(encode_time(stat_buf.st_ctime));
+    file_info["mtime"] = encode_u64(encode_time(stat_buf.st_mtime));
+    file_info["user"] = encode_u32(stat_buf.st_uid);
+    file_info["group"] = encode_u32(stat_buf.st_gid);
+
+    char inode_type;
+
     switch (stat_buf.st_mode & S_IFMT) {
     case S_IFIFO:
+        printf("    FIFO\n");
+        inode_type = 'p';
+        break;
     case S_IFSOCK:
+        printf("    socket\n");
+        inode_type = 's';
+        break;
     case S_IFCHR:
+        printf("    character device\n");
+        inode_type = 'c';
+        break;
     case S_IFBLK:
-        printf("    special file\n");
+        printf("    block device\n");
+        inode_type = 'b';
         break;
     case S_IFLNK:
         printf("    symlink\n");
+        inode_type = 'l';
 
         /* Use the reported file size to allocate a buffer large enough to read
          * the symlink.  Allocate slightly more space, so that we ask for more
@@ -88,10 +120,15 @@ void scanfile(const string& path)
         } else if (len > stat_buf.st_size) {
             printf("error reading symlink: name truncated\n");
         }
+
+        file_info["contents"] = buf;
+
         delete[] buf;
         break;
     case S_IFREG:
         printf("    regular file\n");
+        inode_type = '-';
+
         /* Be paranoid when opening the file.  We have no guarantee that the
          * file was not replaced between the stat() call above and the open()
          * call below, so we might not even be opening a regular file.  That
@@ -110,15 +147,26 @@ void scanfile(const string& path)
         flags = fcntl(fd, F_GETFL);
         fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
-        dumpfile(fd);
+        //dumpfile(fd);
+        file_info["size"] = encode_u64(stat_buf.st_size);
         close(fd);
 
         break;
     case S_IFDIR:
         printf("    directory\n");
+        inode_type = 'd';
         scandir(path);
         break;
+
+    default:
+        fprintf(stderr, "Unknown inode type: mode=%x\n", stat_buf.st_mode);
+        return;
     }
+
+    file_info["type"] = string(1, inode_type);
+
+    info_dump->write_string(path);
+    info_dump->write_dictionary(file_info);
 }
 
 void scandir(const string& path)
@@ -152,7 +200,20 @@ void scandir(const string& path)
 
 int main(int argc, char *argv[])
 {
-    scandir(".");
+    FILE *dump = fopen("fileinfo", "w");
+    if (dump == NULL) {
+        fprintf(stderr, "Cannot open fileinfo: %m\n");
+        return 1;
+    }
+
+    FileOutputStream os(dump);
+    info_dump = &os;
+
+    try {
+        scandir(".");
+    } catch (IOException e) {
+        fprintf(stderr, "IOException: %s\n", e.getError().c_str());
+    }
 
     return 0;
 }
