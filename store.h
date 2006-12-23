@@ -5,6 +5,9 @@
  * into segments for storage purposes.  This file provides interfaces for
  * reading and writing objects and segments. */
 
+#ifndef _LBS_STORE_H
+#define _LBS_STORE_H
+
 #include <stdint.h>
 
 #include <exception>
@@ -67,3 +70,5 @@ public:
 std::string encode_u16(uint16_t val);
 std::string encode_u32(uint32_t val);
 std::string encode_u64(uint64_t val);
+
+#endif // _LBS_STORE_H

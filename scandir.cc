@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "store.h"
+#include "sha1.h"
 
 using std::string;
 using std::vector;
@@ -29,7 +30,7 @@ int64_t encode_time(time_t time)
     return (int64_t)time * 1000000;
 }
 
-void dumpfile(int fd)
+void dumpfile(int fd, dictionary &file_info)
 {
     struct stat stat_buf;
     fstat(fd, &stat_buf);
@@ -42,6 +43,7 @@ void dumpfile(int fd)
         return;
     }
 
+    SHA1Checksum hash;
     while (true) {
         ssize_t res = read(fd, buf, sizeof(buf));
         if (res < 0) {
@@ -52,11 +54,13 @@ void dumpfile(int fd)
         } else if (res == 0) {
             break;
         } else {
+            hash.process(buf, res);
             size += res;
         }
     }
 
-    printf("    bytes=%Ld\n", size);
+    file_info["sha1"] = string((const char *)hash.checksum(),
+                               hash.checksum_size());
 }
 
 void scanfile(const string& path)
@@ -137,8 +141,8 @@ void scanfile(const string& path)
         flags = fcntl(fd, F_GETFL);
         fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
-        //dumpfile(fd);
         file_info["size"] = encode_u64(stat_buf.st_size);
+        dumpfile(fd, file_info);
         close(fd);
 
         break;
