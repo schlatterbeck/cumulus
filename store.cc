@@ -11,6 +11,17 @@
 
 using std::string;
 
+OutputStream::OutputStream()
+    : bytes_written(0)
+{
+}
+
+void OutputStream::write(const void *data, size_t len)
+{
+    write_internal(data, len);
+    bytes_written += len;
+}
+
 void OutputStream::write_u8(uint8_t val)
 {
     write(&val, 1);
@@ -95,7 +106,7 @@ StringOutputStream::StringOutputStream()
 {
 }
 
-void StringOutputStream::write(const void *data, size_t len)
+void StringOutputStream::write_internal(const void *data, size_t len)
 {
     buf.write((const char *)data, len);
     if (!buf.good())
@@ -112,7 +123,7 @@ FileOutputStream::~FileOutputStream()
     fclose(f);
 }
 
-void FileOutputStream::write(const void *data, size_t len)
+void FileOutputStream::write_internal(const void *data, size_t len)
 {
     size_t res;
 
