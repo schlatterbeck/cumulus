@@ -14,6 +14,7 @@
 #include <map>
 #include <string>
 #include <sstream>
+#include <vector>
 
 /* In memory datatype to represent key/value pairs of information, such as file
  * metadata.  Currently implemented as map<string, string>. */
@@ -97,10 +98,55 @@ private:
     FILE *f;
 };
 
+/* An OutputStream which is simply sends writes to another OutputStream, but
+ * does provide separate tracking of bytes written. */
+class WrapperOutputStream : public OutputStream {
+public:
+    explicit WrapperOutputStream(OutputStream &o);
+    virtual ~WrapperOutputStream() { }
+
+protected:
+    virtual void write_internal(const void *data, size_t len);
+
+private:
+    OutputStream &real;
+};
+
 /* Simple wrappers that encode integers using a StringOutputStream and return
  * the encoded result. */
 std::string encode_u16(uint16_t val);
 std::string encode_u32(uint32_t val);
 std::string encode_u64(uint64_t val);
+
+struct uuid {
+    uint8_t bytes[16];
+};
+
+class SegmentWriter {
+public:
+    SegmentWriter(OutputStream &output, struct uuid u);
+    ~SegmentWriter();
+
+    struct uuid get_uuid() const { return id; }
+
+    // Start writing out a new object to this segment.
+    OutputStream *new_object();
+    void finish_object();
+
+    // Utility functions for generating and formatting UUIDs for display.
+    static struct uuid generate_uuid();
+    static std::string format_uuid(const struct uuid u);
+
+private:
+    typedef std::vector<std::pair<int64_t, int64_t> > object_table;
+
+    OutputStream &out;
+    struct uuid id;
+
+    int64_t object_start_offset;
+    OutputStream *object_stream;
+
+    object_table objects;
+};
 
 #endif // _LBS_STORE_H

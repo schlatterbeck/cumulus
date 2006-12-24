@@ -71,6 +71,9 @@ void scanfile(const string& path)
     char *buf;
     ssize_t len;
 
+    // Set to true if the item is a directory and we should recursively scan
+    bool recurse = false;
+
     dictionary file_info;
 
     lstat(path.c_str(), &stat_buf);
@@ -148,7 +151,7 @@ void scanfile(const string& path)
         break;
     case S_IFDIR:
         inode_type = 'd';
-        scandir(path);
+        recurse = true;
         break;
 
     default:
@@ -160,6 +163,11 @@ void scanfile(const string& path)
 
     info_dump->write_string(path);
     info_dump->write_dictionary(file_info);
+
+    // If we hit a directory, now that we've written the directory itself,
+    // recursively scan the directory.
+    if (recurse)
+        scandir(path);
 }
 
 void scandir(const string& path)
@@ -193,14 +201,19 @@ void scandir(const string& path)
 
 int main(int argc, char *argv[])
 {
-    FILE *dump = fopen("fileinfo", "w");
+    struct uuid id = SegmentWriter::generate_uuid();
+    string filename = SegmentWriter::format_uuid(id);
+
+    printf("Backup UUID: %s\n", filename.c_str());
+    FILE *dump = fopen(filename.c_str(), "w");
     if (dump == NULL) {
-        fprintf(stderr, "Cannot open fileinfo: %m\n");
+        fprintf(stderr, "Cannot open file %s: %m\n", filename.c_str());
         return 1;
     }
 
     FileOutputStream os(dump);
-    info_dump = &os;
+    SegmentWriter sw(os, id);
+    info_dump = sw.new_object();
 
     try {
         scanfile(".");

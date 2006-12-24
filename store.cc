@@ -6,6 +6,7 @@
  * reading and writing objects and segments. */
 
 #include <assert.h>
+#include <uuid/uuid.h>
 
 #include "store.h"
 
@@ -133,6 +134,16 @@ void FileOutputStream::write_internal(const void *data, size_t len)
     }
 }
 
+WrapperOutputStream::WrapperOutputStream(OutputStream &o)
+    : real(o)
+{
+}
+
+void WrapperOutputStream::write_internal(const void *data, size_t len)
+{
+    real.write(data, len);
+}
+
 /* Utility functions, for encoding data types to strings. */
 string encode_u16(uint16_t val)
 {
@@ -153,4 +164,79 @@ string encode_u64(uint64_t val)
     StringOutputStream s;
     s.write_u64(val);
     return s.contents();
+}
+
+SegmentWriter::SegmentWriter(OutputStream &output, struct uuid u)
+    : out(output),
+      id(u),
+      object_stream(NULL)
+{
+    /* Write out the segment header first. */
+    static const char signature[] = "LBSSEG0\n";
+    out.write(signature, strlen(signature));
+    out.write(id.bytes, sizeof(struct uuid));
+}
+
+SegmentWriter::~SegmentWriter()
+{
+    if (object_stream)
+        finish_object();
+
+    // Write out the object table which gives the sizes and locations of all
+    // objects, and then add the trailing signature, which indicates the end of
+    // the segment and gives the offset of the object table.
+    int64_t index_offset = out.get_pos();
+
+    for (object_table::const_iterator i = objects.begin();
+         i != objects.end(); ++i) {
+        out.write_s64(i->first);
+        out.write_s64(i->second);
+    }
+
+    static const char signature2[] = "LBSEND";
+    out.write(signature2, strlen(signature2));
+    out.write_s64(index_offset);
+    out.write_u32(objects.size());
+}
+
+OutputStream *SegmentWriter::new_object()
+{
+    if (object_stream)
+        finish_object();
+
+    object_start_offset = out.get_pos();
+    object_stream = new WrapperOutputStream(out);
+
+    return object_stream;
+}
+
+void SegmentWriter::finish_object()
+{
+    assert(object_stream != NULL);
+
+    // store (start, length) information for locating this object
+    objects.push_back(std::make_pair(object_start_offset,
+                                     object_stream->get_pos()));
+
+    delete object_stream;
+    object_stream = NULL;
+}
+
+struct uuid SegmentWriter::generate_uuid()
+{
+    struct uuid u;
+
+    uuid_generate(u.bytes);
+
+    return u;
+}
+
+string SegmentWriter::format_uuid(const struct uuid u)
+{
+    // A UUID only takes 36 bytes, plus the trailing '\0', so this is safe.
+    char buf[40];
+
+    uuid_unparse_lower(u.bytes, buf);
+
+    return string(buf);
 }
