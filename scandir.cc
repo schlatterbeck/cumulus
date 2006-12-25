@@ -201,25 +201,20 @@ void scandir(const string& path)
 
 int main(int argc, char *argv[])
 {
-    struct uuid id = SegmentWriter::generate_uuid();
-    string filename = SegmentWriter::format_uuid(id);
+    SegmentStore ss(".");
+    SegmentWriter *sw = ss.new_segment();
+    info_dump = sw->new_object();
 
-    printf("Backup UUID: %s\n", filename.c_str());
-    FILE *dump = fopen(filename.c_str(), "w");
-    if (dump == NULL) {
-        fprintf(stderr, "Cannot open file %s: %m\n", filename.c_str());
-        return 1;
-    }
-
-    FileOutputStream os(dump);
-    SegmentWriter sw(os, id);
-    info_dump = sw.new_object();
+    string uuid = SegmentWriter::format_uuid(sw->get_uuid());
+    printf("Backup UUID: %s\n", uuid.c_str());
 
     try {
         scanfile(".");
     } catch (IOException e) {
         fprintf(stderr, "IOException: %s\n", e.getError().c_str());
     }
+
+    delete sw;
 
     return 0;
 }

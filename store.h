@@ -122,9 +122,15 @@ struct uuid {
     uint8_t bytes[16];
 };
 
+/* A class which is used to pack multiple objects into a single segment, with a
+ * lookup table to quickly locate each object.  Call new_object() to get an
+ * OutputStream to which a new object may be written, and optionally
+ * finish_object() when finished writing the current object.  Only one object
+ * may be written to a segment at a time; if multiple objects must be written
+ * concurrently, they must be to different segments. */
 class SegmentWriter {
 public:
-    SegmentWriter(OutputStream &output, struct uuid u);
+    SegmentWriter(OutputStream *output, struct uuid u);
     ~SegmentWriter();
 
     struct uuid get_uuid() const { return id; }
@@ -140,13 +146,28 @@ public:
 private:
     typedef std::vector<std::pair<int64_t, int64_t> > object_table;
 
-    OutputStream &out;
+    OutputStream *out;
     struct uuid id;
 
     int64_t object_start_offset;
     OutputStream *object_stream;
 
     object_table objects;
+};
+
+/* A SegmentStore, as the name suggests, is used to store the contents of many
+ * segments.  The SegmentStore internally tracks where data should be placed
+ * (such as a local directory or remote storage), and allows new segments to be
+ * easily created as needed. */
+class SegmentStore {
+public:
+    // New segments will be stored in the given directory.
+    SegmentStore(const std::string &path);
+
+    SegmentWriter *new_segment();
+
+private:
+    std::string directory;
 };
 
 #endif // _LBS_STORE_H

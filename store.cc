@@ -166,15 +166,15 @@ string encode_u64(uint64_t val)
     return s.contents();
 }
 
-SegmentWriter::SegmentWriter(OutputStream &output, struct uuid u)
+SegmentWriter::SegmentWriter(OutputStream *output, struct uuid u)
     : out(output),
       id(u),
       object_stream(NULL)
 {
     /* Write out the segment header first. */
     static const char signature[] = "LBSSEG0\n";
-    out.write(signature, strlen(signature));
-    out.write(id.bytes, sizeof(struct uuid));
+    out->write(signature, strlen(signature));
+    out->write(id.bytes, sizeof(struct uuid));
 }
 
 SegmentWriter::~SegmentWriter()
@@ -185,18 +185,22 @@ SegmentWriter::~SegmentWriter()
     // Write out the object table which gives the sizes and locations of all
     // objects, and then add the trailing signature, which indicates the end of
     // the segment and gives the offset of the object table.
-    int64_t index_offset = out.get_pos();
+    int64_t index_offset = out->get_pos();
 
     for (object_table::const_iterator i = objects.begin();
          i != objects.end(); ++i) {
-        out.write_s64(i->first);
-        out.write_s64(i->second);
+        out->write_s64(i->first);
+        out->write_s64(i->second);
     }
 
     static const char signature2[] = "LBSEND";
-    out.write(signature2, strlen(signature2));
-    out.write_s64(index_offset);
-    out.write_u32(objects.size());
+    out->write(signature2, strlen(signature2));
+    out->write_s64(index_offset);
+    out->write_u32(objects.size());
+
+    /* The SegmentWriter takes ownership of the OutputStream it is writing to,
+     * and destroys it automatically when done with the segment. */
+    delete out;
 }
 
 OutputStream *SegmentWriter::new_object()
@@ -204,8 +208,8 @@ OutputStream *SegmentWriter::new_object()
     if (object_stream)
         finish_object();
 
-    object_start_offset = out.get_pos();
-    object_stream = new WrapperOutputStream(out);
+    object_start_offset = out->get_pos();
+    object_stream = new WrapperOutputStream(*out);
 
     return object_stream;
 }
@@ -239,4 +243,21 @@ string SegmentWriter::format_uuid(const struct uuid u)
     uuid_unparse_lower(u.bytes, buf);
 
     return string(buf);
+}
+
+SegmentStore::SegmentStore(const string &path)
+    : directory(path)
+{
+}
+
+SegmentWriter *SegmentStore::new_segment()
+{
+    struct uuid id = SegmentWriter::generate_uuid();
+    string filename = directory + "/" + SegmentWriter::format_uuid(id);
+
+    FILE *f = fopen(filename.c_str(), "wb");
+    if (f == NULL)
+        throw IOException("Unable to open new segment");
+
+    return new SegmentWriter(new FileOutputStream(f), id);
 }
