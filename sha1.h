@@ -85,7 +85,7 @@ public:
     SHA1Checksum();
     ~SHA1Checksum();
 
-    void process(void *data, size_t len);
+    void process(const void *data, size_t len);
     const uint8_t *checksum();
     size_t checksum_size() const { return 20; }
 };

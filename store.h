@@ -16,6 +16,8 @@
 #include <sstream>
 #include <vector>
 
+#include "sha1.h"
+
 /* In memory datatype to represent key/value pairs of information, such as file
  * metadata.  Currently implemented as map<string, string>. */
 typedef std::map<std::string, std::string> dictionary;
@@ -112,6 +114,26 @@ private:
     OutputStream &real;
 };
 
+/* Like WrapperOutputStream, but additionally computes a checksum of data as it
+ * is written. */
+class ChecksumOutputStream : public OutputStream {
+public:
+    explicit ChecksumOutputStream(OutputStream &o);
+    virtual ~ChecksumOutputStream() { }
+
+    /* Once a checksum is computed, no further data should be written to the
+     * stream. */
+    const uint8_t *finish_and_checksum();
+    size_t checksum_size() const { return csum.checksum_size(); }
+
+protected:
+    virtual void write_internal(const void *data, size_t len);
+
+private:
+    OutputStream &real;
+    SHA1Checksum csum;
+};
+
 /* Simple wrappers that encode integers using a StringOutputStream and return
  * the encoded result. */
 std::string encode_u16(uint16_t val);
@@ -146,7 +168,8 @@ public:
 private:
     typedef std::vector<std::pair<int64_t, int64_t> > object_table;
 
-    OutputStream *out;
+    ChecksumOutputStream *out;  // Output stream with checksumming enabled
+    OutputStream *raw_out;      // Raw output stream, without checksumming
     struct uuid id;
 
     int64_t object_start_offset;

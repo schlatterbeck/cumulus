@@ -339,7 +339,7 @@ SHA1Checksum::~SHA1Checksum()
 {
 }
 
-void SHA1Checksum::process(void *data, size_t len)
+void SHA1Checksum::process(const void *data, size_t len)
 {
     sha1_process_bytes(data, len, &ctx);
 }
