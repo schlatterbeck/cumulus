@@ -161,6 +161,9 @@ public:
     OutputStream *new_object();
     void finish_object();
 
+    // Determine size of segment data written out so far.
+    size_t get_size() const { return raw_out->get_pos(); }
+
     // Utility functions for generating and formatting UUIDs for display.
     static struct uuid generate_uuid();
     static std::string format_uuid(const struct uuid u);
@@ -191,6 +194,25 @@ public:
 
 private:
     std::string directory;
+};
+
+/* A SegmentPartitioner helps to divide objects up among a collection of
+ * segments to meet a rough size limit per segment.  Like a SegmentWriter, only
+ * one object should be written at a time; however, multiple
+ * SegmentPartitioners can be created using the same base SegmentStore. */
+class SegmentPartitioner {
+public:
+    explicit SegmentPartitioner(SegmentStore *s);
+    ~SegmentPartitioner();
+
+    OutputStream *new_object();
+
+private:
+    size_t target_size;
+
+    SegmentStore *store;
+    SegmentWriter *segment;
+    OutputStream *object;
 };
 
 #endif // _LBS_STORE_H

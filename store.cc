@@ -288,3 +288,31 @@ SegmentWriter *SegmentStore::new_segment()
 
     return new SegmentWriter(new FileOutputStream(f), id);
 }
+
+SegmentPartitioner::SegmentPartitioner(SegmentStore *s)
+    : store(s),
+      segment(NULL),
+      object(NULL)
+{
+    // Default target size is around 1 MB
+    target_size = 1024 * 1024;
+}
+
+SegmentPartitioner::~SegmentPartitioner()
+{
+    if (segment)
+        delete segment;
+}
+
+OutputStream *SegmentPartitioner::new_object()
+{
+    if (segment != NULL && segment->get_size() > target_size) {
+        delete segment;
+        segment = NULL;
+    }
+
+    if (segment == NULL)
+        segment = store->new_segment();
+
+    return segment->new_object();
+}

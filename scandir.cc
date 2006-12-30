@@ -20,7 +20,10 @@
 using std::string;
 using std::vector;
 
+static SegmentStore *segment_store;
 static OutputStream *info_dump = NULL;
+
+static SegmentPartitioner *index_segment, *data_segment;
 
 void scandir(const string& path);
 
@@ -55,6 +58,8 @@ void dumpfile(int fd, dictionary &file_info)
             break;
         } else {
             hash.process(buf, res);
+            OutputStream *block = data_segment->new_object();
+            block->write(buf, res);
             size += res;
         }
     }
@@ -201,9 +206,12 @@ void scandir(const string& path)
 
 int main(int argc, char *argv[])
 {
-    SegmentStore ss(".");
-    SegmentWriter *sw = ss.new_segment();
+    segment_store = new SegmentStore(".");
+    SegmentWriter *sw = segment_store->new_segment();
     info_dump = sw->new_object();
+
+    index_segment = new SegmentPartitioner(segment_store);
+    data_segment = new SegmentPartitioner(segment_store);
 
     string uuid = SegmentWriter::format_uuid(sw->get_uuid());
     printf("Backup UUID: %s\n", uuid.c_str());
@@ -214,6 +222,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "IOException: %s\n", e.getError().c_str());
     }
 
+    delete index_segment;
+    delete data_segment;
     delete sw;
 
     return 0;
