@@ -22,6 +22,12 @@
  * metadata.  Currently implemented as map<string, string>. */
 typedef std::map<std::string, std::string> dictionary;
 
+/* In-memory representation of a UUID (Universally-Unique Identifier), which is
+ * used to name a segment. */
+struct uuid {
+    uint8_t bytes[16];
+};
+
 /* IOException will be thrown if an error occurs while reading or writing in
  * one of the I/O wrappers.  Depending upon the context; this may be fatal or
  * not--typically, errors reading/writing the store will be serious, but errors
@@ -61,6 +67,7 @@ public:
 
     void write_varint(uint64_t val);
 
+    void write_uuid(const struct uuid &u);
     void write_string(const std::string &s);
     void write_dictionary(const dictionary &d);
 
@@ -139,10 +146,7 @@ private:
 std::string encode_u16(uint16_t val);
 std::string encode_u32(uint32_t val);
 std::string encode_u64(uint64_t val);
-
-struct uuid {
-    uint8_t bytes[16];
-};
+std::string encode_objref(const struct uuid &segment, uint32_t object);
 
 /* A class which is used to pack multiple objects into a single segment, with a
  * lookup table to quickly locate each object.  Call new_object() to get an
@@ -158,7 +162,7 @@ public:
     struct uuid get_uuid() const { return id; }
 
     // Start writing out a new object to this segment.
-    OutputStream *new_object();
+    OutputStream *new_object(int *id);
     void finish_object();
 
     // Determine size of segment data written out so far.
@@ -205,7 +209,7 @@ public:
     explicit SegmentPartitioner(SegmentStore *s);
     ~SegmentPartitioner();
 
-    OutputStream *new_object();
+    OutputStream *new_object(struct uuid *uuid, int *id);
 
 private:
     size_t target_size;

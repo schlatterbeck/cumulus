@@ -25,6 +25,10 @@ static OutputStream *info_dump = NULL;
 
 static SegmentPartitioner *index_segment, *data_segment;
 
+/* Buffer for holding a single block of data read from a file. */
+static const int LBS_BLOCK_SIZE = 1024 * 1024;
+static char *block_buf;
+
 void scandir(const string& path);
 
 /* Converts time to microseconds since the epoch. */
@@ -33,39 +37,75 @@ int64_t encode_time(time_t time)
     return (int64_t)time * 1000000;
 }
 
+/* Read data from a file descriptor and return the amount of data read.  A
+ * short read (less than the requested size) will only occur if end-of-file is
+ * hit. */
+size_t file_read(int fd, char *buf, size_t maxlen)
+{
+    size_t bytes_read = 0;
+
+    while (true) {
+        ssize_t res = read(fd, buf, maxlen);
+        if (res < 0) {
+            if (errno == EINTR)
+                continue;
+            throw IOException("file_read: error reading");
+        } else if (res == 0) {
+            break;
+        } else {
+            bytes_read += res;
+            buf += res;
+            maxlen -= res;
+        }
+    }
+
+    return bytes_read;
+}
+
+/* Read the contents of a file (specified by an open file descriptor) and copy
+ * the data to the store. */
 void dumpfile(int fd, dictionary &file_info)
 {
     struct stat stat_buf;
     fstat(fd, &stat_buf);
     int64_t size = 0;
 
-    char buf[4096];
-
     if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
         printf("file is no longer a regular file!\n");
         return;
     }
 
+    /* The index data consists of a sequence of pointers to the data blocks
+     * that actually comprise the file data.  This level of indirection is used
+     * so that the same data block can be used in multiple files, or multiple
+     * versions of the same file. */
+    struct uuid segment_uuid;
+    int object_id;
+    OutputStream *index_data = index_segment->new_object(&segment_uuid,
+                                                         &object_id);
+
     SHA1Checksum hash;
     while (true) {
-        ssize_t res = read(fd, buf, sizeof(buf));
-        if (res < 0) {
-            if (errno == EINTR)
-                continue;
-            printf("Error while reading: %m\n");
-            return;
-        } else if (res == 0) {
+        struct uuid block_segment_uuid;
+        int block_object_id;
+
+        size_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
+        if (bytes == 0)
             break;
-        } else {
-            hash.process(buf, res);
-            OutputStream *block = data_segment->new_object();
-            block->write(buf, res);
-            size += res;
-        }
+
+        hash.process(block_buf, bytes);
+        OutputStream *block = data_segment->new_object(&block_segment_uuid,
+                                                       &block_object_id);
+        block->write(block_buf, bytes);
+        index_data->write_uuid(block_segment_uuid);
+        index_data->write_u32(block_object_id);
+
+        size += bytes;
     }
 
     file_info["sha1"] = string((const char *)hash.checksum(),
                                hash.checksum_size());
+    file_info["data"] = encode_objref(segment_uuid, object_id);
 }
 
 void scanfile(const string& path)
@@ -206,9 +246,11 @@ void scandir(const string& path)
 
 int main(int argc, char *argv[])
 {
+    block_buf = new char[LBS_BLOCK_SIZE];
+
     segment_store = new SegmentStore(".");
     SegmentWriter *sw = segment_store->new_segment();
-    info_dump = sw->new_object();
+    info_dump = sw->new_object(NULL);
 
     index_segment = new SegmentPartitioner(segment_store);
     data_segment = new SegmentPartitioner(segment_store);

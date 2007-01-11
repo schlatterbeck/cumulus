@@ -77,6 +77,11 @@ void OutputStream::write_varint(uint64_t val)
     } while (val);
 }
 
+void OutputStream::write_uuid(const struct uuid &u)
+{
+    write(u.bytes, 16);
+}
+
 /* Write an arbitrary string by first writing out the length, followed by the
  * data itself. */
 void OutputStream::write_string(const string &s)
@@ -183,6 +188,14 @@ string encode_u64(uint64_t val)
     return s.contents();
 }
 
+string encode_objref(const struct uuid &segment, uint32_t object)
+{
+    StringOutputStream s;
+    s.write_uuid(segment);
+    s.write_u32(object);
+    return s.contents();
+}
+
 SegmentWriter::SegmentWriter(OutputStream *output, struct uuid u)
     : raw_out(output),
       id(u),
@@ -195,7 +208,7 @@ SegmentWriter::SegmentWriter(OutputStream *output, struct uuid u)
     /* Write out the segment header first. */
     static const char signature[] = "LBSSEG0\n";
     out->write(signature, strlen(signature));
-    out->write(id.bytes, sizeof(struct uuid));
+    out->write_uuid(id);
 }
 
 SegmentWriter::~SegmentWriter()
@@ -230,13 +243,17 @@ SegmentWriter::~SegmentWriter()
     delete raw_out;
 }
 
-OutputStream *SegmentWriter::new_object()
+OutputStream *SegmentWriter::new_object(int *id)
 {
     if (object_stream)
         finish_object();
 
     object_start_offset = out->get_pos();
     object_stream = new WrapperOutputStream(*out);
+
+    if (id != NULL) {
+        *id = objects.size();
+    }
 
     return object_stream;
 }
@@ -304,7 +321,7 @@ SegmentPartitioner::~SegmentPartitioner()
         delete segment;
 }
 
-OutputStream *SegmentPartitioner::new_object()
+OutputStream *SegmentPartitioner::new_object(struct uuid *uuid, int *id)
 {
     if (segment != NULL && segment->get_size() > target_size) {
         delete segment;
@@ -314,5 +331,8 @@ OutputStream *SegmentPartitioner::new_object()
     if (segment == NULL)
         segment = store->new_segment();
 
-    return segment->new_object();
+    if (uuid != NULL)
+        *uuid = segment->get_uuid();
+
+    return segment->new_object(id);
 }
