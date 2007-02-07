@@ -223,8 +223,9 @@ SegmentWriter::~SegmentWriter()
 
     for (object_table::const_iterator i = objects.begin();
          i != objects.end(); ++i) {
-        out->write_s64(i->first);
-        out->write_s64(i->second);
+        out->write_s64(i->offset);
+        out->write_s64(i->size);
+        out->write(i->type, sizeof(i->type));
     }
 
     static const char signature2[] = "LBSEND";
@@ -243,18 +244,21 @@ SegmentWriter::~SegmentWriter()
     delete raw_out;
 }
 
-OutputStream *SegmentWriter::new_object(int *id)
+OutputStream *SegmentWriter::new_object(int *id, const char *type)
 {
     if (object_stream)
         finish_object();
 
-    object_start_offset = out->get_pos();
-    object_stream = new WrapperOutputStream(*out);
-
-    if (id != NULL) {
+    if (id != NULL)
         *id = objects.size();
-    }
 
+    struct index_info info;
+    info.offset = out->get_pos();
+    info.size = -1;             // Will be filled in when object is finished
+    strncpy(info.type, type, sizeof(info.type));
+    objects.push_back(info);
+
+    object_stream = new WrapperOutputStream(*out);
     return object_stream;
 }
 
@@ -262,9 +266,8 @@ void SegmentWriter::finish_object()
 {
     assert(object_stream != NULL);
 
-    // store (start, length) information for locating this object
-    objects.push_back(std::make_pair(object_start_offset,
-                                     object_stream->get_pos()));
+    // Fill in object size, which could not be stored at start
+    objects.back().size = object_stream->get_pos();
 
     delete object_stream;
     object_stream = NULL;
@@ -321,7 +324,8 @@ SegmentPartitioner::~SegmentPartitioner()
         delete segment;
 }
 
-OutputStream *SegmentPartitioner::new_object(struct uuid *uuid, int *id)
+OutputStream *SegmentPartitioner::new_object(struct uuid *uuid, int *id,
+                                             const char *type)
 {
     if (segment != NULL && segment->get_size() > target_size) {
         delete segment;
@@ -334,5 +338,5 @@ OutputStream *SegmentPartitioner::new_object(struct uuid *uuid, int *id)
     if (uuid != NULL)
         *uuid = segment->get_uuid();
 
-    return segment->new_object(id);
+    return segment->new_object(id, type);
 }

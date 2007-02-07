@@ -82,7 +82,8 @@ void dumpfile(int fd, dictionary &file_info)
     struct uuid segment_uuid;
     int object_id;
     OutputStream *index_data = index_segment->new_object(&segment_uuid,
-                                                         &object_id);
+                                                         &object_id,
+                                                         "DREF");
 
     SHA1Checksum hash;
     while (true) {
@@ -95,7 +96,8 @@ void dumpfile(int fd, dictionary &file_info)
 
         hash.process(block_buf, bytes);
         OutputStream *block = data_segment->new_object(&block_segment_uuid,
-                                                       &block_object_id);
+                                                       &block_object_id,
+                                                       "DATA");
         block->write(block_buf, bytes);
         index_data->write_uuid(block_segment_uuid);
         index_data->write_u32(block_object_id);
@@ -250,7 +252,7 @@ int main(int argc, char *argv[])
 
     segment_store = new SegmentStore(".");
     SegmentWriter *sw = segment_store->new_segment();
-    info_dump = sw->new_object(NULL);
+    info_dump = sw->new_object(NULL, "ROOT");
 
     index_segment = new SegmentPartitioner(segment_store);
     data_segment = new SegmentPartitioner(segment_store);

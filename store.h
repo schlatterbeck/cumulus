@@ -162,7 +162,7 @@ public:
     struct uuid get_uuid() const { return id; }
 
     // Start writing out a new object to this segment.
-    OutputStream *new_object(int *id);
+    OutputStream *new_object(int *id, const char *type);
     void finish_object();
 
     // Determine size of segment data written out so far.
@@ -173,13 +173,18 @@ public:
     static std::string format_uuid(const struct uuid u);
 
 private:
-    typedef std::vector<std::pair<int64_t, int64_t> > object_table;
+    struct index_info {
+        int64_t offset;         // File offset at which object starts
+        int64_t size;           // Size of object in bytes
+        char type[4];           // Object type code
+    };
+
+    typedef std::vector<struct index_info> object_table;
 
     ChecksumOutputStream *out;  // Output stream with checksumming enabled
     OutputStream *raw_out;      // Raw output stream, without checksumming
     struct uuid id;
 
-    int64_t object_start_offset;
     OutputStream *object_stream;
 
     object_table objects;
@@ -209,7 +214,7 @@ public:
     explicit SegmentPartitioner(SegmentStore *s);
     ~SegmentPartitioner();
 
-    OutputStream *new_object(struct uuid *uuid, int *id);
+    OutputStream *new_object(struct uuid *uuid, int *id, const char *type);
 
 private:
     size_t target_size;
