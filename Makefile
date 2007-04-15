@@ -1,9 +1,9 @@
 PACKAGES=uuid
 CXXFLAGS=-O -Wall -D_FILE_OFFSET_BITS=64 -g -pg \
 	 `pkg-config --cflags $(PACKAGES)`
-LDFLAGS=-g -pg `pkg-config --libs $(PACKAGES)`
+LDFLAGS=-g -pg -ltar `pkg-config --libs $(PACKAGES)`
 
-SRCS=scandir.cc sha1.cc store.cc
+SRCS=scandir.cc sha1.cc store.cc tarstore.cc
 OBJS=$(SRCS:.cc=.o)
 
 scandir : $(OBJS)

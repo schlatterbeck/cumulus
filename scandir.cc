@@ -13,12 +13,16 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <iostream>
+#include <sstream>
 
 #include "store.h"
+#include "tarstore.h"
 #include "sha1.h"
 
 using std::string;
 using std::vector;
+using std::ostream;
 
 static SegmentStore *segment_store;
 static OutputStream *info_dump = NULL;
@@ -29,7 +33,7 @@ static SegmentPartitioner *index_segment, *data_segment;
 static const int LBS_BLOCK_SIZE = 1024 * 1024;
 static char *block_buf;
 
-void scandir(const string& path);
+void scandir(const string& path, std::ostream& metadata);
 
 /* Converts time to microseconds since the epoch. */
 int64_t encode_time(time_t time)
@@ -110,7 +114,7 @@ void dumpfile(int fd, dictionary &file_info)
     file_info["data"] = encode_objref(segment_uuid, object_id);
 }
 
-void scanfile(const string& path)
+void scanfile(const string& path, ostream &metadata)
 {
     int fd;
     long flags;
@@ -126,6 +130,14 @@ void scanfile(const string& path)
     lstat(path.c_str(), &stat_buf);
 
     printf("%s\n", path.c_str());
+
+    metadata << "name: " << path << "\n";
+    metadata << "mode: " << (stat_buf.st_mode & 07777) << "\n";
+    metadata << "atime: " << stat_buf.st_atime << "\n";
+    metadata << "ctime: " << stat_buf.st_ctime << "\n";
+    metadata << "mtime: " << stat_buf.st_mtime << "\n";
+    metadata << "user: " << stat_buf.st_uid << "\n";
+    metadata << "group: " << stat_buf.st_gid << "\n";
 
     file_info["mode"] = encode_u16(stat_buf.st_mode & 07777);
     file_info["atime"] = encode_u64(encode_time(stat_buf.st_atime));
@@ -207,17 +219,20 @@ void scanfile(const string& path)
     }
 
     file_info["type"] = string(1, inode_type);
+    metadata << "type: " << inode_type << "\n";
 
     info_dump->write_string(path);
     info_dump->write_dictionary(file_info);
 
+    metadata << "\n";
+
     // If we hit a directory, now that we've written the directory itself,
     // recursively scan the directory.
     if (recurse)
-        scandir(path);
+        scandir(path, metadata);
 }
 
-void scandir(const string& path)
+void scandir(const string& path, ostream &metadata)
 {
     DIR *dir = opendir(path.c_str());
 
@@ -240,7 +255,7 @@ void scandir(const string& path)
     for (vector<string>::iterator i = contents.begin();
          i != contents.end(); ++i) {
         const string& filename = *i;
-        scanfile(path + "/" + filename);
+        scanfile(path + "/" + filename, metadata);
     }
 
     closedir(dir);
@@ -260,11 +275,24 @@ int main(int argc, char *argv[])
     string uuid = SegmentWriter::format_uuid(sw->get_uuid());
     printf("Backup UUID: %s\n", uuid.c_str());
 
+    std::ostringstream metadata;
+
     try {
-        scanfile(".");
+        scanfile(".", metadata);
     } catch (IOException e) {
         fprintf(stderr, "IOException: %s\n", e.getError().c_str());
     }
+
+    Tarfile *t = new Tarfile("tarstore.tar", uuid);
+    const char testdata[] = "Test string.";
+    t->write_object(0, testdata, strlen(testdata));
+    t->write_object(1, testdata, strlen(testdata));
+    t->write_object(2, testdata, strlen(testdata));
+
+    const string md = metadata.str();
+    t->write_object(3, md.data(), md.size());
+
+    delete t;
 
     delete index_segment;
     delete data_segment;
