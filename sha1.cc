@@ -33,6 +33,10 @@
 #include <string.h>
 #include <arpa/inet.h>
 
+#include <string.h>
+
+using std::string;
+
 /* SWAP does an endian swap on architectures that are little-endian,
    as SHA1 needs some data in a big-endian form.  */
 #define SWAP(n) htonl(n)
@@ -348,4 +352,20 @@ const uint8_t *SHA1Checksum::checksum()
 {
     sha1_finish_ctx(&ctx, resbuf);
     return (const uint8_t *)resbuf;
+}
+
+string SHA1Checksum::checksum_str()
+{
+    uint8_t resbuf[20];
+    char hexbuf[4];
+    string result = "sha-1:";
+
+    sha1_finish_ctx(&ctx, resbuf);
+
+    for (int i = 0; i < 20; i++) {
+        sprintf(hexbuf, "%02x", resbuf[i]);
+        result += hexbuf;
+    }
+
+    return result;
 }

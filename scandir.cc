@@ -27,6 +27,8 @@ using std::ostream;
 static SegmentStore *segment_store;
 static OutputStream *info_dump = NULL;
 
+static TarSegmentStore *tss = NULL;
+
 static SegmentPartitioner *index_segment, *data_segment;
 
 /* Buffer for holding a single block of data read from a file. */
@@ -68,11 +70,12 @@ size_t file_read(int fd, char *buf, size_t maxlen)
 
 /* Read the contents of a file (specified by an open file descriptor) and copy
  * the data to the store. */
-void dumpfile(int fd, dictionary &file_info)
+void dumpfile(int fd, dictionary &file_info, ostream &metadata)
 {
     struct stat stat_buf;
     fstat(fd, &stat_buf);
     int64_t size = 0;
+    string segment_list = "data:";
 
     if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
         printf("file is no longer a regular file!\n");
@@ -106,12 +109,18 @@ void dumpfile(int fd, dictionary &file_info)
         index_data->write_uuid(block_segment_uuid);
         index_data->write_u32(block_object_id);
 
+        // tarstore processing
+        string blockid = tss->write_object(block_buf, bytes, "data");
+        segment_list += " " + blockid;
+
         size += bytes;
     }
 
     file_info["sha1"] = string((const char *)hash.checksum(),
                                hash.checksum_size());
     file_info["data"] = encode_objref(segment_uuid, object_id);
+
+    metadata << segment_list << "\n";
 }
 
 void scanfile(const string& path, ostream &metadata)
@@ -204,7 +213,7 @@ void scanfile(const string& path, ostream &metadata)
         fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
         file_info["size"] = encode_u64(stat_buf.st_size);
-        dumpfile(fd, file_info);
+        dumpfile(fd, file_info, metadata);
         close(fd);
 
         break;
@@ -265,6 +274,7 @@ int main(int argc, char *argv[])
 {
     block_buf = new char[LBS_BLOCK_SIZE];
 
+    tss = new TarSegmentStore(".");
     segment_store = new SegmentStore(".");
     SegmentWriter *sw = segment_store->new_segment();
     info_dump = sw->new_object(NULL, "ROOT");
@@ -283,16 +293,18 @@ int main(int argc, char *argv[])
         fprintf(stderr, "IOException: %s\n", e.getError().c_str());
     }
 
-    Tarfile *t = new Tarfile("tarstore.tar", uuid);
     const char testdata[] = "Test string.";
-    t->write_object(0, testdata, strlen(testdata));
-    t->write_object(1, testdata, strlen(testdata));
-    t->write_object(2, testdata, strlen(testdata));
+    tss->write_object(testdata, strlen(testdata));
+    tss->write_object(testdata, strlen(testdata));
+    tss->write_object(testdata, strlen(testdata));
 
     const string md = metadata.str();
-    t->write_object(3, md.data(), md.size());
+    string root = tss->write_object(md.data(), md.size(), "root");
 
-    delete t;
+    fprintf(stderr, "Metadata root is at %s\n", root.c_str());
+
+    tss->sync();
+    delete tss;
 
     delete index_segment;
     delete data_segment;

@@ -23,6 +23,8 @@
 # include <stdio.h>
 # include <stdint.h>
 
+#include <string>
+
 typedef uint32_t md5_uint32;
 
 /* Structure to save state of computation between the single steps.  */
@@ -88,6 +90,7 @@ public:
     void process(const void *data, size_t len);
     const uint8_t *checksum();
     size_t checksum_size() const { return 20; }
+    std::string checksum_str();
 };
 
 #endif
