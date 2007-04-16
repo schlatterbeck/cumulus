@@ -45,7 +45,6 @@ void Tarfile::write_object(int id, const char *data, size_t len)
     char buf[64];
     sprintf(buf, "%08x", id);
     string path = segment_name + "/" + buf;
-    printf("path: %s\n", path.c_str());
 
     internal_write_object(path, data, len);
 
@@ -73,8 +72,6 @@ void Tarfile::internal_write_object(const string &path,
 
     if (th_write(t) != 0)
         throw IOException("Error writing tar header");
-
-    th_print(t);
 
     if (len == 0)
         return;
