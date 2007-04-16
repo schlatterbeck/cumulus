@@ -293,11 +293,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "IOException: %s\n", e.getError().c_str());
     }
 
-    const char testdata[] = "Test string.";
-    tss->write_object(testdata, strlen(testdata));
-    tss->write_object(testdata, strlen(testdata));
-    tss->write_object(testdata, strlen(testdata));
-
     const string md = metadata.str();
     string root = tss->write_object(md.data(), md.size(), "root");
 
