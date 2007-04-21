@@ -16,6 +16,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "format.h"
 #include "store.h"
 #include "tarstore.h"
 #include "sha1.h"
@@ -140,7 +141,7 @@ void scanfile(const string& path, ostream &metadata)
 
     printf("%s\n", path.c_str());
 
-    metadata << "name: " << path << "\n";
+    metadata << "name: " << uri_encode(path) << "\n";
     metadata << "mode: " << (stat_buf.st_mode & 07777) << "\n";
     metadata << "atime: " << stat_buf.st_atime << "\n";
     metadata << "ctime: " << stat_buf.st_ctime << "\n";

@@ -1,5 +1,5 @@
 /* LBS: An LFS-inspired filesystem backup system
- * Copyright (C) 2006  Michael Vrable
+ * Copyright (C) 2007  Michael Vrable
  *
  * Backup data is stored in a collection of objects, which are grouped together
  * into segments for storage purposes.  This implementation of the object store
