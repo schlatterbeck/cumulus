@@ -22,7 +22,8 @@
 using std::string;
 
 Tarfile::Tarfile(const string &path, const string &segment)
-    : segment_name(segment)
+    : size(0),
+      segment_name(segment)
 {
     if (tar_open(&t, (char *)path.c_str(), NULL, O_WRONLY | O_CREAT, 0600,
                  TAR_VERBOSE | TAR_GNU) == -1)
@@ -73,6 +74,8 @@ void Tarfile::internal_write_object(const string &path,
     if (th_write(t) != 0)
         throw IOException("Error writing tar header");
 
+    size += T_BLOCKSIZE;
+
     if (len == 0)
         return;
 
@@ -89,7 +92,11 @@ void Tarfile::internal_write_object(const string &path,
     memcpy(block, &data[T_BLOCKSIZE * (blocks - 1)], T_BLOCKSIZE - padding);
     if (tar_block_write(t, block) == -1)
         throw IOException("Error writing final tar block");
+
+    size += blocks * T_BLOCKSIZE;
 }
+
+static const size_t SEGMENT_SIZE = 4 * 1024 * 1024;
 
 string TarSegmentStore::write_object(const char *data, size_t len, const
                                      std::string &group)
@@ -124,20 +131,29 @@ string TarSegmentStore::write_object(const char *data, size_t len, const
     segment->file->write_object(id, data, len);
     segment->count++;
 
-    return segment->name + "/" + id_buf;
+    string full_name = segment->name + "/" + id_buf;
+
+    // If this segment meets or exceeds the size target, close it so that
+    // future objects will go into a new segment.
+    if (segment->file->size_estimate() >= SEGMENT_SIZE)
+        close_segment(group);
+
+    return full_name;
 }
 
 void TarSegmentStore::sync()
 {
-    while (!segments.empty()) {
-        const string &name = segments.begin()->first;
-        struct segment_info *segment = segments[name];
+    while (!segments.empty())
+        close_segment(segments.begin()->first);
+}
 
-        fprintf(stderr, "Closing segment group %s (%s)\n",
-                name.c_str(), segment->name.c_str());
+void TarSegmentStore::close_segment(const string &group)
+{
+    struct segment_info *segment = segments[group];
+    fprintf(stderr, "Closing segment group %s (%s)\n",
+            group.c_str(), segment->name.c_str());
 
-        delete segment->file;
-        segments.erase(segments.begin());
-        delete segment;
-    }
+    delete segment->file;
+    segments.erase(segments.find(group));
+    delete segment;
 }

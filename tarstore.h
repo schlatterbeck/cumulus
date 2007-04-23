@@ -28,10 +28,14 @@ public:
 
     void write_object(int id, const char *data, size_t len);
 
+    // Return an estimate of the size of the file.
+    size_t size_estimate() { return size; }
+
 private:
     void internal_write_object(const std::string &path,
                                const char *data, size_t len);
 
+    size_t size;
     std::string segment_name;
     std::ostringstream checksums;
     TAR *t;
@@ -62,6 +66,9 @@ private:
 
     std::string path;
     std::map<std::string, struct segment_info *> segments;
+
+    // Ensure that all segments in the given group have been fully written.
+    void close_segment(const std::string &group);
 };
 
 #endif // _LBS_TARSTORE_H
