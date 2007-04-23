@@ -25,12 +25,7 @@ using std::string;
 using std::vector;
 using std::ostream;
 
-static SegmentStore *segment_store;
-static OutputStream *info_dump = NULL;
-
 static TarSegmentStore *tss = NULL;
-
-static SegmentPartitioner *index_segment, *data_segment;
 
 /* Buffer for holding a single block of data read from a file. */
 static const int LBS_BLOCK_SIZE = 1024 * 1024;
@@ -76,7 +71,7 @@ void dumpfile(int fd, dictionary &file_info, ostream &metadata)
     struct stat stat_buf;
     fstat(fd, &stat_buf);
     int64_t size = 0;
-    string segment_list = "data:";
+    string segment_list = "";
 
     if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
         printf("file is no longer a regular file!\n");
@@ -87,41 +82,25 @@ void dumpfile(int fd, dictionary &file_info, ostream &metadata)
      * that actually comprise the file data.  This level of indirection is used
      * so that the same data block can be used in multiple files, or multiple
      * versions of the same file. */
-    struct uuid segment_uuid;
-    int object_id;
-    OutputStream *index_data = index_segment->new_object(&segment_uuid,
-                                                         &object_id,
-                                                         "DREF");
-
     SHA1Checksum hash;
     while (true) {
-        struct uuid block_segment_uuid;
-        int block_object_id;
-
         size_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
         if (bytes == 0)
             break;
 
         hash.process(block_buf, bytes);
-        OutputStream *block = data_segment->new_object(&block_segment_uuid,
-                                                       &block_object_id,
-                                                       "DATA");
-        block->write(block_buf, bytes);
-        index_data->write_uuid(block_segment_uuid);
-        index_data->write_u32(block_object_id);
 
         // tarstore processing
         string blockid = tss->write_object(block_buf, bytes, "data");
-        segment_list += " " + blockid;
+        if (segment_list.size() > 0)
+            segment_list += " ";
+        segment_list += blockid;
 
         size += bytes;
     }
 
-    file_info["sha1"] = string((const char *)hash.checksum(),
-                               hash.checksum_size());
-    file_info["data"] = encode_objref(segment_uuid, object_id);
-
-    metadata << segment_list << "\n";
+    file_info["checksum"] = hash.checksum_str();
+    file_info["data"] = segment_list;
 }
 
 void scanfile(const string& path, ostream &metadata)
@@ -142,19 +121,13 @@ void scanfile(const string& path, ostream &metadata)
     printf("%s\n", path.c_str());
 
     metadata << "name: " << uri_encode(path) << "\n";
-    metadata << "mode: " << (stat_buf.st_mode & 07777) << "\n";
-    metadata << "atime: " << stat_buf.st_atime << "\n";
-    metadata << "ctime: " << stat_buf.st_ctime << "\n";
-    metadata << "mtime: " << stat_buf.st_mtime << "\n";
-    metadata << "user: " << stat_buf.st_uid << "\n";
-    metadata << "group: " << stat_buf.st_gid << "\n";
 
-    file_info["mode"] = encode_u16(stat_buf.st_mode & 07777);
-    file_info["atime"] = encode_u64(encode_time(stat_buf.st_atime));
-    file_info["ctime"] = encode_u64(encode_time(stat_buf.st_ctime));
-    file_info["mtime"] = encode_u64(encode_time(stat_buf.st_mtime));
-    file_info["user"] = encode_u32(stat_buf.st_uid);
-    file_info["group"] = encode_u32(stat_buf.st_gid);
+    file_info["mode"] = encode_int(stat_buf.st_mode & 07777);
+    file_info["atime"] = encode_int(stat_buf.st_atime);
+    file_info["ctime"] = encode_int(stat_buf.st_ctime);
+    file_info["mtime"] = encode_int(stat_buf.st_mtime);
+    file_info["user"] = encode_int(stat_buf.st_uid);
+    file_info["group"] = encode_int(stat_buf.st_gid);
 
     char inode_type;
 
@@ -188,7 +161,7 @@ void scanfile(const string& path, ostream &metadata)
             printf("error reading symlink: name truncated\n");
         }
 
-        file_info["contents"] = buf;
+        file_info["contents"] = uri_encode(buf);
 
         delete[] buf;
         break;
@@ -213,7 +186,7 @@ void scanfile(const string& path, ostream &metadata)
         flags = fcntl(fd, F_GETFL);
         fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
-        file_info["size"] = encode_u64(stat_buf.st_size);
+        file_info["size"] = encode_int(stat_buf.st_size);
         dumpfile(fd, file_info, metadata);
         close(fd);
 
@@ -231,9 +204,7 @@ void scanfile(const string& path, ostream &metadata)
     file_info["type"] = string(1, inode_type);
     metadata << "type: " << inode_type << "\n";
 
-    info_dump->write_string(path);
-    info_dump->write_dictionary(file_info);
-
+    dict_output(metadata, file_info);
     metadata << "\n";
 
     // If we hit a directory, now that we've written the directory itself,
@@ -276,15 +247,6 @@ int main(int argc, char *argv[])
     block_buf = new char[LBS_BLOCK_SIZE];
 
     tss = new TarSegmentStore(".");
-    segment_store = new SegmentStore(".");
-    SegmentWriter *sw = segment_store->new_segment();
-    info_dump = sw->new_object(NULL, "ROOT");
-
-    index_segment = new SegmentPartitioner(segment_store);
-    data_segment = new SegmentPartitioner(segment_store);
-
-    string uuid = SegmentWriter::format_uuid(sw->get_uuid());
-    printf("Backup UUID: %s\n", uuid.c_str());
 
     std::ostringstream metadata;
 
@@ -297,14 +259,8 @@ int main(int argc, char *argv[])
     const string md = metadata.str();
     string root = tss->write_object(md.data(), md.size(), "root");
 
-    fprintf(stderr, "Metadata root is at %s\n", root.c_str());
-
     tss->sync();
     delete tss;
-
-    delete index_segment;
-    delete data_segment;
-    delete sw;
 
     return 0;
 }

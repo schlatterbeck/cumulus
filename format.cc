@@ -8,9 +8,13 @@
 #include <stdio.h>
 #include <uuid/uuid.h>
 
+#include <iostream>
+#include <map>
 #include <string>
 #include <sstream>
 
+using std::map;
+using std::ostream;
 using std::string;
 
 /* Perform URI-style escaping of a string.  Bytes which cannot be represented
@@ -33,4 +37,22 @@ string uri_encode(const string &in)
     }
 
     return out;
+}
+
+/* Return the string representation of an integer. */
+string encode_int(long long n)
+{
+    char buf[64];
+    sprintf(buf, "%lld", n);
+    return buf;
+}
+
+/* Output a dictionary of string key/value pairs to the given output stream.
+ * The format is a sequence of lines of the form "key: value". */
+void dict_output(ostream &o, map<string, string> dict)
+{
+    for (map<string, string>::const_iterator i = dict.begin();
+         i != dict.end(); ++i) {
+        o << i->first << ": " << i->second << "\n";
+    }
 }
