@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <string>
+#include <list>
 #include <vector>
 #include <iostream>
 #include <sstream>
@@ -21,6 +22,7 @@
 #include "tarstore.h"
 #include "sha1.h"
 
+using std::list;
 using std::string;
 using std::vector;
 using std::ostream;
@@ -71,7 +73,7 @@ void dumpfile(int fd, dictionary &file_info, ostream &metadata)
     struct stat stat_buf;
     fstat(fd, &stat_buf);
     int64_t size = 0;
-    string segment_list = "";
+    list<string> segment_list;
 
     if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
         printf("file is no longer a regular file!\n");
@@ -92,15 +94,35 @@ void dumpfile(int fd, dictionary &file_info, ostream &metadata)
 
         // tarstore processing
         string blockid = tss->write_object(block_buf, bytes, "data");
-        if (segment_list.size() > 0)
-            segment_list += " ";
-        segment_list += blockid;
+        segment_list.push_back(blockid);
 
         size += bytes;
     }
 
     file_info["checksum"] = hash.checksum_str();
-    file_info["data"] = segment_list;
+
+    /* For files that only need to be broken apart into a few objects, store
+     * the list of objects directly.  For larger files, store the data
+     * out-of-line and provide a pointer to the indrect object. */
+    if (segment_list.size() < 8) {
+        string blocklist = "";
+        for (list<string>::iterator i = segment_list.begin();
+             i != segment_list.end(); ++i) {
+            if (i != segment_list.begin())
+                blocklist += " ";
+            blocklist += *i;
+        }
+        file_info["data"] = blocklist;
+    } else {
+        string blocklist = "";
+        for (list<string>::iterator i = segment_list.begin();
+             i != segment_list.end(); ++i) {
+            blocklist += *i + "\n";
+        }
+        string indirect = tss->write_object(blocklist.data(), blocklist.size(),
+                                            "indirect");
+        file_info["data"] = "@" + indirect;
+    }
 }
 
 void scanfile(const string& path, ostream &metadata)
