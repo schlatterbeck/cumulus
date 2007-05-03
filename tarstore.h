@@ -13,12 +13,30 @@
 #include <libtar.h>
 
 #include <list>
+#include <map>
 #include <set>
 #include <string>
 #include <iostream>
 #include <sstream>
 
-#include "store.h"
+#include "sha1.h"
+
+/* In memory datatype to represent key/value pairs of information, such as file
+ * metadata.  Currently implemented as map<string, string>. */
+typedef std::map<std::string, std::string> dictionary;
+
+/* IOException will be thrown if an error occurs while reading or writing in
+ * one of the I/O wrappers.  Depending upon the context; this may be fatal or
+ * not--typically, errors reading/writing the store will be serious, but errors
+ * reading an individual file are less so. */
+class IOException : public std::exception {
+private:
+    std::string error;
+public:
+    explicit IOException(const std::string &err) { error = err; }
+    virtual ~IOException() throw () { }
+    std::string getError() const { return error; }
+};
 
 /* A simple wrapper around a single TAR file to represent a segment.  Objects
  * may only be written out all at once, since the tar header must be written

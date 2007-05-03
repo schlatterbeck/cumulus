@@ -18,7 +18,6 @@
 #include <sstream>
 
 #include "format.h"
-#include "store.h"
 #include "tarstore.h"
 #include "sha1.h"
 
