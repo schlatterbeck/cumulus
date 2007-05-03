@@ -14,12 +14,18 @@
 #include <time.h>
 #include <uuid/uuid.h>
 
+#include <list>
+#include <set>
 #include <string>
 #include <iostream>
 
 #include "tarstore.h"
 
+using std::list;
+using std::set;
 using std::string;
+
+list<string> TarSegmentStore::norefs;
 
 Tarfile::Tarfile(const string &path, const string &segment)
     : size(0),
@@ -99,7 +105,8 @@ void Tarfile::internal_write_object(const string &path,
 static const size_t SEGMENT_SIZE = 4 * 1024 * 1024;
 
 string TarSegmentStore::write_object(const char *data, size_t len, const
-                                     std::string &group)
+                                     std::string &group,
+                                     const std::list<std::string> &refs)
 {
     struct segment_info *segment;
 
@@ -133,6 +140,12 @@ string TarSegmentStore::write_object(const char *data, size_t len, const
 
     string full_name = segment->name + "/" + id_buf;
 
+    // Store any dependencies this object has on other segments, so they can be
+    // written when the segment is closed.
+    for (list<string>::const_iterator i = refs.begin(); i != refs.end(); ++i) {
+        segment->refs.insert(*i);
+    }
+
     // If this segment meets or exceeds the size target, close it so that
     // future objects will go into a new segment.
     if (segment->file->size_estimate() >= SEGMENT_SIZE)
@@ -153,7 +166,20 @@ void TarSegmentStore::close_segment(const string &group)
     fprintf(stderr, "Closing segment group %s (%s)\n",
             group.c_str(), segment->name.c_str());
 
+    string reflist;
+    for (set<string>::iterator i = segment->refs.begin();
+         i != segment->refs.end(); ++i) {
+        reflist += *i + "\n";
+    }
+    segment->file->internal_write_object(segment->name + "/references",
+                                         reflist.data(), reflist.size());
+
     delete segment->file;
     segments.erase(segments.find(group));
     delete segment;
+}
+
+string TarSegmentStore::object_reference_to_segment(const string &object)
+{
+    return object;
 }

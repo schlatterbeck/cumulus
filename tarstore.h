@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <libtar.h>
 
+#include <list>
+#include <set>
 #include <string>
 #include <iostream>
 #include <sstream>
@@ -31,10 +33,10 @@ public:
     // Return an estimate of the size of the file.
     size_t size_estimate() { return size; }
 
-private:
     void internal_write_object(const std::string &path,
                                const char *data, size_t len);
 
+private:
     size_t size;
     std::string segment_name;
     std::ostringstream checksums;
@@ -52,7 +54,8 @@ public:
     // used to control object placement; objects with different group
     // parameters are kept in separate segments.
     std::string write_object(const char *data, size_t len,
-                             const std::string &group = "");
+                             const std::string &group = "",
+                             const std::list<std::string> &refs = norefs);
 
     // Ensure all segments have been fully written.
     void sync();
@@ -60,15 +63,24 @@ public:
 private:
     struct segment_info {
         Tarfile *file;
-        std::string name;       // UUID
-        int count;              // Objects written to this segment
+        std::string name;           // UUID
+        std::set<std::string> refs; // Other segments this one refers to
+        int count;                  // Objects written to this segment
     };
 
     std::string path;
     std::map<std::string, struct segment_info *> segments;
 
+    // An empty list which can be used as an argument to write_object to
+    // indicate that this object depends on no others.
+    static std::list<std::string> norefs;
+
     // Ensure that all segments in the given group have been fully written.
     void close_segment(const std::string &group);
+
+    // Parse an object reference string and return just the segment name
+    // portion.
+    std::string object_reference_to_segment(const std::string &object);
 };
 
 #endif // _LBS_TARSTORE_H

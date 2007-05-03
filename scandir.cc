@@ -132,6 +132,7 @@ void scanfile(const string& path, ostream &metadata)
     struct stat stat_buf;
     char *buf;
     ssize_t len;
+    list<string> refs;
 
     // Set to true if the item is a directory and we should recursively scan
     bool recurse = false;
