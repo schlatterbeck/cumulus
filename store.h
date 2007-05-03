@@ -21,6 +21,8 @@
 
 #include "sha1.h"
 
+class LbsObject;
+
 /* In memory datatype to represent key/value pairs of information, such as file
  * metadata.  Currently implemented as map<string, string>. */
 typedef std::map<std::string, std::string> dictionary;
@@ -99,6 +101,50 @@ private:
     // Parse an object reference string and return just the segment name
     // portion.
     std::string object_reference_to_segment(const std::string &object);
+};
+
+/* An in-memory representation of an object, which can be incrementally built
+ * before it is written out to a segment. */
+class LbsObject {
+public:
+    LbsObject();
+    ~LbsObject();
+
+    // If an object is placed in a group, it will be written out to segments
+    // only containing other objects in the same group.  A group name is simply
+    // a string.
+    //std::string get_group() const { return group; }
+    void set_group(const std::string &g) { group = g; }
+
+    // Data in an object must be written all at once, and cannot be generated
+    // incrementally.  Data can be an arbitrary block of binary data of any
+    // size.  The pointer to the data need only remain valid until write() is
+    // called.
+    //const char *get_data() const { return data; }
+    //size_t get_data_len() const { return data_len; }
+    void set_data(const char *d, size_t len) { data = d; data_len = len; }
+
+    // Write an object to a segment, thus making it permanent.  This function
+    // can be called at most once.
+    void write(TarSegmentStore *store);
+
+    // An object is assigned a permanent name once it has been written to a
+    // segment.  Until that time, its name cannot be determined.
+    std::string get_name() const { return name; }
+
+    // Logically, one object may reference other objects (such as a metadata
+    // listing referncing actual file data blocks).  Such references should be
+    // noted explicitly.  It may eventually be used to build up a tree of
+    // checksums for later verifying integrity.
+    void add_reference(const LbsObject *o);
+
+private:
+    std::string group;
+    const char *data;
+    size_t data_len;
+
+    bool written;
+    std::string name;
 };
 
 #endif // _LBS_TARSTORE_H

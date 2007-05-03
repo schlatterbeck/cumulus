@@ -92,8 +92,12 @@ void dumpfile(int fd, dictionary &file_info, ostream &metadata)
         hash.process(block_buf, bytes);
 
         // tarstore processing
-        string blockid = tss->write_object(block_buf, bytes, "data");
-        segment_list.push_back(blockid);
+        LbsObject *o = new LbsObject;
+        o->set_group("data");
+        o->set_data(block_buf, bytes);
+        o->write(tss);
+        segment_list.push_back(o->get_name());
+        delete o;
 
         size += bytes;
     }
@@ -118,9 +122,13 @@ void dumpfile(int fd, dictionary &file_info, ostream &metadata)
              i != segment_list.end(); ++i) {
             blocklist += *i + "\n";
         }
-        string indirect = tss->write_object(blocklist.data(), blocklist.size(),
-                                            "indirect");
-        file_info["data"] = "@" + indirect;
+
+        LbsObject *i = new LbsObject;
+        i->set_group("indirect");
+        i->set_data(blocklist.data(), blocklist.size());
+        i->write(tss);
+        file_info["data"] = "@" + i->get_name();
+        delete i;
     }
 }
 
@@ -279,7 +287,12 @@ int main(int argc, char *argv[])
     }
 
     const string md = metadata.str();
-    string root = tss->write_object(md.data(), md.size(), "root");
+
+    LbsObject *r = new LbsObject;
+    r->set_group("root");
+    r->set_data(md.data(), md.size());
+    r->write(tss);
+    delete r;
 
     tss->sync();
     delete tss;

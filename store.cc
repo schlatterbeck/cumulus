@@ -6,6 +6,7 @@
  * is built on top of libtar, and represents segments as TAR files and objects
  * as files within them. */
 
+#include <assert.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -182,4 +183,29 @@ void TarSegmentStore::close_segment(const string &group)
 string TarSegmentStore::object_reference_to_segment(const string &object)
 {
     return object;
+}
+
+LbsObject::LbsObject()
+    : group(""), data(NULL), data_len(0), written(false)
+{
+}
+
+LbsObject::~LbsObject()
+{
+}
+
+void LbsObject::add_reference(const LbsObject *o)
+{
+    // TODO: Implement
+}
+
+void LbsObject::write(TarSegmentStore *store)
+{
+    assert(data != NULL);
+    assert(!written);
+
+    name = store->write_object(data, data_len, group);
+
+    written = true;
+    data = NULL;
 }
