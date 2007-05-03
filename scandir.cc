@@ -18,7 +18,7 @@
 #include <sstream>
 
 #include "format.h"
-#include "tarstore.h"
+#include "store.h"
 #include "sha1.h"
 
 using std::list;

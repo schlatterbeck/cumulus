@@ -19,7 +19,7 @@
 #include <string>
 #include <iostream>
 
-#include "tarstore.h"
+#include "store.h"
 
 using std::list;
 using std::set;
