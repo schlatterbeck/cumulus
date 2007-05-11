@@ -40,6 +40,14 @@ ObjectReference::ObjectReference(const std::string& segment, int sequence)
     clear_range();
 }
 
+ObjectReference::ObjectReference(const std::string& segment,
+                                 const std::string& sequence)
+    : segment(segment), object(sequence)
+{
+    clear_checksum();
+    clear_range();
+}
+
 string ObjectReference::to_string() const
 {
     string result = segment + "/" + object;
@@ -54,4 +62,13 @@ string ObjectReference::to_string() const
     }
 
     return result;
+}
+
+/* Parse a string object reference and return a pointer to a new
+ * ObjectReference.  The caller is responsible for freeing the object.  NULL is
+ * returned if there is an error in the syntax. */
+ObjectReference *ObjectReference::parse(const std::string& s)
+{
+    // TODO: Implement
+    return NULL;
 }

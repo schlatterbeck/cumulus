@@ -65,11 +65,14 @@ std::string generate_uuid();
 class ObjectReference {
 public:
     ObjectReference(const std::string& segment, int sequence);
+    ObjectReference(const std::string& segment, const std::string& sequence);
 
     std::string to_string() const;
+    static ObjectReference *parse(const std::string& s);
 
     std::string get_segment() const { return segment; }
-    void set_segment(const std::string& segment) { this->segment = segment; }
+    std::string get_sequence() const { return object; }
+    std::string get_basename() const { return segment + "/" + object; }
 
     bool has_checksum() const { return checksum_valid; }
     std::string get_checksum() const { return checksum; }
