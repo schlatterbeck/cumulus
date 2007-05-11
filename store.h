@@ -59,7 +59,6 @@ public:
 private:
     size_t size;
     std::string segment_name;
-    std::ostringstream checksums;
     TAR *t;
 };
 
@@ -74,8 +73,7 @@ public:
     // used to control object placement; objects with different group
     // parameters are kept in separate segments.
     std::string write_object(const char *data, size_t len,
-                             const std::string &group = "",
-                             const std::list<std::string> &refs = norefs);
+                             const std::string &group = "");
 
     // Ensure all segments have been fully written.
     void sync();
@@ -90,10 +88,6 @@ private:
 
     std::string path;
     std::map<std::string, struct segment_info *> segments;
-
-    // An empty list which can be used as an argument to write_object to
-    // indicate that this object depends on no others.
-    static std::list<std::string> norefs;
 
     // Ensure that all segments in the given group have been fully written.
     void close_segment(const std::string &group);
@@ -131,12 +125,6 @@ public:
     // An object is assigned a permanent name once it has been written to a
     // segment.  Until that time, its name cannot be determined.
     std::string get_name() const { return name; }
-
-    // Logically, one object may reference other objects (such as a metadata
-    // listing referncing actual file data blocks).  Such references should be
-    // noted explicitly.  It may eventually be used to build up a tree of
-    // checksums for later verifying integrity.
-    void add_reference(const LbsObject *o);
 
 private:
     std::string group;

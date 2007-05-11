@@ -26,8 +26,6 @@ using std::list;
 using std::set;
 using std::string;
 
-list<string> TarSegmentStore::norefs;
-
 Tarfile::Tarfile(const string &path, const string &segment)
     : size(0),
       segment_name(segment)
@@ -39,9 +37,6 @@ Tarfile::Tarfile(const string &path, const string &segment)
 
 Tarfile::~Tarfile()
 {
-    string checksum_list = checksums.str();
-    internal_write_object(segment_name + "/checksums",
-                          checksum_list.data(), checksum_list.size());
     tar_append_eof(t);
 
     if (tar_close(t) != 0)
@@ -55,13 +50,6 @@ void Tarfile::write_object(int id, const char *data, size_t len)
     string path = segment_name + "/" + buf;
 
     internal_write_object(path, data, len);
-
-    // Compute a checksum for the data block, which will be stored at the end
-    // of the TAR file.
-    SHA1Checksum hash;
-    hash.process(data, len);
-    sprintf(buf, "%08x", id);
-    checksums << buf << " " << hash.checksum_str() << "\n";
 }
 
 void Tarfile::internal_write_object(const string &path,
@@ -106,8 +94,7 @@ void Tarfile::internal_write_object(const string &path,
 static const size_t SEGMENT_SIZE = 4 * 1024 * 1024;
 
 string TarSegmentStore::write_object(const char *data, size_t len, const
-                                     std::string &group,
-                                     const std::list<std::string> &refs)
+                                     std::string &group)
 {
     struct segment_info *segment;
 
@@ -137,12 +124,6 @@ string TarSegmentStore::write_object(const char *data, size_t len, const
 
     string full_name = segment->name + "/" + id_buf;
 
-    // Store any dependencies this object has on other segments, so they can be
-    // written when the segment is closed.
-    for (list<string>::const_iterator i = refs.begin(); i != refs.end(); ++i) {
-        segment->refs.insert(*i);
-    }
-
     // If this segment meets or exceeds the size target, close it so that
     // future objects will go into a new segment.
     if (segment->file->size_estimate() >= SEGMENT_SIZE)
@@ -163,14 +144,6 @@ void TarSegmentStore::close_segment(const string &group)
     fprintf(stderr, "Closing segment group %s (%s)\n",
             group.c_str(), segment->name.c_str());
 
-    string reflist;
-    for (set<string>::iterator i = segment->refs.begin();
-         i != segment->refs.end(); ++i) {
-        reflist += *i + "\n";
-    }
-    segment->file->internal_write_object(segment->name + "/references",
-                                         reflist.data(), reflist.size());
-
     delete segment->file;
     segments.erase(segments.find(group));
     delete segment;
@@ -190,22 +163,12 @@ LbsObject::~LbsObject()
 {
 }
 
-void LbsObject::add_reference(const LbsObject *o)
-{
-    refs.insert(o->get_name());
-}
-
 void LbsObject::write(TarSegmentStore *store)
 {
     assert(data != NULL);
     assert(!written);
 
-    list<string> reflist;
-    for (set<string>::iterator i = refs.begin(); i != refs.end(); ++i) {
-        reflist.push_back(*i);
-    }
-
-    name = store->write_object(data, data_len, group, reflist);
+    name = store->write_object(data, data_len, group);
 
     written = true;
     data = NULL;
