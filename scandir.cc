@@ -33,6 +33,8 @@ static TarSegmentStore *tss = NULL;
 static const int LBS_BLOCK_SIZE = 1024 * 1024;
 static char *block_buf;
 
+static const int LBS_METADATA_BLOCK_SIZE = 65536;
+
 /* Contents of the root object.  This will contain a set of indirect links to
  * the metadata objects. */
 std::ostringstream metadata_root;
@@ -263,13 +265,12 @@ void scanfile(const string& path)
     }
 
     file_info["type"] = string(1, inode_type);
-    metadata << "type: " << inode_type << "\n";
 
     dict_output(metadata, file_info);
     metadata << "\n";
 
     // Break apart metadata listing if it becomes too large.
-    if (metadata.str().size() > 4096)
+    if (metadata.str().size() > LBS_METADATA_BLOCK_SIZE)
         metadata_flush();
 
     // If we hit a directory, now that we've written the directory itself,
