@@ -145,6 +145,8 @@ private:
 
     bool written;
     std::string name;
+
+    std::set<std::string> refs;
 };
 
 #endif // _LBS_TARSTORE_H

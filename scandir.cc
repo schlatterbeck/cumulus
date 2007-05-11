@@ -276,7 +276,11 @@ int main(int argc, char *argv[])
 {
     block_buf = new char[LBS_BLOCK_SIZE];
 
-    tss = new TarSegmentStore(".");
+    if (argc > 1) {
+        tss = new TarSegmentStore(argv[1]);
+    } else {
+        tss = new TarSegmentStore(".");
+    }
 
     std::ostringstream metadata;
 

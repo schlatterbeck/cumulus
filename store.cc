@@ -196,7 +196,7 @@ LbsObject::~LbsObject()
 
 void LbsObject::add_reference(const LbsObject *o)
 {
-    // TODO: Implement
+    refs.insert(o->get_name());
 }
 
 void LbsObject::write(TarSegmentStore *store)
@@ -204,7 +204,12 @@ void LbsObject::write(TarSegmentStore *store)
     assert(data != NULL);
     assert(!written);
 
-    name = store->write_object(data, data_len, group);
+    list<string> reflist;
+    for (set<string>::iterator i = refs.begin(); i != refs.end(); ++i) {
+        reflist.push_back(*i);
+    }
+
+    name = store->write_object(data, data_len, group, reflist);
 
     written = true;
     data = NULL;

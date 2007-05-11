@@ -358,7 +358,7 @@ string SHA1Checksum::checksum_str()
 {
     uint8_t resbuf[20];
     char hexbuf[4];
-    string result = "sha-1:";
+    string result = "sha1=";
 
     sha1_finish_ctx(&ctx, resbuf);
 
