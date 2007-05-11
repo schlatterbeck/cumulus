@@ -13,7 +13,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
-#include <uuid/uuid.h>
 
 #include <list>
 #include <set>
@@ -21,6 +20,7 @@
 #include <iostream>
 
 #include "store.h"
+#include "ref.h"
 
 using std::list;
 using std::set;
@@ -116,11 +116,7 @@ string TarSegmentStore::write_object(const char *data, size_t len, const
     if (segments.find(group) == segments.end()) {
         segment = new segment_info;
 
-        uint8_t uuid[16];
-        char uuid_buf[40];
-        uuid_generate(uuid);
-        uuid_unparse_lower(uuid, uuid_buf);
-        segment->name = uuid_buf;
+        segment->name = generate_uuid();
 
         string filename = path + "/" + segment->name + ".tar";
         segment->file = new Tarfile(filename, segment->name);

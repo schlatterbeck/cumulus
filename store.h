@@ -6,8 +6,8 @@
  * is built on top of libtar, and represents segments as TAR files and objects
  * as files within them. */
 
-#ifndef _LBS_TARSTORE_H
-#define _LBS_TARSTORE_H
+#ifndef _LBS_STORE_H
+#define _LBS_STORE_H
 
 #include <stdint.h>
 #include <libtar.h>
@@ -149,4 +149,4 @@ private:
     std::set<std::string> refs;
 };
 
-#endif // _LBS_TARSTORE_H
+#endif // _LBS_STORE_H
