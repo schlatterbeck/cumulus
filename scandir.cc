@@ -30,10 +30,10 @@ using std::ostream;
 static TarSegmentStore *tss = NULL;
 
 /* Buffer for holding a single block of data read from a file. */
-static const int LBS_BLOCK_SIZE = 1024 * 1024;
+static const size_t LBS_BLOCK_SIZE = 1024 * 1024;
 static char *block_buf;
 
-static const int LBS_METADATA_BLOCK_SIZE = 65536;
+static const size_t LBS_METADATA_BLOCK_SIZE = 65536;
 
 /* Contents of the root object.  This will contain a set of indirect links to
  * the metadata objects. */
@@ -106,7 +106,7 @@ void dumpfile(int fd, dictionary &file_info)
     list<string> object_list;
 
     if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
-        printf("file is no longer a regular file!\n");
+        fprintf(stderr, "file is no longer a regular file!\n");
         return;
     }
 
@@ -216,15 +216,13 @@ void scanfile(const string& path)
         buf = new char[stat_buf.st_size + 2];
         len = readlink(path.c_str(), buf, stat_buf.st_size + 1);
         if (len < 0) {
-            printf("error reading symlink: %m\n");
+            fprintf(stderr, "error reading symlink: %m\n");
         } else if (len <= stat_buf.st_size) {
             buf[len] = '\0';
-            printf("    contents=%s\n", buf);
+            file_info["contents"] = uri_encode(buf);
         } else if (len > stat_buf.st_size) {
-            printf("error reading symlink: name truncated\n");
+            fprintf(stderr, "error reading symlink: name truncated\n");
         }
-
-        file_info["contents"] = uri_encode(buf);
 
         delete[] buf;
         break;
@@ -284,7 +282,7 @@ void scandir(const string& path)
     DIR *dir = opendir(path.c_str());
 
     if (dir == NULL) {
-        printf("Error: %m\n");
+        fprintf(stderr, "Error: %m\n");
         return;
     }
 
