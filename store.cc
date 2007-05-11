@@ -141,8 +141,6 @@ void TarSegmentStore::sync()
 void TarSegmentStore::close_segment(const string &group)
 {
     struct segment_info *segment = segments[group];
-    fprintf(stderr, "Closing segment group %s (%s)\n",
-            group.c_str(), segment->name.c_str());
 
     delete segment->file;
     segments.erase(segments.find(group));

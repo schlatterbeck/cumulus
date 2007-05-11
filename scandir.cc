@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
 
     segment_list.insert(root->get_ref().get_segment());
     string r = root->get_ref().to_string();
-    printf("root: %s\n\n", r.c_str());
+    printf("\nroot: %s\n\n", r.c_str());
     delete root;
 
     printf("segments:\n");
