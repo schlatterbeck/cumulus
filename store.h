@@ -20,6 +20,7 @@
 #include <sstream>
 
 #include "sha1.h"
+#include "ref.h"
 
 class LbsObject;
 
@@ -72,8 +73,8 @@ public:
     // (segment/object) to refer to it.  The optional parameter group can be
     // used to control object placement; objects with different group
     // parameters are kept in separate segments.
-    std::string write_object(const char *data, size_t len,
-                             const std::string &group = "");
+    ObjectReference write_object(const char *data, size_t len,
+                                 const std::string &group = "");
 
     // Ensure all segments have been fully written.
     void sync();
@@ -82,7 +83,6 @@ private:
     struct segment_info {
         Tarfile *file;
         std::string name;           // UUID
-        std::set<std::string> refs; // Other segments this one refers to
         int count;                  // Objects written to this segment
     };
 
@@ -114,17 +114,21 @@ public:
     // incrementally.  Data can be an arbitrary block of binary data of any
     // size.  The pointer to the data need only remain valid until write() is
     // called.
-    //const char *get_data() const { return data; }
-    //size_t get_data_len() const { return data_len; }
     void set_data(const char *d, size_t len) { data = d; data_len = len; }
 
     // Write an object to a segment, thus making it permanent.  This function
     // can be called at most once.
     void write(TarSegmentStore *store);
 
+    // Compute the checksum of an object, and include it in the object
+    // reference.  This should be called after write(), and the data specified
+    // by set_data() must remain valid through the call to checksum().
+    void checksum();
+
     // An object is assigned a permanent name once it has been written to a
     // segment.  Until that time, its name cannot be determined.
-    std::string get_name() const { return name; }
+    std::string get_name() const { return ref.to_string(); }
+    ObjectReference get_ref() { return ref; }
 
 private:
     std::string group;
@@ -132,9 +136,7 @@ private:
     size_t data_len;
 
     bool written;
-    std::string name;
-
-    std::set<std::string> refs;
+    ObjectReference ref;
 };
 
 #endif // _LBS_STORE_H

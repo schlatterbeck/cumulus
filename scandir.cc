@@ -16,6 +16,7 @@
 #include <vector>
 #include <iostream>
 #include <sstream>
+#include <set>
 
 #include "format.h"
 #include "store.h"
@@ -32,12 +33,40 @@ static TarSegmentStore *tss = NULL;
 static const int LBS_BLOCK_SIZE = 1024 * 1024;
 static char *block_buf;
 
-void scandir(const string& path, std::ostream& metadata);
+/* Contents of the root object.  This will contain a set of indirect links to
+ * the metadata objects. */
+std::ostringstream metadata_root;
 
-/* Converts time to microseconds since the epoch. */
-int64_t encode_time(time_t time)
+/* Buffer for building up metadata. */
+std::ostringstream metadata;
+
+/* Keep track of all segments which are needed to reconstruct the snapshot. */
+std::set<string> segment_list;
+
+void scandir(const string& path);
+
+/* Ensure contents of metadata are flushed to an object. */
+void metadata_flush()
 {
-    return (int64_t)time * 1000000;
+    string m = metadata.str();
+    if (m.size() == 0)
+        return;
+
+    /* Write current metadata information to a new object. */
+    LbsObject *meta = new LbsObject;
+    meta->set_group("root");
+    meta->set_data(m.data(), m.size());
+    meta->write(tss);
+    meta->checksum();
+
+    /* Write a reference to this block in the root. */
+    ObjectReference ref = meta->get_ref();
+    metadata_root << "@" << ref.to_string() << "\n";
+    segment_list.insert(ref.get_segment());
+
+    delete meta;
+
+    metadata.str("");
 }
 
 /* Read data from a file descriptor and return the amount of data read.  A
@@ -67,12 +96,12 @@ size_t file_read(int fd, char *buf, size_t maxlen)
 
 /* Read the contents of a file (specified by an open file descriptor) and copy
  * the data to the store. */
-void dumpfile(int fd, dictionary &file_info, ostream &metadata)
+void dumpfile(int fd, dictionary &file_info)
 {
     struct stat stat_buf;
     fstat(fd, &stat_buf);
     int64_t size = 0;
-    list<string> segment_list;
+    list<string> object_list;
 
     if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
         printf("file is no longer a regular file!\n");
@@ -96,7 +125,8 @@ void dumpfile(int fd, dictionary &file_info, ostream &metadata)
         o->set_group("data");
         o->set_data(block_buf, bytes);
         o->write(tss);
-        segment_list.push_back(o->get_name());
+        object_list.push_back(o->get_name());
+        segment_list.insert(o->get_ref().get_segment());
         delete o;
 
         size += bytes;
@@ -107,19 +137,19 @@ void dumpfile(int fd, dictionary &file_info, ostream &metadata)
     /* For files that only need to be broken apart into a few objects, store
      * the list of objects directly.  For larger files, store the data
      * out-of-line and provide a pointer to the indrect object. */
-    if (segment_list.size() < 8) {
+    if (object_list.size() < 8) {
         string blocklist = "";
-        for (list<string>::iterator i = segment_list.begin();
-             i != segment_list.end(); ++i) {
-            if (i != segment_list.begin())
+        for (list<string>::iterator i = object_list.begin();
+             i != object_list.end(); ++i) {
+            if (i != object_list.begin())
                 blocklist += " ";
             blocklist += *i;
         }
         file_info["data"] = blocklist;
     } else {
         string blocklist = "";
-        for (list<string>::iterator i = segment_list.begin();
-             i != segment_list.end(); ++i) {
+        for (list<string>::iterator i = object_list.begin();
+             i != object_list.end(); ++i) {
             blocklist += *i + "\n";
         }
 
@@ -128,11 +158,12 @@ void dumpfile(int fd, dictionary &file_info, ostream &metadata)
         i->set_data(blocklist.data(), blocklist.size());
         i->write(tss);
         file_info["data"] = "@" + i->get_name();
+        segment_list.insert(i->get_ref().get_segment());
         delete i;
     }
 }
 
-void scanfile(const string& path, ostream &metadata)
+void scanfile(const string& path)
 {
     int fd;
     long flags;
@@ -217,7 +248,7 @@ void scanfile(const string& path, ostream &metadata)
         fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
         file_info["size"] = encode_int(stat_buf.st_size);
-        dumpfile(fd, file_info, metadata);
+        dumpfile(fd, file_info);
         close(fd);
 
         break;
@@ -237,13 +268,17 @@ void scanfile(const string& path, ostream &metadata)
     dict_output(metadata, file_info);
     metadata << "\n";
 
+    // Break apart metadata listing if it becomes too large.
+    if (metadata.str().size() > 4096)
+        metadata_flush();
+
     // If we hit a directory, now that we've written the directory itself,
     // recursively scan the directory.
     if (recurse)
-        scandir(path, metadata);
+        scandir(path);
 }
 
-void scandir(const string& path, ostream &metadata)
+void scandir(const string& path)
 {
     DIR *dir = opendir(path.c_str());
 
@@ -266,7 +301,7 @@ void scandir(const string& path, ostream &metadata)
     for (vector<string>::iterator i = contents.begin();
          i != contents.end(); ++i) {
         const string& filename = *i;
-        scanfile(path + "/" + filename, metadata);
+        scanfile(path + "/" + filename);
     }
 
     closedir(dir);
@@ -282,21 +317,31 @@ int main(int argc, char *argv[])
         tss = new TarSegmentStore(".");
     }
 
-    std::ostringstream metadata;
-
     try {
-        scanfile(".", metadata);
+        scanfile(".");
     } catch (IOException e) {
         fprintf(stderr, "IOException: %s\n", e.getError().c_str());
     }
 
-    const string md = metadata.str();
+    metadata_flush();
+    const string md = metadata_root.str();
 
-    LbsObject *r = new LbsObject;
-    r->set_group("root");
-    r->set_data(md.data(), md.size());
-    r->write(tss);
-    delete r;
+    LbsObject *root = new LbsObject;
+    root->set_group("root");
+    root->set_data(md.data(), md.size());
+    root->write(tss);
+    root->checksum();
+
+    segment_list.insert(root->get_ref().get_segment());
+    string r = root->get_ref().to_string();
+    printf("root: %s\n\n", r.c_str());
+    delete root;
+
+    printf("segments:\n");
+    for (std::set<string>::iterator i = segment_list.begin();
+         i != segment_list.end(); ++i) {
+        printf("    %s\n", i->c_str());
+    }
 
     tss->sync();
     delete tss;

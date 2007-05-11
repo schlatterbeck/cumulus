@@ -28,6 +28,10 @@ string generate_uuid()
     return string(buf);
 }
 
+ObjectReference::ObjectReference()
+    : segment(""), object("")
+{
+}
 
 ObjectReference::ObjectReference(const std::string& segment, int sequence)
     : segment(segment)

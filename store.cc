@@ -93,8 +93,8 @@ void Tarfile::internal_write_object(const string &path,
 
 static const size_t SEGMENT_SIZE = 4 * 1024 * 1024;
 
-string TarSegmentStore::write_object(const char *data, size_t len, const
-                                     std::string &group)
+ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
+                                              const std::string &group)
 {
     struct segment_info *segment;
 
@@ -122,14 +122,14 @@ string TarSegmentStore::write_object(const char *data, size_t len, const
     segment->file->write_object(id, data, len);
     segment->count++;
 
-    string full_name = segment->name + "/" + id_buf;
+    ObjectReference ref(segment->name, id_buf);
 
     // If this segment meets or exceeds the size target, close it so that
     // future objects will go into a new segment.
     if (segment->file->size_estimate() >= SEGMENT_SIZE)
         close_segment(group);
 
-    return full_name;
+    return ref;
 }
 
 void TarSegmentStore::sync()
@@ -168,8 +168,15 @@ void LbsObject::write(TarSegmentStore *store)
     assert(data != NULL);
     assert(!written);
 
-    name = store->write_object(data, data_len, group);
-
+    ref = store->write_object(data, data_len, group);
     written = true;
-    data = NULL;
+}
+
+void LbsObject::checksum()
+{
+    assert(written);
+
+    SHA1Checksum hash;
+    hash.process(data, data_len);
+    ref.set_checksum(hash.checksum_str());
 }

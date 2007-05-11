@@ -64,6 +64,7 @@ std::string generate_uuid();
  * and converted to and from the text representation. */
 class ObjectReference {
 public:
+    ObjectReference();
     ObjectReference(const std::string& segment, int sequence);
     ObjectReference(const std::string& segment, const std::string& sequence);
 
