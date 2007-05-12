@@ -15,6 +15,7 @@
 #include <list>
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <set>
 
@@ -310,11 +311,15 @@ int main(int argc, char *argv[])
 {
     block_buf = new char[LBS_BLOCK_SIZE];
 
-    if (argc > 1) {
-        tss = new TarSegmentStore(argv[1]);
-    } else {
-        tss = new TarSegmentStore(".");
-    }
+    string backup_dest = ".";
+
+    if (argc > 1)
+        backup_dest = argv[1];
+
+    tss = new TarSegmentStore(backup_dest);
+
+    string desc_filename = backup_dest + "/snapshot.lbs";
+    std::ofstream descriptor(desc_filename.c_str());
 
     try {
         scanfile(".");
@@ -332,14 +337,14 @@ int main(int argc, char *argv[])
     root->checksum();
 
     segment_list.insert(root->get_ref().get_segment());
-    string r = root->get_ref().to_string();
-    printf("\nroot: %s\n\n", r.c_str());
+    descriptor << "root: " << root->get_ref().to_string() << "\n\n";
+
     delete root;
 
-    printf("segments:\n");
+    descriptor << "segments:\n";
     for (std::set<string>::iterator i = segment_list.begin();
          i != segment_list.end(); ++i) {
-        printf("    %s\n", i->c_str());
+        descriptor << "    " << *i << "\n";
     }
 
     tss->sync();
