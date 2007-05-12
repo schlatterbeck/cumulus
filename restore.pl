@@ -25,6 +25,8 @@ my $OBJECT_DIR;                 # Where are the unpacked objects available?
 my $DEST_DIR = ".";             # Where should restored files should be placed?
 my $RECURSION_LIMIT = 3;        # Bound on recursive object references
 
+my $VERBOSE = 0;                # Set to 1 to enable debugging messages
+
 ############################ CHECKSUM VERIFICATION ############################
 # A very simple later for verifying checksums.  Checksums may be used on object
 # references directly, and can also be used to verify entire reconstructed
@@ -69,7 +71,7 @@ sub verifier_check {
     my $digester = $verifier->{DIGESTER};
 
     my $newhash = $digester->hexdigest();
-    if ($verifier->{HASH} ne $newhash) {
+    if ($VERBOSE && $verifier->{HASH} ne $newhash) {
         print STDERR "Verification failure: ",
             $newhash, " != ", $verifier->{HASH}, "\n";
     }
@@ -225,7 +227,7 @@ sub process_file {
     my $type = $info{type};
 
     my $filename = uri_decode($info{name});
-    print "process_file: $filename\n";
+    print "$filename\n" if $VERBOSE;
 
     # Restore the specified file.  How to do so depends upon the file type, so
     # dispatch based on that.
@@ -319,7 +321,7 @@ sub process_metadata {
 
         # Recursively handle indirect metadata blocks.
         if ($line =~ m/^@(\S+)$/) {
-            print "Indirect: $1\n";
+            print "Indirect: $1\n" if $VERBOSE;
             my $indirect = load_ref($1);
             process_metadata($indirect, $recursion_level + 1);
             next;
@@ -363,7 +365,7 @@ if (defined($ARGV[1])) {
 }
 
 $OBJECT_DIR = dirname($descriptor);
-print "Source directory: $OBJECT_DIR\n";
+print "Source directory: $OBJECT_DIR\n" if $VERBOSE;
 
 # Read the snapshot descriptor to find the root object.
 open DESCRIPTOR, "<", $descriptor
@@ -382,6 +384,6 @@ close DESCRIPTOR;
 umask 077;
 
 # Start processing metadata stored in the root to recreate the files.
-print "Root object: $root\n";
+print "Root object: $root\n" if $VERBOSE;
 my $contents = load_ref($root);
 process_metadata($contents);
