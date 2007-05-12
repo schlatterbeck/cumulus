@@ -318,7 +318,16 @@ int main(int argc, char *argv[])
 
     tss = new TarSegmentStore(backup_dest);
 
-    string desc_filename = backup_dest + "/snapshot.lbs";
+    /* Write a backup descriptor file, which says which segments are needed and
+     * where to start to restore this snapshot.  The filename is based on the
+     * current time. */
+    time_t now;
+    struct tm time_buf;
+    char desc_buf[256];
+    time(&now);
+    localtime_r(&now, &time_buf);
+    strftime(desc_buf, sizeof(desc_buf), "%Y%m%dT%H%M%S", &time_buf);
+    string desc_filename = backup_dest + "/" + desc_buf + ".lbs";
     std::ofstream descriptor(desc_filename.c_str());
 
     try {
@@ -337,7 +346,9 @@ int main(int argc, char *argv[])
     root->checksum();
 
     segment_list.insert(root->get_ref().get_segment());
-    descriptor << "root: " << root->get_ref().to_string() << "\n\n";
+    descriptor << "root: " << root->get_ref().to_string() << "\n";
+    strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
+    descriptor << "time: " << desc_buf << "\n";
 
     delete root;
 
