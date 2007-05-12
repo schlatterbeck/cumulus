@@ -134,6 +134,12 @@ sub load_ref {
 # iterate_objects is a helper function used to iterate over the set of object
 # references that contain the file data for a regular file.
 
+sub uri_decode {
+    my $str = shift;
+    $str =~ s/%([0-9a-f]{2})/chr(hex($1))/ge;
+    return $str;
+}
+
 sub iterate_objects {
     my $callback = shift;       # Function to be called for each reference
     my $arg = shift;            # Argument passed to callback
@@ -173,7 +179,7 @@ sub process_file {
     my %info = @_;
 
     # TODO
-    print "process_file: ", $info{name}, "\n";
+    print "process_file: ", uri_decode($info{name}), "\n";
 
     if (defined $info{data}) {
         my $verifier = verifier_create($info{checksum});
