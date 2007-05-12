@@ -12,13 +12,17 @@
 # in the snapshot have already been decompressed, and that objects are
 # available simply as files in the filesystem.  This simplifies the design.
 #
+# Limitations: Since this code is probably using 32-bit arithmetic, files
+# larger than 2-4 GB may not be properly handled.
+#
 # Copyright (C) 2007  Michael Vrable
 
 use strict;
 use Digest::SHA1;
 use File::Basename;
 
-my $OBJECT_DIR = ".";           # Directory where objects are unpacked
+my $OBJECT_DIR;                 # Where are the unpacked objects available?
+my $DEST_DIR = ".";             # Where should restored files should be placed?
 my $RECURSION_LIMIT = 3;        # Bound on recursive object references
 
 ############################ CHECKSUM VERIFICATION ############################
@@ -168,26 +172,112 @@ sub iterate_objects {
 }
 
 sub obj_callback {
-    my $verifier = shift;
+    my $state = shift;
     my $obj = shift;
     my $data = load_ref($obj);
-    print "    ", $obj, " (size ", length($data), ")\n";
-    verifier_add_bytes($verifier, $data);
+    print FILE $data
+        or die "Error writing file data: $!";
+    verifier_add_bytes($state->{VERIFIER}, $data);
+    $state->{BYTES} += length($data);
+}
+
+# Extract the contents of a regular file by concatenating all the objects that
+# comprise it.
+sub unpack_file {
+    my $name = shift;
+    my %info = @_;
+    my %state = ();
+
+    if (!defined $info{data}) {
+        die "File contents not specified for $name";
+    }
+    if (!defined $info{checksum} || !defined $info{size}) {
+        die "File $name is missing checksum or size";
+    }
+
+    # Open the file to be recreated.  The data will be written out by the call
+    # to iterate_objects.
+    open FILE, ">", "$DEST_DIR/$name"
+        or die "Cannot write file $name: $!";
+
+    # Set up state so that we can incrementally compute the checksum and length
+    # of the reconstructed data.  Then iterate over all objects in the file.
+    $state{VERIFIER} = verifier_create($info{checksum});
+    $state{BYTES} = 0;
+    iterate_objects(\&obj_callback, \%state, $info{data});
+
+    close FILE;
+
+    # Verify that the reconstructed object matches the size/checksum we were
+    # given.
+    if (!verifier_check($state{VERIFIER}) || $state{BYTES} != $info{size}) {
+        die "File reconstruction failed for $name: size or checksum differs";
+    }
 }
 
 sub process_file {
     my %info = @_;
 
-    # TODO
-    print "process_file: ", uri_decode($info{name}), "\n";
+    if (!defined($info{name})) {
+        die "Filename not specified in metadata block";
+    }
 
-    if (defined $info{data}) {
-        my $verifier = verifier_create($info{checksum});
+    my $type = $info{type};
 
-        iterate_objects(\&obj_callback, $verifier, $info{data});
+    my $filename = uri_decode($info{name});
+    print "process_file: $filename\n";
 
-        print "    checksum: ", (verifier_check($verifier) ? "pass" : "fail"),
-            " ", $info{checksum}, "\n";
+    # Restore the specified file.  How to do so depends upon the file type, so
+    # dispatch based on that.
+    my $dest = "$DEST_DIR/$filename";
+    if ($type eq '-') {
+        # Regular file
+        unpack_file($filename, %info);
+    } elsif ($type eq 'd') {
+        # Directory
+        if ($filename ne '.') {
+            mkdir $dest or die "Cannot create directory $filename: $!";
+        }
+    } elsif ($type eq 'l') {
+        # Symlink
+        if (!defined($info{contents})) {
+            die "Symlink $filename has no value specified";
+        }
+        my $contents = uri_decode($info{contents});
+        symlink $contents, $dest
+            or die "Cannot create symlink $filename: $!";
+
+        # TODO: We can't properly restore all metadata for symbolic links
+        # (attempts to do so below will change metadata for the pointed-to
+        # file).  This should be later fixed, but for now we simply return
+        # before getting to the restore metadata step below.
+        return;
+    } elsif ($type eq 'p' || $type eq 's' || $type eq 'c' || $type eq 'b') {
+        # Pipe, socket, character device, block device.
+        # TODO: Handle these cases.
+        print STDERR "Ignoring special file $filename of type $type\n";
+        return;
+    } else {
+        die "Unknown file type '$type' for file $filename";
+    }
+
+    # Restore mode, ownership, and any other metadata for the file.  This is
+    # split out from the code above since the code is the same regardless of
+    # file type.
+    my $atime = $info{atime} || time();
+    my $mtime = $info{mtime} || time();
+    utime $atime, $mtime, $dest
+        or warn "Unable to update atime/mtime for $dest";
+
+    my $uid = $info{user} || -1;
+    my $gid = $info{group} || -1;
+    chown $uid, $gid, $dest
+        or warn "Unable to change ownership for $dest";
+
+    if (defined $info{mode}) {
+        my $mode = $info{mode};
+        chmod $mode, $dest
+            or warn "Unable to change permissions for $dest";
     }
 }
 
@@ -216,12 +306,14 @@ sub process_metadata {
     # metadata objects.
     my %info = ();
     my $line;
+    my $last_key;
     foreach $line (split /\n/, $metadata) {
         # If we find a blank line or a reference to another block, process any
         # data for the previous file first.
         if ($line eq '' || $line =~ m/^@/) {
             process_file(%info) if %info;
             %info = ();
+            undef $last_key;
             next if $line eq '';
         }
 
@@ -233,9 +325,14 @@ sub process_metadata {
             next;
         }
 
-        # Try to parse the data as "key: value" pairs of file metadata.
+        # Try to parse the data as "key: value" pairs of file metadata.  Also
+        # handle continuation lines, which start with whitespace and continue
+        # the previous "key: value" pair.
         if ($line =~ m/^(\w+):\s+(.*)\s*$/) {
             $info{$1} = $2;
+            $last_key = $1;
+        } elsif ($line =~/^\s/ && defined $last_key) {
+            $info{$last_key} .= $line;
         } else {
             print STDERR "Junk in file metadata section: $line\n";
         }
@@ -251,15 +348,24 @@ sub process_metadata {
 # the root object in the snapshot, from which we can reach all other data we
 # need.
 
+# Parse command-line arguments.  The first (required) is the name of the
+# snapshot descriptor file.  The backup objects are assumed to be stored in the
+# same directory as the descriptor.  The second (optional) argument is the
+# directory where the restored files should be written; it defaults to ".";
 my $descriptor = $ARGV[0];
 unless (defined($descriptor) && -r $descriptor) {
     print STDERR "Usage: $0 <snapshot file>\n";
     exit 1;
 }
 
+if (defined($ARGV[1])) {
+    $DEST_DIR = $ARGV[1];
+}
+
 $OBJECT_DIR = dirname($descriptor);
 print "Source directory: $OBJECT_DIR\n";
 
+# Read the snapshot descriptor to find the root object.
 open DESCRIPTOR, "<", $descriptor
     or die "Cannot open backup descriptor file $descriptor: $!";
 my $line = <DESCRIPTOR>;
@@ -269,7 +375,13 @@ if ($line !~ m/^root: (\S+)$/) {
 my $root = $1;
 close DESCRIPTOR;
 
-print "Root object: $root\n";
+# Set the umask to something restrictive.  As we unpack files, we'll originally
+# write the files/directories without setting the permissions, so be
+# conservative and ensure that they can't be read.  Afterwards, we'll properly
+# fix up permissions.
+umask 077;
 
+# Start processing metadata stored in the root to recreate the files.
+print "Root object: $root\n";
 my $contents = load_ref($root);
 process_metadata($contents);
