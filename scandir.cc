@@ -6,6 +6,8 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pwd.h>
+#include <grp.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -187,11 +189,19 @@ void scanfile(const string& path)
     metadata << "name: " << uri_encode(path) << "\n";
 
     file_info["mode"] = encode_int(stat_buf.st_mode & 07777);
-    file_info["atime"] = encode_int(stat_buf.st_atime);
-    file_info["ctime"] = encode_int(stat_buf.st_ctime);
     file_info["mtime"] = encode_int(stat_buf.st_mtime);
     file_info["user"] = encode_int(stat_buf.st_uid);
     file_info["group"] = encode_int(stat_buf.st_gid);
+
+    struct passwd *pwd = getpwuid(stat_buf.st_uid);
+    if (pwd != NULL) {
+        file_info["user"] += " (" + uri_encode(pwd->pw_name) + ")";
+    }
+
+    struct group *grp = getgrgid(stat_buf.st_gid);
+    if (pwd != NULL) {
+        file_info["group"] += " (" + uri_encode(grp->gr_name) + ")";
+    }
 
     char inode_type;
 
@@ -346,13 +356,13 @@ int main(int argc, char *argv[])
     root->checksum();
 
     segment_list.insert(root->get_ref().get_segment());
-    descriptor << "root: " << root->get_ref().to_string() << "\n";
+    descriptor << "Root: " << root->get_ref().to_string() << "\n";
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
-    descriptor << "time: " << desc_buf << "\n";
+    descriptor << "Date: " << desc_buf << "\n";
 
     delete root;
 
-    descriptor << "segments:\n";
+    descriptor << "Segments:\n";
     for (std::set<string>::iterator i = segment_list.begin();
          i != segment_list.end(); ++i) {
         descriptor << "    " << *i << "\n";

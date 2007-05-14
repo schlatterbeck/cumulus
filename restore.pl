@@ -266,13 +266,14 @@ sub process_file {
     # Restore mode, ownership, and any other metadata for the file.  This is
     # split out from the code above since the code is the same regardless of
     # file type.
-    my $atime = $info{atime} || time();
     my $mtime = $info{mtime} || time();
-    utime $atime, $mtime, $dest
-        or warn "Unable to update atime/mtime for $dest";
+    utime time(), $mtime, $dest
+        or warn "Unable to update mtime for $dest";
 
-    my $uid = $info{user} || -1;
-    my $gid = $info{group} || -1;
+    my $uid = -1;
+    my $gid = -1;
+    $uid = $info{user} + 0 if defined $info{user};
+    $gid = $info{group} + 0 if defined $info{group};
     chown $uid, $gid, $dest
         or warn "Unable to change ownership for $dest";
 
@@ -371,8 +372,8 @@ print "Source directory: $OBJECT_DIR\n" if $VERBOSE;
 open DESCRIPTOR, "<", $descriptor
     or die "Cannot open backup descriptor file $descriptor: $!";
 my $line = <DESCRIPTOR>;
-if ($line !~ m/^root: (\S+)$/) {
-    die "Expected 'root:' specification in backup descriptor file";
+if ($line !~ m/^Root: (\S+)$/) {
+    die "Expected 'Root:' specification in backup descriptor file";
 }
 my $root = $1;
 close DESCRIPTOR;
