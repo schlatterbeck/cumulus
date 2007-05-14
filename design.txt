@@ -1,0 +1,109 @@
+This document aims to describe the goals and constraints of the LBS
+design.
+
+========================================================================
+
+OVERALL GOALS: Efficient creation and storage of multiple backup
+snapshots of a filesystem tree.  Logically, each snapshot is
+self-contained and stores the state of all files at a single point in
+time.  However, it should be possible for snapshots to share the same
+underlying storage, so that data duplicated in many snapshots need not
+be stored multiple times.  It should be possible to delete old
+snapshots, and recover (most of) the storage associated with them.  It
+must be possible to delete old backups in any order; for example, it
+must be possible to delete intermediate backups before long-term
+backups.  It should be possible to recover the files in a snapshot
+without transferring significantly more data than that stored in the
+files to be recovered.
+
+CONSTRAINTS: The system should not rely upon a smart server at the
+remote end where backups are stored.  It should be possible to create
+new backups using a single primitive: StoreFile, which stores a string
+of bytes at the backup server using a specified filename.  Thus, backups
+can be run over any file transfer protocol, without requiring special
+software be installed on the storage server.
+
+========================================================================
+
+DESIGN APPROACHES
+
+STORING INCREMENTAL BACKUPS
+
+One simple approach is to simply store a copy of every file one the
+remote end, and construct a listing which tells where each file in the
+source ends up on the remote server.  For subsequent backups, if a file
+is unchanged, the listing can simply point to the location of the file
+from the previous backup.  Deleting backups is simple: delete the
+listing file for a particular snapshot, then garbage collect all files
+which are no longer referenced.
+
+This approach does not as efficiently handle partial changes to large
+files.  If a file is changed at all, it needs to be transferred in its
+entirety.  One approach is to represent intra-file changes by storing
+patches.  The original file is kept, and a smaller file is transferred
+that stores the differences between the original and the new.  Some care
+is needed, however.  A series of small changes could accumulate over
+many snapshots.  If each snapshot refers to the original file, much data
+will be duplicated between the patches in different snapshots.  If each
+patch can refer to previous patches as well, a long chain of patches can
+build up, which complicates removing old backups to reclaim storage.
+
+An alternative approach is to break files apart into smaller units
+(blocks) and to represent files in a snapshot as the concatenation of
+(possibly many) blocks.  Small change to files can be represented by
+replacing a few of the blocks, but referring to most blocks used in the
+old file directly.  Some care is needed with this approach as
+well--there is additional overhead needed to specify even the original
+file, since the entire list of blocks must be specified.  If the block
+size is too small, this can lead to a large overhead, but if the block
+size is too large, then sharing of file data may not be achieved.  In
+this scheme, data blocks do not depend on other data blocks, so chains
+of dependencies do not arise as in the incremental patching scheme.
+Each snapshot is independent, and so can easily be removed.
+
+One minor modification to this scheme is to permit the list of blocks to
+specify that only a portion of a block should be used to reconstruct a
+file; if, say, only the end of a block is changed, then the new backup
+can refer to most of the old block, and use a new block for the small
+changed part.  Doing so does allow the possibility that a block might be
+kept around even though a portion of it is being used, leading to wasted
+space.
+
+
+DATA STORAGE
+
+The simplest data storage format would place each file, patch, or block
+in a separate file on the storage server.  Doing so maximizes the
+ability to reclaim storage when deleting old snapshots, and minimizes
+the amount of extra data that must be transferred to recover a snapshot.
+Any other format which combines data from multiple files/patches/blocks
+together risks having needed data grouped with unwanted data.
+
+However, there are reasons to consider grouping, since there is overhead
+associated with storing many small files.  In any transfer protocol
+which is not pipelined, transferring many small files may be slower than
+transferring the same quantity of data in larger files.  Small files may
+also lead to more wasted storage space due to internal fragmentation.
+
+Grouping is even more important if the snapshot format breaks files
+apart into blocks for storage, since the number of blocks could be far
+larger than the number of files being backed up.
+
+========================================================================
+
+SELECTED DESIGN
+
+At a high level, the selected design stores snapshots by breaking files
+into blocks for storage, and does not use patches.  These data blocks,
+along with the metadata fragments (collectively, the blocks and metadata
+are referred to as objects) are grouped together for storage purposes
+(each storage group is called a segment).
+
+TAR is chosen as the format for grouping objects together into segments
+rather than inventing a new format.  Doing so makes it easy to
+manipulate the segments using other tools, if needed.
+
+Data blocks for files are stored as-is.  Metadata is stored in a text
+format, to make it more transparent.  (This should make debugging
+easier, and the hope is that this will make understanding the format
+simpler.)
