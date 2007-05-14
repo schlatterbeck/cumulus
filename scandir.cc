@@ -100,8 +100,9 @@ size_t file_read(int fd, char *buf, size_t maxlen)
 }
 
 /* Read the contents of a file (specified by an open file descriptor) and copy
- * the data to the store. */
-void dumpfile(int fd, dictionary &file_info)
+ * the data to the store.  Returns the size of the file (number of bytes
+ * dumped), or -1 on error. */
+int64_t dumpfile(int fd, dictionary &file_info)
 {
     struct stat stat_buf;
     fstat(fd, &stat_buf);
@@ -110,7 +111,7 @@ void dumpfile(int fd, dictionary &file_info)
 
     if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
         fprintf(stderr, "file is no longer a regular file!\n");
-        return;
+        return -1;
     }
 
     /* The index data consists of a sequence of pointers to the data blocks
@@ -166,6 +167,8 @@ void dumpfile(int fd, dictionary &file_info)
         segment_list.insert(i->get_ref().get_segment());
         delete i;
     }
+
+    return size;
 }
 
 void scanfile(const string& path)
@@ -175,6 +178,7 @@ void scanfile(const string& path)
     struct stat stat_buf;
     char *buf;
     ssize_t len;
+    int64_t file_size;
     list<string> refs;
 
     // Set to true if the item is a directory and we should recursively scan
@@ -258,9 +262,17 @@ void scanfile(const string& path)
         flags = fcntl(fd, F_GETFL);
         fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
-        file_info["size"] = encode_int(stat_buf.st_size);
-        dumpfile(fd, file_info);
+        file_size = dumpfile(fd, file_info);
+        file_info["size"] = encode_int(file_size);
         close(fd);
+
+        if (file_size < 0)
+            return;             // error occurred; do not dump file
+
+        if (file_size != stat_buf.st_size) {
+            fprintf(stderr, "Warning: Size of %s changed during reading\n",
+                    path.c_str());
+        }
 
         break;
     case S_IFDIR:
