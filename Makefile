@@ -1,10 +1,10 @@
-PACKAGES=uuid
+PACKAGES=sqlite3 uuid
 DEBUG=-g #-pg
 CXXFLAGS=-O -Wall -D_FILE_OFFSET_BITS=64 $(DEBUG) \
 	 `pkg-config --cflags $(PACKAGES)`
 LDFLAGS=$(DEBUG) -ltar `pkg-config --libs $(PACKAGES)`
 
-SRCS=format.cc ref.cc scandir.cc sha1.cc store.cc
+SRCS=format.cc localdb.cc ref.cc scandir.cc sha1.cc store.cc
 OBJS=$(SRCS:.cc=.o)
 
 scandir : $(OBJS)

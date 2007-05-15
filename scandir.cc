@@ -22,6 +22,7 @@
 #include <set>
 
 #include "format.h"
+#include "localdb.h"
 #include "store.h"
 #include "sha1.h"
 
@@ -37,6 +38,10 @@ static const size_t LBS_BLOCK_SIZE = 1024 * 1024;
 static char *block_buf;
 
 static const size_t LBS_METADATA_BLOCK_SIZE = 65536;
+
+/* Local database, which tracks objects written in this and previous
+ * invocations to help in creating incremental snapshots. */
+LocalDb *db;
 
 /* Contents of the root object.  This will contain a set of indirect links to
  * the metadata objects. */
@@ -133,9 +138,15 @@ int64_t dumpfile(int fd, dictionary &file_info)
         o->write(tss);
         object_list.push_back(o->get_name());
         segment_list.insert(o->get_ref().get_segment());
-        delete o;
+
+        // Index this block so it can be used by future snapshots
+        SHA1Checksum block_hash;
+        block_hash.process(block_buf, bytes);
+        db->StoreObject(o->get_ref(), block_hash.checksum_str(), bytes);
 
         size += bytes;
+
+        delete o;
     }
 
     file_info["checksum"] = hash.checksum_str();
@@ -340,6 +351,10 @@ int main(int argc, char *argv[])
 
     tss = new TarSegmentStore(backup_dest);
 
+    string database_path = backup_dest + "/localdb.sqlite";
+    db = new LocalDb;
+    db->Open(database_path.c_str());
+
     /* Write a backup descriptor file, which says which segments are needed and
      * where to start to restore this snapshot.  The filename is based on the
      * current time. */
@@ -379,6 +394,8 @@ int main(int argc, char *argv[])
          i != segment_list.end(); ++i) {
         descriptor << "    " << *i << "\n";
     }
+
+    db->Close();
 
     tss->sync();
     delete tss;
