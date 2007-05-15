@@ -105,8 +105,6 @@ ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_DONE) {
     } else if (rc == SQLITE_ROW) {
-        printf("Can re-use block: %s/%s\n",
-               sqlite3_column_text(stmt, 0), sqlite3_column_text(stmt, 1));
         ref = ObjectReference((const char *)sqlite3_column_text(stmt, 0),
                               (const char *)sqlite3_column_text(stmt, 1));
     } else {
