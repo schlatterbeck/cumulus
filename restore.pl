@@ -272,8 +272,14 @@ sub process_file {
 
     my $uid = -1;
     my $gid = -1;
-    $uid = $info{user} + 0 if defined $info{user};
-    $gid = $info{group} + 0 if defined $info{group};
+    if (defined $info{user}) {
+        my @items = split /\s/, $info{user};
+        $uid = $items[0] + 0 if exists $items[0];
+    }
+    if (defined $info{group}) {
+        my @items = split /\s/, $info{group};
+        $gid = $items[0] + 0 if exists $items[0];
+    }
     chown $uid, $gid, $dest
         or warn "Unable to change ownership for $dest";
 
