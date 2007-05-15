@@ -131,22 +131,26 @@ int64_t dumpfile(int fd, dictionary &file_info)
 
         hash.process(block_buf, bytes);
 
-        // tarstore processing
-        LbsObject *o = new LbsObject;
-        o->set_group("data");
-        o->set_data(block_buf, bytes);
-        o->write(tss);
-        object_list.push_back(o->get_name());
-        segment_list.insert(o->get_ref().get_segment());
-
-        // Index this block so it can be used by future snapshots
+        // Either find a copy of this block in an already-existing segment, or
+        // index it so it can be re-used in the future
         SHA1Checksum block_hash;
         block_hash.process(block_buf, bytes);
-        db->StoreObject(o->get_ref(), block_hash.checksum_str(), bytes);
+        string block_csum = block_hash.checksum_str();
+        ObjectReference ref = db->FindObject(block_csum, bytes);
 
+        // Store a copy of the object if one does not yet exist
+        if (ref.get_segment().size() == 0) {
+            LbsObject *o = new LbsObject;
+            o->set_group("data");
+            o->set_data(block_buf, bytes);
+            o->write(tss);
+            ref = o->get_ref();
+            db->StoreObject(ref, block_csum, bytes);
+            delete o;
+        }
+        object_list.push_back(ref.to_string());
+        segment_list.insert(ref.get_segment());
         size += bytes;
-
-        delete o;
     }
 
     file_info["checksum"] = hash.checksum_str();

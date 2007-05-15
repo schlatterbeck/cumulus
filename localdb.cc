@@ -81,3 +81,39 @@ void LocalDb::StoreObject(const ObjectReference& ref,
 
     sqlite3_finalize(stmt);
 }
+
+ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
+{
+    int rc;
+    sqlite3_stmt *stmt;
+    static const char s[] =
+        "select segment, object from block_index "
+        "where checksum = ? and size = ?";
+    const char *tail;
+
+    ObjectReference ref;
+
+    rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
+    if (rc != SQLITE_OK) {
+        return ref;
+    }
+
+    sqlite3_bind_text(stmt, 1, checksum.c_str(), checksum.size(),
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 2, size);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_DONE) {
+    } else if (rc == SQLITE_ROW) {
+        printf("Can re-use block: %s/%s\n",
+               sqlite3_column_text(stmt, 0), sqlite3_column_text(stmt, 1));
+        ref = ObjectReference((const char *)sqlite3_column_text(stmt, 0),
+                              (const char *)sqlite3_column_text(stmt, 1));
+    } else {
+        fprintf(stderr, "Could not execute SELECT statement!\n");
+    }
+
+    sqlite3_finalize(stmt);
+
+    return ref;
+}
