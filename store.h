@@ -49,10 +49,11 @@ public:
     Tarfile(const std::string &path, const std::string &segment);
     ~Tarfile();
 
+    int spawn_filter(int fd_out);
     void write_object(int id, const char *data, size_t len);
 
     // Return an estimate of the size of the file.
-    size_t size_estimate() { return size; }
+    size_t size_estimate();
 
     void internal_write_object(const std::string &path,
                                const char *data, size_t len);
@@ -61,6 +62,10 @@ private:
     size_t size;
     std::string segment_name;
     TAR *t;
+
+    /* Filter support. */
+    int real_fd, filter_fd;
+    pid_t filter_pid;
 };
 
 class TarSegmentStore {
