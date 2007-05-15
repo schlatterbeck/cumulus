@@ -21,12 +21,14 @@
 
 class LocalDb {
 public:
-    void Open(const char *path);
+    void Open(const char *path, const char *snapshot_name);
     void Close();
     void StoreObject(const ObjectReference& ref,
                      const std::string &checksum, int64_t size);
     ObjectReference FindObject(const std::string &checksum, int64_t size);
+    void UseObject(const ObjectReference& ref);
 private:
+    std::string snapshot;
     sqlite3 *db;
 };
 

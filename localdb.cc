@@ -22,9 +22,11 @@
 
 using std::string;
 
-void LocalDb::Open(const char *path)
+void LocalDb::Open(const char *path, const char *snapshot_name)
 {
     int rc;
+
+    snapshot = snapshot_name;
 
     rc = sqlite3_open(path, &db);
     if (rc) {
@@ -114,4 +116,34 @@ ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
     sqlite3_finalize(stmt);
 
     return ref;
+}
+
+void LocalDb::UseObject(const ObjectReference& ref)
+{
+    int rc;
+    sqlite3_stmt *stmt;
+    static const char s[] =
+        "insert into snapshot_contents "
+        "select blockid, ? as snapshot from block_index "
+        "where segment = ? and object = ?";
+    const char *tail;
+
+    rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
+    if (rc != SQLITE_OK) {
+        return;
+    }
+
+    sqlite3_bind_text(stmt, 1, snapshot.c_str(), snapshot.size(),
+                      SQLITE_TRANSIENT);
+    string seg = ref.get_segment();
+    sqlite3_bind_text(stmt, 2, seg.c_str(), seg.size(), SQLITE_TRANSIENT);
+    string obj = ref.get_sequence();
+    sqlite3_bind_text(stmt, 3, obj.c_str(), obj.size(), SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        fprintf(stderr, "Could not execute INSERT statement!\n");
+    }
+
+    sqlite3_finalize(stmt);
 }

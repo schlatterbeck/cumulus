@@ -148,8 +148,10 @@ int64_t dumpfile(int fd, dictionary &file_info)
             db->StoreObject(ref, block_csum, bytes);
             delete o;
         }
+
         object_list.push_back(ref.to_string());
         segment_list.insert(ref.get_segment());
+        db->UseObject(ref);
         size += bytes;
     }
 
@@ -355,10 +357,6 @@ int main(int argc, char *argv[])
 
     tss = new TarSegmentStore(backup_dest);
 
-    string database_path = backup_dest + "/localdb.sqlite";
-    db = new LocalDb;
-    db->Open(database_path.c_str());
-
     /* Write a backup descriptor file, which says which segments are needed and
      * where to start to restore this snapshot.  The filename is based on the
      * current time. */
@@ -370,6 +368,13 @@ int main(int argc, char *argv[])
     strftime(desc_buf, sizeof(desc_buf), "%Y%m%dT%H%M%S", &time_buf);
     string desc_filename = backup_dest + "/" + desc_buf + ".lbs";
     std::ofstream descriptor(desc_filename.c_str());
+
+    /* Open the local database which tracks all objects that are stored
+     * remotely, for efficient incrementals.  Provide it with the name of this
+     * snapshot. */
+    string database_path = backup_dest + "/localdb.sqlite";
+    db = new LocalDb;
+    db->Open(database_path.c_str(), desc_buf);
 
     try {
         scanfile(".");
