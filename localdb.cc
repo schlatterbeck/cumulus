@@ -59,8 +59,8 @@ void LocalDb::StoreObject(const ObjectReference& ref,
     int rc;
     sqlite3_stmt *stmt;
     static const char s[] =
-        "insert into block_index(segment, object, checksum, size) "
-        "values (?, ?, ?, ?)";
+        "insert into block_index(segment, object, checksum, size, timestamp) "
+        "values (?, ?, ?, ?, julianday('now'))";
     const char *tail;
 
     rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);

@@ -9,7 +9,8 @@ create table block_index (
     segment text,
     object text,
     checksum text,
-    size integer
+    size integer,
+    timestamp real
 );
 create index block_content_index on block_index(checksum);
 create index block_name_index on block_index(segment, object);
