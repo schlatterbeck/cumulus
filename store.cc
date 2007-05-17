@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <time.h>
 
+#include <algorithm>
 #include <list>
 #include <set>
 #include <string>
@@ -24,6 +25,7 @@
 #include "store.h"
 #include "ref.h"
 
+using std::max;
 using std::list;
 using std::set;
 using std::string;
@@ -169,19 +171,22 @@ void Tarfile::internal_write_object(const string &path,
 }
 
 /* Estimate the size based on the size of the actual output file on disk.
- * However, the filter may not have written all data yet, and in the event that
- * it is buffering data to a large extent, also use */
+ * However, it might be the case that the filter program is buffering all its
+ * data, and might potentially not write a single byte until we have closed
+ * our end of the pipe.  If we don't do so until we see data written, we have
+ * a problem.  So, arbitrarily pick an upper bound on the compression ratio
+ * that the filter will achieve (128:1), and return a size estimate which is
+ * the larger of a) bytes actually seen written to disk, and b) input
+ * bytes/128. */
 size_t Tarfile::size_estimate()
 {
     struct stat statbuf;
 
-    if (fstat(real_fd, &statbuf) == 0) {
-        size_t disk_size = statbuf.st_size;
+    if (fstat(real_fd, &statbuf) == 0)
+        return max((int64_t)statbuf.st_size, (int64_t)(size / 128));
 
-        if (disk_size >= size / 128)
-            return disk_size;
-    }
-
+    /* Couldn't stat the file on disk, so just return the actual number of
+     * bytes, before compression. */
     return size;
 }
 
