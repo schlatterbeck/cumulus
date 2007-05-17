@@ -166,7 +166,7 @@ sub iterate_objects {
         next if $obj eq "";
         if ($obj =~ /^@(\S+)$/) {
             my $indirect = load_ref($1);
-            iterate_objects($callback, $arg, $1, $recursion_level + 1);
+            iterate_objects($callback, $arg, $indirect, $recursion_level + 1);
         } else {
             &$callback($arg, $obj);
         }
