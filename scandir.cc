@@ -1,25 +1,26 @@
 /* Recursively descend the filesystem and visit each file. */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <pwd.h>
+#include <getopt.h>
 #include <grp.h>
-#include <sys/types.h>
+#include <pwd.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <algorithm>
-#include <string>
-#include <list>
-#include <vector>
-#include <iostream>
 #include <fstream>
-#include <sstream>
+#include <iostream>
+#include <list>
 #include <set>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include "format.h"
 #include "localdb.h"
@@ -54,6 +55,9 @@ std::ostringstream metadata;
 std::set<string> segment_list;
 
 void scandir(const string& path);
+
+/* Selection of files to include/exclude in the snapshot. */
+std::list<string> excludes;
 
 /* Ensure contents of metadata are flushed to an object. */
 void metadata_flush()
@@ -201,6 +205,16 @@ void scanfile(const string& path)
     // Set to true if the item is a directory and we should recursively scan
     bool recurse = false;
 
+    // Check this file against the include/exclude list to see if it should be
+    // considered
+    for (list<string>::iterator i = excludes.begin();
+         i != excludes.end(); ++i) {
+        if (path == *i) {
+            printf("Excluding %s\n", path.c_str());
+            return;
+        }
+    }
+
     dictionary file_info;
 
     lstat(path.c_str(), &stat_buf);
@@ -340,22 +354,81 @@ void scandir(const string& path)
     for (vector<string>::iterator i = contents.begin();
          i != contents.end(); ++i) {
         const string& filename = *i;
-        scanfile(path + "/" + filename);
+        if (path == ".")
+            scanfile(filename);
+        else
+            scanfile(path + "/" + filename);
     }
 
     closedir(dir);
 }
 
+void usage(const char *program)
+{
+    fprintf(stderr,
+            "Usage: %s [OPTION]... SOURCE DEST\n"
+            "Produce backup snapshot of files in SOURCE and store to DEST.\n"
+            "\n"
+            "Options:\n"
+            "  --exclude=PATH       exclude files in PATH from snapshot\n"
+            "  --localdb=PATH       local backup metadata is stored in PATH\n",
+            program);
+}
+
 int main(int argc, char *argv[])
 {
-    block_buf = new char[LBS_BLOCK_SIZE];
-
+    string backup_source = ".";
     string backup_dest = ".";
+    string localdb_dir = "";
 
-    if (argc > 1)
-        backup_dest = argv[1];
+    while (1) {
+        static struct option long_options[] = {
+            {"localdb", 1, 0, 0},   // 0
+            {"exclude", 1, 0, 0},   // 1
+            {NULL, 0, 0, 0},
+        };
+
+        int long_index;
+        int c = getopt_long(argc, argv, "", long_options, &long_index);
+
+        if (c == -1)
+            break;
+
+        if (c == 0) {
+            switch (long_index) {
+            case 0:     // --localdb
+                localdb_dir = optarg;
+                break;
+            case 1:     // --exclude
+                excludes.push_back(optarg);
+                break;
+            default:
+                fprintf(stderr, "Unhandled long option!\n");
+                return 1;
+            }
+        } else {
+            usage(argv[0]);
+            return 1;
+        }
+    }
+
+    if (argc < optind + 2) {
+        usage(argv[0]);
+        return 1;
+    }
+
+    backup_source = argv[optind];
+    backup_dest = argv[argc - 1];
+
+    if (localdb_dir == "") {
+        localdb_dir = backup_dest;
+    }
+
+    printf("Source: %s, Dest: %s\n",
+           backup_source.c_str(), backup_dest.c_str());
 
     tss = new TarSegmentStore(backup_dest);
+    block_buf = new char[LBS_BLOCK_SIZE];
 
     /* Write a backup descriptor file, which says which segments are needed and
      * where to start to restore this snapshot.  The filename is based on the
