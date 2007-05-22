@@ -28,8 +28,11 @@ public:
     ObjectReference FindObject(const std::string &checksum, int64_t size);
     void UseObject(const ObjectReference& ref);
 private:
-    std::string snapshot;
     sqlite3 *db;
+    int64_t snapshotid;
+
+    int64_t SegmentToId(const std::string &segment);
+    std::string IdToSegment(int64_t segmentid);
 };
 
 #endif // _LBS_LOCALDB_H
