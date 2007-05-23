@@ -163,8 +163,8 @@ void LocalDb::StoreObject(const ObjectReference& ref,
     sqlite3_stmt *stmt;
     static const char s[] =
         "insert into "
-        "block_index(segmentid, object, checksum, size, timestamp, expired) "
-        "values (?, ?, ?, ?, julianday('now'), 0)";
+        "block_index(segmentid, object, checksum, size, timestamp) "
+        "values (?, ?, ?, ?, julianday('now'))";
     const char *tail;
 
     rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
@@ -193,7 +193,7 @@ ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
     sqlite3_stmt *stmt;
     static const char s[] =
         "select segmentid, object from block_index "
-        "where checksum = ? and size = ? and expired = 0";
+        "where checksum = ? and size = ? and expired is null";
     const char *tail;
 
     ObjectReference ref;
