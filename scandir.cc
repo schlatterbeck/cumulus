@@ -221,8 +221,6 @@ void scanfile(const string& path)
 
     printf("%s\n", path.c_str());
 
-    metadata << "name: " << uri_encode(path) << "\n";
-
     file_info["mode"] = encode_int(stat_buf.st_mode & 07777);
     file_info["mtime"] = encode_int(stat_buf.st_mtime);
     file_info["user"] = encode_int(stat_buf.st_uid);
@@ -318,6 +316,7 @@ void scanfile(const string& path)
 
     file_info["type"] = string(1, inode_type);
 
+    metadata << "name: " << uri_encode(path) << "\n";
     dict_output(metadata, file_info);
     metadata << "\n";
 
