@@ -283,8 +283,16 @@ void scanfile(const string& path)
          *   - O_NONBLOCK: prevents open() from blocking if the file was
          *     replaced by a fifo
          * We also add in O_NOATIME, since this may reduce disk writes (for
-         * inode updates). */
+         * inode updates).  However, O_NOATIME may result in EPERM, so if the
+         * initial open fails, try again without O_NOATIME.  */
         fd = open(path.c_str(), O_RDONLY|O_NOATIME|O_NOFOLLOW|O_NONBLOCK);
+        if (fd < 0) {
+            fd = open(path.c_str(), O_RDONLY|O_NOFOLLOW|O_NONBLOCK);
+        }
+        if (fd < 0) {
+            fprintf(stderr, "Unable to open file %s: %m\n", path.c_str());
+            return;
+        }
 
         /* Drop the use of the O_NONBLOCK flag; we only wanted that for file
          * open. */
