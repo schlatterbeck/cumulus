@@ -145,7 +145,20 @@ int64_t dumpfile(int fd, dictionary &file_info)
         // Store a copy of the object if one does not yet exist
         if (ref.get_segment().size() == 0) {
             LbsObject *o = new LbsObject;
-            o->set_group("data");
+
+            /* We might still have seen this checksum before, if the object was
+             * stored at some time in the past, but we have decided to clean
+             * the segment the object was originally stored in (FindObject will
+             * not return such objects).  When rewriting the object contents,
+             * put it in a separate group, so that old objects get grouped
+             * together.  The hope is that these old objects will continue to
+             * be used in the future, and we obtain segments which will
+             * continue to be well-utilized. */
+            if (db->IsOldObject(block_csum, bytes))
+                o->set_group("compacted");
+            else
+                o->set_group("data");
+
             o->set_data(block_buf, bytes);
             o->write(tss);
             ref = o->get_ref();

@@ -26,6 +26,7 @@ public:
     void StoreObject(const ObjectReference& ref,
                      const std::string &checksum, int64_t size);
     ObjectReference FindObject(const std::string &checksum, int64_t size);
+    bool IsOldObject(const std::string &checksum, int64_t size);
     void UseObject(const ObjectReference& ref);
 private:
     sqlite3 *db;

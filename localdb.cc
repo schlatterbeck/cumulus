@@ -221,6 +221,40 @@ ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
     return ref;
 }
 
+bool LocalDb::IsOldObject(const string &checksum, int64_t size)
+{
+    int rc;
+    sqlite3_stmt *stmt;
+    static const char s[] =
+        "select segmentid, object from block_index "
+        "where checksum = ? and size = ?";
+    const char *tail;
+
+    bool found = false;
+
+    rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
+    if (rc != SQLITE_OK) {
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, checksum.c_str(), checksum.size(),
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 2, size);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_DONE) {
+        found = false;
+    } else if (rc == SQLITE_ROW) {
+        found = true;
+    } else {
+        fprintf(stderr, "Could not execute SELECT statement!\n");
+    }
+
+    sqlite3_finalize(stmt);
+
+    return found;
+}
+
 void LocalDb::UseObject(const ObjectReference& ref)
 {
     int rc;
