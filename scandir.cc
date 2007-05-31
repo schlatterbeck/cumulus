@@ -68,7 +68,7 @@ void metadata_flush()
 
     /* Write current metadata information to a new object. */
     LbsObject *meta = new LbsObject;
-    meta->set_group("root");
+    meta->set_group("metadata");
     meta->set_data(m.data(), m.size());
     meta->write(tss);
     meta->checksum();
@@ -194,7 +194,7 @@ int64_t dumpfile(int fd, dictionary &file_info)
         }
 
         LbsObject *i = new LbsObject;
-        i->set_group("indirect");
+        i->set_group("metadata");
         i->set_data(blocklist.data(), blocklist.size());
         i->write(tss);
         file_info["data"] = "@" + i->get_name();
@@ -479,7 +479,7 @@ int main(int argc, char *argv[])
     const string md = metadata_root.str();
 
     LbsObject *root = new LbsObject;
-    root->set_group("root");
+    root->set_group("metadata");
     root->set_data(md.data(), md.size());
     root->write(tss);
     root->checksum();
