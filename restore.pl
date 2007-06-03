@@ -374,14 +374,36 @@ if (defined($ARGV[1])) {
 $OBJECT_DIR = dirname($descriptor);
 print "Source directory: $OBJECT_DIR\n" if $VERBOSE;
 
-# Read the snapshot descriptor to find the root object.
+# Read the snapshot descriptor to find the root object.  Parse it to get a set
+# of key/value pairs.
 open DESCRIPTOR, "<", $descriptor
     or die "Cannot open backup descriptor file $descriptor: $!";
-my $line = <DESCRIPTOR>;
-if ($line !~ m/^Root: (\S+)$/) {
+my %descriptor = ();
+my ($line, $last_key);
+while (defined($line = <DESCRIPTOR>)) {
+    # Any lines of the form "key: value" should be inserted into the
+    # %descriptor dictionary.  Any continuation line (a line starting with
+    # whitespace) will append text to the previous key's value.  Ignore other
+    # lines.
+    chomp $line;
+
+    if ($line =~ m/^(\w+):\s*(.*)$/) {
+        $descriptor{$1} = $2;
+        $last_key = $1;
+    } elsif ($line =~/^\s/ && defined $last_key) {
+        $descriptor{$last_key} .= $line;
+    } else {
+        undef $last_key;
+        print STDERR "Ignoring line in backup descriptor: $line\n";
+    }
+}
+
+# A valid backup descriptor should at the very least specify the root metadata
+# object.
+if (!exists $descriptor{Root}) {
     die "Expected 'Root:' specification in backup descriptor file";
 }
-my $root = $1;
+my $root = $descriptor{Root};
 close DESCRIPTOR;
 
 # Set the umask to something restrictive.  As we unpack files, we'll originally

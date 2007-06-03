@@ -485,6 +485,7 @@ int main(int argc, char *argv[])
     root->checksum();
 
     segment_list.insert(root->get_ref().get_segment());
+    descriptor << "Format: LBS Snapshot v0.1\n";
     descriptor << "Root: " << root->get_ref().to_string() << "\n";
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     descriptor << "Date: " << desc_buf << "\n";
