@@ -84,6 +84,8 @@ associated with storing many small files.  In any transfer protocol
 which is not pipelined, transferring many small files may be slower than
 transferring the same quantity of data in larger files.  Small files may
 also lead to more wasted storage space due to internal fragmentation.
+Grouping files together gives the chance for better compression, taking
+advantage of inter-file similarity.
 
 Grouping is even more important if the snapshot format breaks files
 apart into blocks for storage, since the number of blocks could be far
