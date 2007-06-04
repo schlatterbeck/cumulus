@@ -337,7 +337,7 @@ sub process_metadata {
         # Try to parse the data as "key: value" pairs of file metadata.  Also
         # handle continuation lines, which start with whitespace and continue
         # the previous "key: value" pair.
-        if ($line =~ m/^(\w+):\s+(.*)\s*$/) {
+        if ($line =~ m/^(\w+):\s*(.*)$/) {
             $info{$1} = $2;
             $last_key = $1;
         } elsif ($line =~/^\s/ && defined $last_key) {
