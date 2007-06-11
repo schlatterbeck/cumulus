@@ -30,7 +30,9 @@ using std::list;
 using std::set;
 using std::string;
 
-static char *const filter_program[] = {"bzip2", "-c", NULL};
+/* Default filter program is bzip2 */
+const char *filter_program = "bzip2 -c";
+const char *filter_extension = ".bz2";
 
 static void cloexec(int fd)
 {
@@ -112,7 +114,7 @@ int Tarfile::spawn_filter(int fd_out)
         close(fd_out);
 
         /* Exec the filter program. */
-        execvp(filter_program[0], filter_program);
+        execlp("/bin/sh", "/bin/sh", "-c", filter_program, NULL);
 
         /* Should not reach here except for error cases. */
         fprintf(stderr, "Could not exec filter: %m\n");
@@ -204,7 +206,8 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
 
         segment->name = generate_uuid();
 
-        string filename = path + "/" + segment->name + ".tar.bz2";
+        string filename = path + "/" + segment->name + ".tar";
+        filename += filter_extension;
         segment->file = new Tarfile(filename, segment->name);
 
         segment->count = 0;

@@ -403,8 +403,10 @@ int main(int argc, char *argv[])
 
     while (1) {
         static struct option long_options[] = {
-            {"localdb", 1, 0, 0},   // 0
-            {"exclude", 1, 0, 0},   // 1
+            {"localdb", 1, 0, 0},           // 0
+            {"exclude", 1, 0, 0},           // 1
+            {"filter", 1, 0, 0},            // 2
+            {"filter-extension", 1, 0, 0},  // 3
             {NULL, 0, 0, 0},
         };
 
@@ -421,6 +423,12 @@ int main(int argc, char *argv[])
                 break;
             case 1:     // --exclude
                 excludes.push_back(optarg);
+                break;
+            case 2:     // --filter
+                filter_program = optarg;
+                break;
+            case 3:     // --filter-extension
+                filter_extension = optarg;
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");

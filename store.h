@@ -144,4 +144,11 @@ private:
     ObjectReference ref;
 };
 
+/* Program through which segment data is piped before being written to file. */
+extern const char *filter_program;
+
+/* Extension which should be appended to segments written out (.tar is already
+ * included; this adds to it) */
+extern const char *filter_extension;
+
 #endif // _LBS_STORE_H
