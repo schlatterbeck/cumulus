@@ -28,7 +28,7 @@ my $RECURSION_LIMIT = 3;        # Bound on recursive object references
 my $VERBOSE = 0;                # Set to 1 to enable debugging messages
 
 ############################ CHECKSUM VERIFICATION ############################
-# A very simple later for verifying checksums.  Checksums may be used on object
+# A very simple layer for verifying checksums.  Checksums may be used on object
 # references directly, and can also be used to verify entire reconstructed
 # files.
 #
