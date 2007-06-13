@@ -452,8 +452,8 @@ int main(int argc, char *argv[])
         localdb_dir = backup_dest;
     }
 
-    printf("Source: %s, Dest: %s\n",
-           backup_source.c_str(), backup_dest.c_str());
+    printf("Source: %s\nDest: %s\nDatabase: %s\n\n",
+           backup_source.c_str(), backup_dest.c_str(), localdb_dir.c_str());
 
     tss = new TarSegmentStore(backup_dest);
     block_buf = new char[LBS_BLOCK_SIZE];
@@ -473,7 +473,7 @@ int main(int argc, char *argv[])
     /* Open the local database which tracks all objects that are stored
      * remotely, for efficient incrementals.  Provide it with the name of this
      * snapshot. */
-    string database_path = backup_dest + "/localdb.sqlite";
+    string database_path = localdb_dir + "/localdb.sqlite";
     db = new LocalDb;
     db->Open(database_path.c_str(), desc_buf);
 
