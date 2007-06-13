@@ -32,6 +32,7 @@ private:
     sqlite3 *db;
     int64_t snapshotid;
 
+    sqlite3_stmt *Prepare(const char *sql);
     int64_t SegmentToId(const std::string &segment);
     std::string IdToSegment(int64_t segmentid);
 };

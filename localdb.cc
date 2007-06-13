@@ -22,6 +22,22 @@
 
 using std::string;
 
+/* Helper function to prepare a statement for execution in the current
+ * database. */
+sqlite3_stmt *LocalDb::Prepare(const char *sql)
+{
+    sqlite3_stmt *stmt;
+    int rc;
+    const char *tail;
+
+    rc = sqlite3_prepare(db, sql, strlen(sql), &stmt, &tail);
+    if (rc != SQLITE_OK) {
+        throw IOException(string("Error preparing statement: ") + sql);
+    }
+
+    return stmt;
+}
+
 void LocalDb::Open(const char *path, const char *snapshot_name)
 {
     int rc;
@@ -42,18 +58,8 @@ void LocalDb::Open(const char *path, const char *snapshot_name)
 
     /* Insert this snapshot into the database, and determine the integer key
      * which will be used to identify it. */
-    sqlite3_stmt *stmt;
-    static const char s[] =
-        "insert into snapshots(name, timestamp) "
-        "values (?, julianday('now'))";
-    const char *tail;
-
-    rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
-    if (rc != SQLITE_OK) {
-        sqlite3_close(db);
-        throw IOException("Error adding snapshot");
-    }
-
+    sqlite3_stmt *stmt = Prepare("insert into snapshots(name, timestamp) "
+                                 "values (?, julianday('now'))");
     sqlite3_bind_text(stmt, 1, snapshot_name, strlen(snapshot_name),
                       SQLITE_TRANSIENT);
 
@@ -85,17 +91,9 @@ int64_t LocalDb::SegmentToId(const string &segment)
 {
     int rc;
     sqlite3_stmt *stmt;
-    static const char s1[] =
-        "insert or ignore into segments(segment) values (?);";
-    static const char s2[] =
-        "select segmentid from segments where segment = ?";
-    const char *tail;
     int64_t result;
 
-    rc = sqlite3_prepare_v2(db, s1, strlen(s1), &stmt, &tail);
-    if (rc != SQLITE_OK) {
-        throw IOException("Find id by segment name");
-    }
+    stmt = Prepare("insert or ignore into segments(segment) values (?)");
     sqlite3_bind_text(stmt, 1, segment.c_str(), segment.size(),
                       SQLITE_TRANSIENT);
     rc = sqlite3_step(stmt);
@@ -104,11 +102,7 @@ int64_t LocalDb::SegmentToId(const string &segment)
     }
     sqlite3_finalize(stmt);
 
-    rc = sqlite3_prepare_v2(db, s2, strlen(s2), &stmt, &tail);
-    if (rc != SQLITE_OK) {
-        throw IOException("Find id by segment name");
-    }
-
+    stmt = Prepare("select segmentid from segments where segment = ?");
     sqlite3_bind_text(stmt, 1, segment.c_str(), segment.size(),
                       SQLITE_TRANSIENT);
 
@@ -130,16 +124,9 @@ string LocalDb::IdToSegment(int64_t segmentid)
 {
     int rc;
     sqlite3_stmt *stmt;
-    static const char s[] =
-        "select segment from segments where segmentid = ?";
-    const char *tail;
     string result;
 
-    rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
-    if (rc != SQLITE_OK) {
-        throw IOException("Find segment by id");
-    }
-
+    stmt = Prepare("select segment from segments where segmentid = ?");
     sqlite3_bind_int64(stmt, 1, segmentid);
 
     rc = sqlite3_step(stmt);
@@ -161,16 +148,10 @@ void LocalDb::StoreObject(const ObjectReference& ref,
 {
     int rc;
     sqlite3_stmt *stmt;
-    static const char s[] =
-        "insert into "
-        "block_index(segmentid, object, checksum, size, timestamp) "
-        "values (?, ?, ?, ?, julianday('now'))";
-    const char *tail;
 
-    rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
-    if (rc != SQLITE_OK) {
-        return;
-    }
+    stmt = Prepare("insert into "
+                   "block_index(segmentid, object, checksum, size, timestamp) "
+                   "values (?, ?, ?, ?, julianday('now'))");
 
     sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
     string obj = ref.get_sequence();
@@ -191,18 +172,10 @@ ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
 {
     int rc;
     sqlite3_stmt *stmt;
-    static const char s[] =
-        "select segmentid, object from block_index "
-        "where checksum = ? and size = ? and expired is null";
-    const char *tail;
-
     ObjectReference ref;
 
-    rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
-    if (rc != SQLITE_OK) {
-        return ref;
-    }
-
+    stmt = Prepare("select segmentid, object from block_index "
+                   "where checksum = ? and size = ? and expired is null");
     sqlite3_bind_text(stmt, 1, checksum.c_str(), checksum.size(),
                       SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 2, size);
@@ -225,18 +198,10 @@ bool LocalDb::IsOldObject(const string &checksum, int64_t size)
 {
     int rc;
     sqlite3_stmt *stmt;
-    static const char s[] =
-        "select segmentid, object from block_index "
-        "where checksum = ? and size = ?";
-    const char *tail;
-
     bool found = false;
 
-    rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
-    if (rc != SQLITE_OK) {
-        return false;
-    }
-
+    stmt = Prepare("select segmentid, object from block_index "
+                   "where checksum = ? and size = ?");
     sqlite3_bind_text(stmt, 1, checksum.c_str(), checksum.size(),
                       SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 2, size);
@@ -259,17 +224,10 @@ void LocalDb::UseObject(const ObjectReference& ref)
 {
     int rc;
     sqlite3_stmt *stmt;
-    static const char s[] =
-        "insert or ignore into snapshot_contents "
-        "select blockid, ? as snapshotid from block_index "
-        "where segmentid = ? and object = ?";
-    const char *tail;
 
-    rc = sqlite3_prepare_v2(db, s, strlen(s), &stmt, &tail);
-    if (rc != SQLITE_OK) {
-        return;
-    }
-
+    stmt = Prepare("insert or ignore into snapshot_contents "
+                   "select blockid, ? as snapshotid from block_index "
+                   "where segmentid = ? and object = ?");
     sqlite3_bind_int64(stmt, 1, snapshotid);
     sqlite3_bind_int64(stmt, 2, SegmentToId(ref.get_segment()));
     string obj = ref.get_sequence();
