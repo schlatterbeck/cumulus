@@ -36,3 +36,21 @@ create table snapshot_contents (
 );
 create unique index snapshot_contents_unique
     on snapshot_contents(blockid, snapshotid);
+
+-- Summary statistics for each segment.
+create view segment_info as select * from
+    (select segmentid, max(timestamp) as mtime,
+            sum(size) as size, count(*) as objects
+       from block_index natural join segments group by segmentid)
+natural join
+    (select segmentid, sum(size) as used, count(*) as objects_used
+       from block_index where blockid in
+            (select blockid from snapshot_contents) group by segmentid);
+
+-- Ranking of segments to be cleaned, using a benefit function of
+-- (fraction free space)*(age of youngest object).
+create view cleaning_order as select *, (1-u)*age as benefit from
+    (select segmentid,
+            cast(used as real) / size as u, julianday('now') - mtime as age
+        from segment_info)
+where benefit > 0;
