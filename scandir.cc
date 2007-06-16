@@ -493,7 +493,7 @@ int main(int argc, char *argv[])
      * where to start to restore this snapshot.  The filename is based on the
      * current time. */
     strftime(desc_buf, sizeof(desc_buf), "%Y%m%dT%H%M%S", &time_buf);
-    string desc_filename = backup_dest + "/" + desc_buf + ".lbs";
+    string desc_filename = backup_dest + "/snapshot-" + desc_buf + ".lbs";
     std::ofstream descriptor(desc_filename.c_str());
 
     descriptor << "Format: LBS Snapshot v0.1\n";
