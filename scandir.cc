@@ -26,6 +26,7 @@
 #include "localdb.h"
 #include "store.h"
 #include "sha1.h"
+#include "statcache.h"
 
 using std::list;
 using std::string;
@@ -43,6 +44,10 @@ static const size_t LBS_METADATA_BLOCK_SIZE = 65536;
 /* Local database, which tracks objects written in this and previous
  * invocations to help in creating incremental snapshots. */
 LocalDb *db;
+
+/* Stat cache, which stored data locally to speed the backup process by quickly
+ * skipping files which have not changed. */
+StatCache *statcache;
 
 /* Contents of the root object.  This will contain a set of indirect links to
  * the metadata objects. */
@@ -111,7 +116,7 @@ size_t file_read(int fd, char *buf, size_t maxlen)
 /* Read the contents of a file (specified by an open file descriptor) and copy
  * the data to the store.  Returns the size of the file (number of bytes
  * dumped), or -1 on error. */
-int64_t dumpfile(int fd, dictionary &file_info)
+int64_t dumpfile(int fd, dictionary &file_info, const string &path)
 {
     struct stat stat_buf;
     fstat(fd, &stat_buf);
@@ -173,6 +178,8 @@ int64_t dumpfile(int fd, dictionary &file_info)
     }
 
     file_info["checksum"] = hash.checksum_str();
+
+    statcache->Save(path, &stat_buf, file_info["checksum"], object_list);
 
     /* For files that only need to be broken apart into a few objects, store
      * the list of objects directly.  For larger files, store the data
@@ -312,7 +319,7 @@ void scanfile(const string& path)
         flags = fcntl(fd, F_GETFL);
         fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
-        file_size = dumpfile(fd, file_info);
+        file_size = dumpfile(fd, file_info, path);
         file_info["size"] = encode_int(file_size);
         close(fd);
 
@@ -465,6 +472,7 @@ int main(int argc, char *argv[])
     char desc_buf[256];
     time(&now);
     localtime_r(&now, &time_buf);
+    strftime(desc_buf, sizeof(desc_buf), "%Y%m%dT%H%M%S", &time_buf);
 
     /* Open the local database which tracks all objects that are stored
      * remotely, for efficient incrementals.  Provide it with the name of this
@@ -472,6 +480,10 @@ int main(int argc, char *argv[])
     string database_path = localdb_dir + "/localdb.sqlite";
     db = new LocalDb;
     db->Open(database_path.c_str(), desc_buf);
+
+    /* Initialize the stat cache, for skipping over unchanged files. */
+    statcache = new StatCache;
+    statcache->Open(localdb_dir.c_str(), desc_buf);
 
     try {
         scanfile(".");
@@ -492,7 +504,6 @@ int main(int argc, char *argv[])
     /* Write a backup descriptor file, which says which segments are needed and
      * where to start to restore this snapshot.  The filename is based on the
      * current time. */
-    strftime(desc_buf, sizeof(desc_buf), "%Y%m%dT%H%M%S", &time_buf);
     string desc_filename = backup_dest + "/snapshot-" + desc_buf + ".lbs";
     std::ofstream descriptor(desc_filename.c_str());
 
@@ -510,6 +521,9 @@ int main(int argc, char *argv[])
     }
 
     db->Close();
+
+    statcache->Close();
+    delete statcache;
 
     tss->sync();
     delete tss;
