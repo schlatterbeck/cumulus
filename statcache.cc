@@ -70,6 +70,8 @@ void StatCache::Save(const string &path, struct stat *stat_buf,
               << "checksum: " << checksum << "\n";
 
     *newcache << "blocks:";
+    if (blocks.size() == 0)
+        *newcache << "\n";
     for (list<string>::const_iterator i = blocks.begin();
          i != blocks.end(); ++i) {
         *newcache << " " << *i << "\n";
