@@ -24,9 +24,9 @@ public:
     void Open(const char *path, const char *snapshot_name);
     void Close();
     void StoreObject(const ObjectReference& ref,
-                     const std::string &checksum, int64_t size);
+                     const std::string &checksum, int64_t size, double age);
     ObjectReference FindObject(const std::string &checksum, int64_t size);
-    bool IsOldObject(const std::string &checksum, int64_t size);
+    bool IsOldObject(const std::string &checksum, int64_t size, double *age);
     void UseObject(const ObjectReference& ref);
 private:
     sqlite3 *db;

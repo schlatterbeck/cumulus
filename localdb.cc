@@ -144,14 +144,21 @@ string LocalDb::IdToSegment(int64_t segmentid)
 }
 
 void LocalDb::StoreObject(const ObjectReference& ref,
-                          const string &checksum, int64_t size)
+                          const string &checksum, int64_t size,
+                          double age)
 {
     int rc;
     sqlite3_stmt *stmt;
 
-    stmt = Prepare("insert into "
-                   "block_index(segmentid, object, checksum, size, timestamp) "
-                   "values (?, ?, ?, ?, julianday('now'))");
+    if (age == 0.0) {
+        stmt = Prepare("insert into block_index("
+                       "segmentid, object, checksum, size, timestamp) "
+                       "values (?, ?, ?, ?, julianday('now'))");
+    } else {
+        stmt = Prepare("insert into block_index("
+                       "segmentid, object, checksum, size, timestamp) "
+                       "values (?, ?, ?, ?, ?)");
+    }
 
     sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
     string obj = ref.get_sequence();
@@ -159,6 +166,8 @@ void LocalDb::StoreObject(const ObjectReference& ref,
     sqlite3_bind_text(stmt, 3, checksum.c_str(), checksum.size(),
                       SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 4, size);
+    if (age != 0.0)
+        sqlite3_bind_double(stmt, 5, age);
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
@@ -194,13 +203,13 @@ ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
     return ref;
 }
 
-bool LocalDb::IsOldObject(const string &checksum, int64_t size)
+bool LocalDb::IsOldObject(const string &checksum, int64_t size, double *age)
 {
     int rc;
     sqlite3_stmt *stmt;
     bool found = false;
 
-    stmt = Prepare("select segmentid, object from block_index "
+    stmt = Prepare("select segmentid, object, timestamp from block_index "
                    "where checksum = ? and size = ?");
     sqlite3_bind_text(stmt, 1, checksum.c_str(), checksum.size(),
                       SQLITE_TRANSIENT);
@@ -211,6 +220,7 @@ bool LocalDb::IsOldObject(const string &checksum, int64_t size)
         found = false;
     } else if (rc == SQLITE_ROW) {
         found = true;
+        *age = sqlite3_column_double(stmt, 2);
     } else {
         fprintf(stderr, "Could not execute SELECT statement!\n");
     }

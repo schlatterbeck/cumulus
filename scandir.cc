@@ -142,6 +142,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path)
 
         // Either find a copy of this block in an already-existing segment, or
         // index it so it can be re-used in the future
+        double block_age = 0.0;
         SHA1Checksum block_hash;
         block_hash.process(block_buf, bytes);
         string block_csum = block_hash.checksum_str();
@@ -158,8 +159,10 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path)
              * put it in a separate group, so that old objects get grouped
              * together.  The hope is that these old objects will continue to
              * be used in the future, and we obtain segments which will
-             * continue to be well-utilized. */
-            if (db->IsOldObject(block_csum, bytes))
+             * continue to be well-utilized.  Additionally, keep track of the
+             * age of the data by looking up the age of the block which was
+             * expired and using that instead of the current time. */
+            if (db->IsOldObject(block_csum, bytes, &block_age))
                 o->set_group("compacted");
             else
                 o->set_group("data");
@@ -167,7 +170,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path)
             o->set_data(block_buf, bytes);
             o->write(tss);
             ref = o->get_ref();
-            db->StoreObject(ref, block_csum, bytes);
+            db->StoreObject(ref, block_csum, bytes, block_age);
             delete o;
         }
 
