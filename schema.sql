@@ -49,7 +49,7 @@ natural join
 
 -- Ranking of segments to be cleaned, using a benefit function of
 -- (fraction free space)*(age of youngest object).
-create view cleaning_order as select *, (1-u)*age as benefit from
+create view cleaning_order as select *, (1-u)*age/(u+0.1) as benefit from
     (select segmentid,
             cast(used as real) / size as u, julianday('now') - mtime as age
         from segment_info)
