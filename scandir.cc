@@ -504,6 +504,17 @@ int main(int argc, char *argv[])
     root->checksum();
     segment_list.insert(root->get_ref().get_segment());
 
+    string backup_root = root->get_ref().to_string();
+    delete root;
+
+    db->Close();
+
+    statcache->Close();
+    delete statcache;
+
+    tss->sync();
+    delete tss;
+
     /* Write a backup descriptor file, which says which segments are needed and
      * where to start to restore this snapshot.  The filename is based on the
      * current time. */
@@ -513,23 +524,13 @@ int main(int argc, char *argv[])
     descriptor << "Format: LBS Snapshot v0.1\n";
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     descriptor << "Date: " << desc_buf << "\n";
-    descriptor << "Root: " << root->get_ref().to_string() << "\n";
-
-    delete root;
+    descriptor << "Root: " << backup_root << "\n";
 
     descriptor << "Segments:\n";
     for (std::set<string>::iterator i = segment_list.begin();
          i != segment_list.end(); ++i) {
         descriptor << "    " << *i << "\n";
     }
-
-    db->Close();
-
-    statcache->Close();
-    delete statcache;
-
-    tss->sync();
-    delete tss;
 
     return 0;
 }
