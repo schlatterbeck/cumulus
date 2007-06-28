@@ -31,18 +31,33 @@
 #include <list>
 #include <string>
 
+#include "ref.h"
+
 class StatCache {
 public:
     void Open(const char *path, const char *snapshot_name);
     void Close();
+    bool Find(const std::string &path, const struct stat *stat_buf);
     void Save(const std::string &path, struct stat *stat_buf,
               const std::string &checksum,
               const std::list<std::string> &blocks);
 
+    std::string get_checksum() const { return old_checksum; }
+    const std::list<ObjectReference> &get_blocks() const
+        { return old_contents; }
+
 private:
+    void ReadNext();
+
     std::string oldpath, newpath;
     std::ifstream *oldcache;
     std::ofstream *newcache;
+
+    /* Information about one file read from the old cache. */
+    bool end_of_cache;
+    int64_t old_mtime, old_ctime, old_inode;
+    std::string old_name, old_checksum;
+    std::list<ObjectReference> old_contents;
 };
 
 #endif // _LBS_STATCACHE_H

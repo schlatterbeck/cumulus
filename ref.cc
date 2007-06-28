@@ -71,8 +71,22 @@ string ObjectReference::to_string() const
 /* Parse a string object reference and return a pointer to a new
  * ObjectReference.  The caller is responsible for freeing the object.  NULL is
  * returned if there is an error in the syntax. */
-ObjectReference *ObjectReference::parse(const std::string& s)
+ObjectReference *ObjectReference::parse(const std::string& str)
 {
-    // TODO: Implement
-    return NULL;
+    const char *s = str.c_str();
+    const char *t;
+
+    // Segment
+    t = strchr(s, '/');
+    if (t == NULL)
+        return NULL;
+    string segment(s, t - s);
+
+    // Object sequence number
+    s = t + 1;
+    string object(s);
+
+    // TODO: Checksums, ranges.
+
+    return new ObjectReference(segment, object);
 }

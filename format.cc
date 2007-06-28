@@ -47,6 +47,12 @@ string encode_int(long long n)
     return buf;
 }
 
+/* Return the string representation of an integer. */
+long long parse_int(const string &s)
+{
+    return strtoll(s.c_str(), NULL, 10);
+}
+
 /* Output a dictionary of string key/value pairs to the given output stream.
  * The format is a sequence of lines of the form "key: value". */
 void dict_output(ostream &o, map<string, string> dict)

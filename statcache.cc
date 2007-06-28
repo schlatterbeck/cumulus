@@ -23,18 +23,61 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <string>
 
 #include "format.h"
+#include "ref.h"
 #include "statcache.h"
 
 using std::list;
+using std::map;
 using std::string;
+using std::getline;
 using std::ifstream;
 using std::ofstream;
+
+/* Like strcmp, but sorts in the order that files will be visited in the
+ * filesystem.  That is, we break paths apart at slashes, and compare path
+ * components separately. */
+static int pathcmp(const char *path1, const char *path2)
+{
+    /* Find the first component in each path. */
+    const char *slash1 = strchr(path1, '/');
+    const char *slash2 = strchr(path2, '/');
+
+    {
+        string comp1, comp2;
+        if (slash1 == NULL)
+            comp1 = path1;
+        else
+            comp1 = string(path1, slash1 - path1);
+
+        if (slash2 == NULL)
+            comp2 = path2;
+        else
+            comp2 = string(path2, slash2 - path2);
+
+        /* Directly compare the two components first. */
+        if (comp1 < comp2)
+            return -1;
+        if (comp1 > comp2)
+            return 1;
+    }
+
+    if (slash1 == NULL && slash2 == NULL)
+        return 0;
+    if (slash1 == NULL)
+        return -1;
+    if (slash2 == NULL)
+        return 1;
+
+    return pathcmp(slash1 + 1, slash2 + 1);
+}
 
 void StatCache::Open(const char *path, const char *snapshot_name)
 {
@@ -42,8 +85,12 @@ void StatCache::Open(const char *path, const char *snapshot_name)
     oldpath += "/statcache";
     newpath = oldpath + "." + snapshot_name;
 
-    oldcache = NULL;
+    oldcache = new ifstream(oldpath.c_str());
     newcache = new ofstream(newpath.c_str());
+
+    /* Read the first entry from the old stat cache into memory before we
+     * start. */
+    ReadNext();
 }
 
 void StatCache::Close()
@@ -57,6 +104,123 @@ void StatCache::Close()
         fprintf(stderr, "Error renaming statcache from %s to %s: %m\n",
                 newpath.c_str(), oldpath.c_str());
     }
+}
+
+/* Read the next entry from the old statcache file and cache it in memory. */
+void StatCache::ReadNext()
+{
+    if (oldcache == NULL) {
+        end_of_cache = true;
+        return;
+    }
+
+    std::istream &cache = *oldcache;
+    map<string, string> fields;
+
+    old_mtime = -1;
+    old_ctime = -1;
+    old_inode = -1;
+    old_checksum = "";
+    old_contents.clear();
+
+    /* First, read in the filename. */
+    getline(cache, old_name);
+    if (!cache) {
+        end_of_cache = true;
+        return;
+    }
+
+    /* Start reading in the fields which follow the filename. */
+    string field = "";
+    while (!cache.eof()) {
+        string line;
+        getline(cache, line);
+        const char *s = line.c_str();
+
+        /* Is the line blank?  If so, we have reached the end of this entry. */
+        if (s[0] == '\0' || s[0] == '\n')
+            break;
+
+        /* Is this a continuation line?  (Does it start with whitespace?) */
+        if (isspace(s[0]) && field != "") {
+            fields[field] += line;
+            continue;
+        }
+
+        /* For lines of the form "Key: Value" look for ':' and split the line
+         * apart. */
+        const char *value = strchr(s, ':');
+        if (value == NULL)
+            continue;
+        field = string(s, value - s);
+
+        value++;
+        while (isspace(*value))
+            value++;
+
+        fields[field] = value;
+    }
+
+    /* Parse the easy fields: mtime, ctime, inode, checksum, ... */
+    if (fields.count("mtime"))
+        old_mtime = parse_int(fields["mtime"]);
+    if (fields.count("ctime"))
+        old_ctime = parse_int(fields["ctime"]);
+    if (fields.count("inode"))
+        old_inode = parse_int(fields["inode"]);
+
+    old_checksum = fields["checksum"];
+
+    /* Parse the list of blocks. */
+    const char *s = fields["blocks"].c_str();
+    while (*s != '\0') {
+        if (isspace(*s)) {
+            s++;
+            continue;
+        }
+
+        string ref = "";
+        while (*s != '\0' && !isspace(*s)) {
+            char buf[2];
+            buf[0] = *s;
+            buf[1] = '\0';
+            ref += buf;
+            s++;
+        }
+
+        ObjectReference *r = ObjectReference::parse(ref);
+        if (r != NULL) {
+            old_contents.push_back(*r);
+            delete r;
+        }
+    }
+
+    end_of_cache = false;
+}
+
+/* Find information about the given filename in the old stat cache, if it
+ * exists. */
+bool StatCache::Find(const string &path, const struct stat *stat_buf)
+{
+    while (!end_of_cache && pathcmp(old_name.c_str(), path.c_str()) < 0)
+        ReadNext();
+
+    /* Could the file be found at all? */
+    if (end_of_cache)
+        return false;
+    if (old_name != path)
+        return false;
+
+    /* Check to see if the file is unchanged. */
+    if (stat_buf->st_mtime != old_mtime)
+        return false;
+    if (stat_buf->st_ctime != old_ctime)
+        return false;
+    if ((long long)stat_buf->st_ino != old_inode)
+        return false;
+
+    /* File looks to be unchanged. */
+    return true;
 }
 
 /* Save stat information about a regular file for future invocations. */

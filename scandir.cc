@@ -128,59 +128,96 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path)
         return -1;
     }
 
-    /* The index data consists of a sequence of pointers to the data blocks
-     * that actually comprise the file data.  This level of indirection is used
-     * so that the same data block can be used in multiple files, or multiple
-     * versions of the same file. */
-    SHA1Checksum hash;
-    while (true) {
-        size_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
-        if (bytes == 0)
-            break;
+    /* Look up this file in the old stat cache, if we can.  If the stat
+     * information indicates that the file has not changed, do not bother
+     * re-reading the entire contents. */
+    bool cached = false;
 
-        hash.process(block_buf, bytes);
+    if (statcache->Find(path, &stat_buf)) {
+        cached = true;
+        const list<ObjectReference> &blocks = statcache->get_blocks();
 
-        // Either find a copy of this block in an already-existing segment, or
-        // index it so it can be re-used in the future
-        double block_age = 0.0;
-        SHA1Checksum block_hash;
-        block_hash.process(block_buf, bytes);
-        string block_csum = block_hash.checksum_str();
-        ObjectReference ref = db->FindObject(block_csum, bytes);
-
-        // Store a copy of the object if one does not yet exist
-        if (ref.get_segment().size() == 0) {
-            LbsObject *o = new LbsObject;
-
-            /* We might still have seen this checksum before, if the object was
-             * stored at some time in the past, but we have decided to clean
-             * the segment the object was originally stored in (FindObject will
-             * not return such objects).  When rewriting the object contents,
-             * put it in a separate group, so that old objects get grouped
-             * together.  The hope is that these old objects will continue to
-             * be used in the future, and we obtain segments which will
-             * continue to be well-utilized.  Additionally, keep track of the
-             * age of the data by looking up the age of the block which was
-             * expired and using that instead of the current time. */
-            if (db->IsOldObject(block_csum, bytes, &block_age))
-                o->set_group("compacted");
-            else
-                o->set_group("data");
-
-            o->set_data(block_buf, bytes);
-            o->write(tss);
-            ref = o->get_ref();
-            db->StoreObject(ref, block_csum, bytes, block_age);
-            delete o;
+        /* If any of the blocks in the object have been expired, then we should
+         * fall back to fully reading in the file. */
+        for (list<ObjectReference>::const_iterator i = blocks.begin();
+             i != blocks.end(); ++i) {
+            const ObjectReference &ref = *i;
+            if (!db->IsAvailable(ref)) {
+                cached = false;
+                break;
+            }
         }
 
-        object_list.push_back(ref.to_string());
-        segment_list.insert(ref.get_segment());
-        db->UseObject(ref);
-        size += bytes;
+        /* If everything looks okay, use the cached information */
+        if (cached) {
+            file_info["checksum"] = statcache->get_checksum();
+            for (list<ObjectReference>::const_iterator i = blocks.begin();
+                 i != blocks.end(); ++i) {
+                const ObjectReference &ref = *i;
+                object_list.push_back(ref.to_string());
+                segment_list.insert(ref.get_segment());
+                db->UseObject(ref);
+            }
+            size = stat_buf.st_size;
+        }
     }
 
-    file_info["checksum"] = hash.checksum_str();
+    /* If the file is new or changed, we must read in the contents a block at a
+     * time. */
+    if (!cached) {
+        printf("    [new]\n");
+
+        SHA1Checksum hash;
+        while (true) {
+            size_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
+            if (bytes == 0)
+                break;
+
+            hash.process(block_buf, bytes);
+
+            // Either find a copy of this block in an already-existing segment,
+            // or index it so it can be re-used in the future
+            double block_age = 0.0;
+            SHA1Checksum block_hash;
+            block_hash.process(block_buf, bytes);
+            string block_csum = block_hash.checksum_str();
+            ObjectReference ref = db->FindObject(block_csum, bytes);
+
+            // Store a copy of the object if one does not yet exist
+            if (ref.get_segment().size() == 0) {
+                LbsObject *o = new LbsObject;
+
+                /* We might still have seen this checksum before, if the object
+                 * was stored at some time in the past, but we have decided to
+                 * clean the segment the object was originally stored in
+                 * (FindObject will not return such objects).  When rewriting
+                 * the object contents, put it in a separate group, so that old
+                 * objects get grouped together.  The hope is that these old
+                 * objects will continue to be used in the future, and we
+                 * obtain segments which will continue to be well-utilized.
+                 * Additionally, keep track of the age of the data by looking
+                 * up the age of the block which was expired and using that
+                 * instead of the current time. */
+                if (db->IsOldObject(block_csum, bytes, &block_age))
+                    o->set_group("compacted");
+                else
+                    o->set_group("data");
+
+                o->set_data(block_buf, bytes);
+                o->write(tss);
+                ref = o->get_ref();
+                db->StoreObject(ref, block_csum, bytes, block_age);
+                delete o;
+            }
+
+            object_list.push_back(ref.to_string());
+            segment_list.insert(ref.get_segment());
+            db->UseObject(ref);
+            size += bytes;
+        }
+
+        file_info["checksum"] = hash.checksum_str();
+    }
 
     statcache->Save(path, &stat_buf, file_info["checksum"], object_list);
 

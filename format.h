@@ -16,4 +16,6 @@ std::string uri_encode(const std::string &in);
 std::string encode_int(long long n);
 void dict_output(std::ostream &o, std::map<std::string, std::string> dict);
 
+long long parse_int(const std::string &s);
+
 #endif // _LBS_TARSTORE_H

@@ -27,6 +27,7 @@ public:
                      const std::string &checksum, int64_t size, double age);
     ObjectReference FindObject(const std::string &checksum, int64_t size);
     bool IsOldObject(const std::string &checksum, int64_t size, double *age);
+    bool IsAvailable(const ObjectReference &ref);
     void UseObject(const ObjectReference& ref);
 private:
     sqlite3 *db;

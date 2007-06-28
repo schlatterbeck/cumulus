@@ -230,6 +230,34 @@ bool LocalDb::IsOldObject(const string &checksum, int64_t size, double *age)
     return found;
 }
 
+/* Does this object still exist in the database (and not expired)? */
+bool LocalDb::IsAvailable(const ObjectReference &ref)
+{
+    int rc;
+    sqlite3_stmt *stmt;
+    bool found = false;
+
+    stmt = Prepare("select count(*) from block_index "
+                   "where segmentid = ? and object = ? and expired is null");
+    sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
+    sqlite3_bind_text(stmt, 2, ref.get_sequence().c_str(),
+                      ref.get_sequence().size(), SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_DONE) {
+        found = false;
+    } else if (rc == SQLITE_ROW) {
+        if (sqlite3_column_int(stmt, 0) > 0)
+            found = true;
+    } else {
+        fprintf(stderr, "Could not execute SELECT statement!\n");
+    }
+
+    sqlite3_finalize(stmt);
+
+    return found;
+}
+
 void LocalDb::UseObject(const ObjectReference& ref)
 {
     int rc;
