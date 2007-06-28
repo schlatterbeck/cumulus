@@ -117,13 +117,14 @@ void StatCache::ReadNext()
     std::istream &cache = *oldcache;
     map<string, string> fields;
 
+    old_is_validated = false;
     old_mtime = -1;
     old_ctime = -1;
     old_inode = -1;
     old_checksum = "";
     old_contents.clear();
 
-    /* First, read in the filename. */
+    /* First, read in the filename.  TODO: Unescaping. */
     getline(cache, old_name);
     if (!cache) {
         end_of_cache = true;
@@ -162,6 +163,8 @@ void StatCache::ReadNext()
     }
 
     /* Parse the easy fields: mtime, ctime, inode, checksum, ... */
+    if (fields.count("validated"))
+        old_is_validated = true;
     if (fields.count("mtime"))
         old_mtime = parse_int(fields["mtime"]);
     if (fields.count("ctime"))
@@ -211,6 +214,10 @@ bool StatCache::Find(const string &path, const struct stat *stat_buf)
     if (old_name != path)
         return false;
 
+    /* Do we trust cached stat information? */
+    if (!old_is_validated)
+        return false;
+
     /* Check to see if the file is unchanged. */
     if (stat_buf->st_mtime != old_mtime)
         return false;
@@ -227,6 +234,22 @@ bool StatCache::Find(const string &path, const struct stat *stat_buf)
 void StatCache::Save(const string &path, struct stat *stat_buf,
                      const string &checksum, const list<string> &blocks)
 {
+    /* Was this file in the old stat cache, and is the information unchanged?
+     * If so, mark the information "validated", which means we are confident
+     * that we can use it to accurately detect changes.  (Stat information may
+     * not be updated if, for example, there are two writes within a single
+     * second and we happen to make the first stat call between them.  However,
+     * if two stat calls separated in time agree, then we will trust the
+     * values.) */
+    bool validated = false;
+    if (!end_of_cache && path == old_name) {
+        if (stat_buf->st_mtime == old_mtime
+            && stat_buf->st_ctime == old_ctime
+            && (long long)stat_buf->st_ino == old_inode
+            && old_checksum == checksum)
+            validated = true;
+    }
+
     *newcache << uri_encode(path) << "\n";
     *newcache << "mtime: " << encode_int(stat_buf->st_mtime) << "\n"
               << "ctime: " << encode_int(stat_buf->st_ctime) << "\n"
@@ -240,6 +263,9 @@ void StatCache::Save(const string &path, struct stat *stat_buf,
          i != blocks.end(); ++i) {
         *newcache << " " << *i << "\n";
     }
+
+    if (validated)
+        *newcache << "validated: true\n";
 
     *newcache << "\n";
 }

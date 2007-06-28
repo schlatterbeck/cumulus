@@ -55,6 +55,7 @@ private:
 
     /* Information about one file read from the old cache. */
     bool end_of_cache;
+    bool old_is_validated;
     int64_t old_mtime, old_ctime, old_inode;
     std::string old_name, old_checksum;
     std::list<ObjectReference> old_contents;
