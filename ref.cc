@@ -77,16 +77,68 @@ ObjectReference *ObjectReference::parse(const std::string& str)
     const char *t;
 
     // Segment
-    t = strchr(s, '/');
-    if (t == NULL)
+    t = s;
+    while ((*t >= '0' && *t <= '9') || (*t >= 'a' && *t <= 'f') || (*t == '-'))
+        t++;
+    if (*t != '/')
         return NULL;
     string segment(s, t - s);
 
     // Object sequence number
-    s = t + 1;
-    string object(s);
+    t++;
+    s = t;
+    while ((*t >= '0' && *t <= '9') || (*t >= 'a' && *t <= 'f'))
+        t++;
+    if (*t != '\0' && *t != '(' && *t != '[')
+        return NULL;
+    string object(s, t - s);
 
-    // TODO: Checksums, ranges.
+    // Checksum
+    string checksum;
+    if (*t == '(') {
+        t++;
+        s = t;
+        while (*t != ')' && *t != '\0')
+            t++;
+        if (*t != ')')
+            return NULL;
+        checksum = string(s, t - s);
+        t++;
+    }
 
-    return new ObjectReference(segment, object);
+    // Range
+    bool have_range = false;
+    int64_t range1, range2;
+    if (*t == '[') {
+        t++;
+        s = t;
+        while (*t >= '0' && *t <= '9')
+            t++;
+        if (*t != '+')
+            return NULL;
+
+        string val(s, t - s);
+        range1 = atoll(val.c_str());
+
+        t++;
+        s = t;
+        while (*t >= '0' && *t <= '9')
+            t++;
+        if (*t != ']')
+            return NULL;
+
+        val = string(s, t - s);
+        range2 = atoll(val.c_str());
+
+        have_range = true;
+    }
+
+    ObjectReference *ref = new ObjectReference(segment, object);
+    if (checksum.size() > 0)
+        ref->set_checksum(checksum);
+
+    if (have_range)
+        ref->set_range(range1, range2);
+
+    return ref;
 }
