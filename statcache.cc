@@ -254,6 +254,7 @@ void StatCache::Save(const string &path, struct stat *stat_buf,
     *newcache << "mtime: " << encode_int(stat_buf->st_mtime) << "\n"
               << "ctime: " << encode_int(stat_buf->st_ctime) << "\n"
               << "inode: " << encode_int(stat_buf->st_ino) << "\n"
+              << "size: " << encode_int(stat_buf->st_size) << "\n"
               << "checksum: " << checksum << "\n";
 
     *newcache << "blocks:";
