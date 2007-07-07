@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <list>
+#include <map>
 #include <set>
 #include <string>
 #include <iostream>
@@ -27,6 +28,7 @@
 
 using std::max;
 using std::list;
+using std::map;
 using std::set;
 using std::string;
 
@@ -194,6 +196,8 @@ size_t Tarfile::size_estimate()
 
 static const size_t SEGMENT_SIZE = 4 * 1024 * 1024;
 
+static map<string, int64_t> group_sizes;
+
 ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
                                               const std::string &group)
 {
@@ -224,6 +228,8 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
     segment->file->write_object(id, data, len);
     segment->count++;
 
+    group_sizes[group] += len;
+
     ObjectReference ref(segment->name, id_buf);
 
     // If this segment meets or exceeds the size target, close it so that
@@ -238,6 +244,15 @@ void TarSegmentStore::sync()
 {
     while (!segments.empty())
         close_segment(segments.begin()->first);
+}
+
+void TarSegmentStore::dump_stats()
+{
+    printf("Data written:\n");
+    for (map<string, int64_t>::iterator i = group_sizes.begin();
+         i != group_sizes.end(); ++i) {
+        printf("    %s: %lld\n", i->first.c_str(), i->second);
+    }
 }
 
 void TarSegmentStore::close_segment(const string &group)

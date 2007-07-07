@@ -84,6 +84,9 @@ public:
     // Ensure all segments have been fully written.
     void sync();
 
+    // Dump statistics to stdout about how much data has been written
+    void dump_stats();
+
 private:
     struct segment_info {
         Tarfile *file;

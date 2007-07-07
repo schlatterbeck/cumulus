@@ -550,6 +550,7 @@ int main(int argc, char *argv[])
     delete statcache;
 
     tss->sync();
+    tss->dump_stats();
     delete tss;
 
     /* Write a backup descriptor file, which says which segments are needed and
