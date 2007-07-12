@@ -121,6 +121,7 @@ void StatCache::ReadNext()
     old_mtime = -1;
     old_ctime = -1;
     old_inode = -1;
+    old_size = -1;
     old_checksum = "";
     old_contents.clear();
 
@@ -171,6 +172,8 @@ void StatCache::ReadNext()
         old_ctime = parse_int(fields["ctime"]);
     if (fields.count("inode"))
         old_inode = parse_int(fields["inode"]);
+    if (fields.count("size"))
+        old_inode = parse_int(fields["size"]);
 
     old_checksum = fields["checksum"];
 
@@ -224,6 +227,8 @@ bool StatCache::Find(const string &path, const struct stat *stat_buf)
     if (stat_buf->st_ctime != old_ctime)
         return false;
     if ((long long)stat_buf->st_ino != old_inode)
+        return false;
+    if (stat_buf->st_size != old_size)
         return false;
 
     /* File looks to be unchanged. */
