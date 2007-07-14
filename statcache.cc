@@ -173,7 +173,7 @@ void StatCache::ReadNext()
     if (fields.count("inode"))
         old_inode = parse_int(fields["inode"]);
     if (fields.count("size"))
-        old_inode = parse_int(fields["size"]);
+        old_size = parse_int(fields["size"]);
 
     old_checksum = fields["checksum"];
 
