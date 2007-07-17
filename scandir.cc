@@ -59,10 +59,16 @@ std::ostringstream metadata;
 /* Keep track of all segments which are needed to reconstruct the snapshot. */
 std::set<string> segment_list;
 
-void scandir(const string& path);
+void scandir(const string& path, bool include);
 
 /* Selection of files to include/exclude in the snapshot. */
-std::list<string> excludes;
+std::list<string> includes;         // Paths in which files should be saved
+std::list<string> excludes;         // Paths which will not be saved
+std::list<string> searches;         // Directories we don't want to save, but
+                                    //   do want to descend searching for data
+                                    //   in included paths
+
+bool relative_paths = true;
 
 /* Ensure contents of metadata are flushed to an object. */
 void metadata_flush()
@@ -252,7 +258,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path)
     return size;
 }
 
-void scanfile(const string& path)
+void scanfile(const string& path, bool include)
 {
     int fd;
     long flags;
@@ -262,22 +268,51 @@ void scanfile(const string& path)
     int64_t file_size;
     list<string> refs;
 
+    string true_path;
+    if (relative_paths)
+        true_path = path;
+    else
+        true_path = "/" + path;
+
     // Set to true if the item is a directory and we should recursively scan
     bool recurse = false;
 
+    // Set to true if we should scan through the contents of this directory,
+    // but not actually back files up
+    bool scan_only = false;
+
     // Check this file against the include/exclude list to see if it should be
     // considered
+    for (list<string>::iterator i = includes.begin();
+         i != includes.end(); ++i) {
+        if (path == *i) {
+            printf("Including %s\n", path.c_str());
+            include = true;
+        }
+    }
+
     for (list<string>::iterator i = excludes.begin();
          i != excludes.end(); ++i) {
         if (path == *i) {
             printf("Excluding %s\n", path.c_str());
-            return;
+            include = false;
         }
     }
 
+    for (list<string>::iterator i = searches.begin();
+         i != searches.end(); ++i) {
+        if (path == *i) {
+            printf("Scanning %s\n", path.c_str());
+            scan_only = true;
+        }
+    }
+
+    if (!include && !scan_only)
+        return;
+
     dictionary file_info;
 
-    lstat(path.c_str(), &stat_buf);
+    lstat(true_path.c_str(), &stat_buf);
 
     printf("%s\n", path.c_str());
 
@@ -318,7 +353,7 @@ void scanfile(const string& path)
          * the symlink.  Allocate slightly more space, so that we ask for more
          * bytes than we expect and so check for truncation. */
         buf = new char[stat_buf.st_size + 2];
-        len = readlink(path.c_str(), buf, stat_buf.st_size + 1);
+        len = readlink(true_path.c_str(), buf, stat_buf.st_size + 1);
         if (len < 0) {
             fprintf(stderr, "error reading symlink: %m\n");
         } else if (len <= stat_buf.st_size) {
@@ -345,9 +380,9 @@ void scanfile(const string& path)
          * We also add in O_NOATIME, since this may reduce disk writes (for
          * inode updates).  However, O_NOATIME may result in EPERM, so if the
          * initial open fails, try again without O_NOATIME.  */
-        fd = open(path.c_str(), O_RDONLY|O_NOATIME|O_NOFOLLOW|O_NONBLOCK);
+        fd = open(true_path.c_str(), O_RDONLY|O_NOATIME|O_NOFOLLOW|O_NONBLOCK);
         if (fd < 0) {
-            fd = open(path.c_str(), O_RDONLY|O_NOFOLLOW|O_NONBLOCK);
+            fd = open(true_path.c_str(), O_RDONLY|O_NOFOLLOW|O_NONBLOCK);
         }
         if (fd < 0) {
             fprintf(stderr, "Unable to open file %s: %m\n", path.c_str());
@@ -395,12 +430,18 @@ void scanfile(const string& path)
     // If we hit a directory, now that we've written the directory itself,
     // recursively scan the directory.
     if (recurse)
-        scandir(path);
+        scandir(path, include);
 }
 
-void scandir(const string& path)
+void scandir(const string& path, bool include)
 {
-    DIR *dir = opendir(path.c_str());
+    string true_path;
+    if (relative_paths)
+        true_path = path;
+    else
+        true_path = "/" + path;
+
+    DIR *dir = opendir(true_path.c_str());
 
     if (dir == NULL) {
         fprintf(stderr, "Error: %m\n");
@@ -422,30 +463,80 @@ void scandir(const string& path)
          i != contents.end(); ++i) {
         const string& filename = *i;
         if (path == ".")
-            scanfile(filename);
+            scanfile(filename, include);
         else
-            scanfile(path + "/" + filename);
+            scanfile(path + "/" + filename, include);
     }
 
     closedir(dir);
 }
 
+/* Include the specified file path in the backups.  Append the path to the
+ * includes list, and to ensure that we actually see the path when scanning the
+ * directory tree, add all the parent directories to the search list, which
+ * means we will scan through the directory listing even if the files
+ * themselves are excluded from being backed up. */
+void add_include(const char *path)
+{
+    printf("Add: %s\n", path);
+    /* Was an absolute path specified?  If so, we'll need to start scanning
+     * from the root directory.  Make sure that the user was consistent in
+     * providing either all relative paths or all absolute paths. */
+    if (path[0] == '/') {
+        if (includes.size() > 0 && relative_paths == true) {
+            fprintf(stderr,
+                    "Error: Cannot mix relative and absolute paths!\n");
+            exit(1);
+        }
+
+        relative_paths = false;
+
+        // Skip over leading '/'
+        path++;
+    } else if (relative_paths == false && path[0] != '/') {
+        fprintf(stderr, "Error: Cannot mix relative and absolute paths!\n");
+        exit(1);
+    }
+
+    includes.push_back(path);
+
+    /* Split the specified path into directory components, and ensure that we
+     * descend into all the directories along the path. */
+    const char *slash = path;
+
+    if (path[0] == '\0')
+        return;
+
+    while ((slash = strchr(slash + 1, '/')) != NULL) {
+        string component(path, slash - path);
+        searches.push_back(component);
+    }
+}
+
 void usage(const char *program)
 {
-    fprintf(stderr,
-            "Usage: %s [OPTION]... SOURCE DEST\n"
-            "Produce backup snapshot of files in SOURCE and store to DEST.\n"
-            "\n"
-            "Options:\n"
-            "  --exclude=PATH       exclude files in PATH from snapshot\n"
-            "  --localdb=PATH       local backup metadata is stored in PATH\n",
-            program);
+    fprintf(
+        stderr,
+        "Usage: %s [OPTION]... --dest=DEST PATHS...\n"
+        "Produce backup snapshot of files in SOURCE and store to DEST.\n"
+        "\n"
+        "Options:\n"
+        "  --dest=PATH          path where backup is to be written [REQUIRED]\n"
+        "  --exclude=PATH       exclude files in PATH from snapshot\n"
+        "  --localdb=PATH       local backup metadata is stored in PATH\n"
+        "  --filter=COMMAND     program through which to filter segment data\n"
+        "                           (defaults to \"bzip2 -c\")\n"
+        "  --filter-extension=EXT\n"
+        "                       string to append to segment files\n"
+        "                           (defaults to \".bz2\")\n",
+        program
+    );
 }
 
 int main(int argc, char *argv[])
 {
     string backup_source = ".";
-    string backup_dest = ".";
+    string backup_dest = "";
     string localdb_dir = "";
 
     while (1) {
@@ -454,6 +545,7 @@ int main(int argc, char *argv[])
             {"exclude", 1, 0, 0},           // 1
             {"filter", 1, 0, 0},            // 2
             {"filter-extension", 1, 0, 0},  // 3
+            {"dest", 1, 0, 0},              // 4
             {NULL, 0, 0, 0},
         };
 
@@ -469,13 +561,19 @@ int main(int argc, char *argv[])
                 localdb_dir = optarg;
                 break;
             case 1:     // --exclude
-                excludes.push_back(optarg);
+                if (optarg[0] != '/')
+                    excludes.push_back(optarg);
+                else
+                    excludes.push_back(optarg + 1);
                 break;
             case 2:     // --filter
                 filter_program = optarg;
                 break;
             case 3:     // --filter-extension
                 filter_extension = optarg;
+                break;
+            case 4:     // --dest
+                backup_dest = optarg;
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");
@@ -492,15 +590,47 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    backup_source = argv[optind];
-    backup_dest = argv[argc - 1];
+    searches.push_back(".");
+    if (optind == argc) {
+        add_include(".");
+    } else {
+        for (int i = optind; i < argc; i++)
+            add_include(argv[i]);
+    }
 
+    backup_source = argv[optind];
+
+    if (backup_dest == "") {
+        fprintf(stderr,
+                "Error: Backup destination must be specified with --dest=\n");
+        usage(argv[0]);
+        return 1;
+    }
+
+    // Default for --localdb is the same as --dest
     if (localdb_dir == "") {
         localdb_dir = backup_dest;
     }
 
-    printf("Source: %s\nDest: %s\nDatabase: %s\n\n",
-           backup_source.c_str(), backup_dest.c_str(), localdb_dir.c_str());
+    // Dump paths for debugging/informational purposes
+    {
+        list<string>::const_iterator i;
+
+        printf("--dest=%s\n--localdb=%s\n\n",
+               backup_dest.c_str(), localdb_dir.c_str());
+
+        printf("Includes:\n");
+        for (i = includes.begin(); i != includes.end(); ++i)
+            printf("    %s\n", i->c_str());
+
+        printf("Excludes:\n");
+        for (i = excludes.begin(); i != excludes.end(); ++i)
+            printf("    %s\n", i->c_str());
+
+        printf("Searching:\n");
+        for (i = searches.begin(); i != searches.end(); ++i)
+            printf("    %s\n", i->c_str());
+    }
 
     tss = new TarSegmentStore(backup_dest);
     block_buf = new char[LBS_BLOCK_SIZE];
@@ -525,11 +655,7 @@ int main(int argc, char *argv[])
     statcache = new StatCache;
     statcache->Open(localdb_dir.c_str(), desc_buf);
 
-    try {
-        scanfile(".");
-    } catch (IOException e) {
-        fprintf(stderr, "IOException: %s\n", e.getError().c_str());
-    }
+    scanfile(".", false);
 
     metadata_flush();
     const string md = metadata_root.str();
