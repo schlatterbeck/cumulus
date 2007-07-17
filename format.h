@@ -13,6 +13,7 @@
 #include <string>
 
 std::string uri_encode(const std::string &in);
+std::string uri_decode(const std::string &in);
 std::string encode_int(long long n);
 void dict_output(std::ostream &o, std::map<std::string, std::string> dict);
 

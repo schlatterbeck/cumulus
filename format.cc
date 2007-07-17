@@ -39,6 +39,38 @@ string uri_encode(const string &in)
     return out;
 }
 
+/* Decoding of strings produced by uri_encode. */
+string uri_decode(const string &in)
+{
+    char *buf = new char[in.size() + 1];
+
+    const char *input = in.c_str();
+    char *output = buf;
+
+    while (*input != '\0') {
+        if (*input == '%') {
+            char hexbuf[4];
+            if (isxdigit(input[1]) && isxdigit(input[2])) {
+                hexbuf[0] = input[1];
+                hexbuf[1] = input[2];
+                hexbuf[2] = '\0';
+                *output++ = strtol(hexbuf, NULL, 16);
+                input += 3;
+            } else {
+                input++;
+            }
+        } else {
+            *output++ = *input++;
+        }
+    }
+
+    *output = '\0';
+
+    string result(buf);
+    delete buf;
+    return result;
+}
+
 /* Return the string representation of an integer. */
 string encode_int(long long n)
 {

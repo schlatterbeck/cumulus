@@ -125,12 +125,13 @@ void StatCache::ReadNext()
     old_checksum = "";
     old_contents.clear();
 
-    /* First, read in the filename.  TODO: Unescaping. */
+    /* First, read in the filename. */
     getline(cache, old_name);
     if (!cache) {
         end_of_cache = true;
         return;
     }
+    old_name = uri_decode(old_name);
 
     /* Start reading in the fields which follow the filename. */
     string field = "";
