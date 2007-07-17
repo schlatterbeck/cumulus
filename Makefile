@@ -7,7 +7,7 @@ LDFLAGS=$(DEBUG) -ltar `pkg-config --libs $(PACKAGES)`
 SRCS=format.cc localdb.cc ref.cc scandir.cc sha1.cc statcache.cc store.cc
 OBJS=$(SRCS:.cc=.o)
 
-scandir : $(OBJS)
+lbs : $(OBJS)
 	$(CXX) $(LDFLAGS) -o $@ $^
 
 dep:
