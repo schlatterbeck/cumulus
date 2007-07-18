@@ -348,11 +348,10 @@ void scanfile(const string& path, bool include)
     case S_IFSOCK:
         inode_type = 's';
         break;
-    case S_IFCHR:
-        inode_type = 'c';
-        break;
     case S_IFBLK:
-        inode_type = 'b';
+    case S_IFCHR:
+        inode_type = ((stat_buf.st_mode & S_IFMT) == S_IFBLK) ? 'b' : 'c';
+        file_info["device"] = encode_int(stat_buf.st_rdev);
         break;
     case S_IFLNK:
         inode_type = 'l';
