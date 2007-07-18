@@ -14,9 +14,13 @@ version :
 	(git-describe || echo "Unknown") >version
 $(OBJS) : version
 
-dep:
+clean :
+	rm -f $(OBJS) lbs version
+
+dep :
 	touch Makefile.dep
 	makedepend -fMakefile.dep $(SRCS)
 
--include *.dep
+.PHONY : clean dep
 
+-include *.dep
