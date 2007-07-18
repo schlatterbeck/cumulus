@@ -33,6 +33,14 @@ using std::string;
 using std::vector;
 using std::ostream;
 
+/* Version information.  This will be filled in by the Makefile. */
+#ifndef LBS_VERSION
+#define LBS_VERSION Unknown
+#endif
+#define LBS_STRINGIFY(s) LBS_STRINGIFY2(s)
+#define LBS_STRINGIFY2(s) #s
+static const char lbs_version[] = LBS_STRINGIFY(LBS_VERSION);
+
 static TarSegmentStore *tss = NULL;
 
 /* Buffer for holding a single block of data read from a file. */
@@ -616,6 +624,8 @@ int main(int argc, char *argv[])
     {
         list<string>::const_iterator i;
 
+        printf("LBS Version: %s\n", lbs_version);
+
         printf("--dest=%s\n--localdb=%s\n\n",
                backup_dest.c_str(), localdb_dir.c_str());
 
@@ -686,6 +696,7 @@ int main(int argc, char *argv[])
     std::ofstream descriptor(desc_filename.c_str());
 
     descriptor << "Format: LBS Snapshot v0.1\n";
+    descriptor << "Producer: " << lbs_version << "\n";
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     descriptor << "Date: " << desc_buf << "\n";
     descriptor << "Root: " << backup_root << "\n";
