@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -351,7 +352,8 @@ void scanfile(const string& path, bool include)
     case S_IFBLK:
     case S_IFCHR:
         inode_type = ((stat_buf.st_mode & S_IFMT) == S_IFBLK) ? 'b' : 'c';
-        file_info["device"] = encode_int(stat_buf.st_rdev);
+        file_info["device"] = encode_int(major(stat_buf.st_rdev))
+            + "/" + encode_int(minor(stat_buf.st_rdev));
         break;
     case S_IFLNK:
         inode_type = 'l';
