@@ -30,9 +30,9 @@
 #include <map>
 #include <string>
 
-#include "format.h"
 #include "ref.h"
 #include "statcache.h"
+#include "util.h"
 
 using std::list;
 using std::map;

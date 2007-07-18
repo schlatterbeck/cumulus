@@ -23,11 +23,11 @@
 #include <string>
 #include <vector>
 
-#include "format.h"
 #include "localdb.h"
 #include "store.h"
 #include "sha1.h"
 #include "statcache.h"
+#include "util.h"
 
 using std::list;
 using std::string;
