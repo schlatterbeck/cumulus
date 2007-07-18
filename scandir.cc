@@ -106,7 +106,7 @@ void metadata_flush()
 /* Read data from a file descriptor and return the amount of data read.  A
  * short read (less than the requested size) will only occur if end-of-file is
  * hit. */
-size_t file_read(int fd, char *buf, size_t maxlen)
+ssize_t file_read(int fd, char *buf, size_t maxlen)
 {
     size_t bytes_read = 0;
 
@@ -115,7 +115,8 @@ size_t file_read(int fd, char *buf, size_t maxlen)
         if (res < 0) {
             if (errno == EINTR)
                 continue;
-            throw IOException("file_read: error reading");
+            fprintf(stderr, "error reading file: %m\n");
+            return -1;
         } else if (res == 0) {
             break;
         } else {
@@ -134,7 +135,12 @@ size_t file_read(int fd, char *buf, size_t maxlen)
 int64_t dumpfile(int fd, dictionary &file_info, const string &path)
 {
     struct stat stat_buf;
-    fstat(fd, &stat_buf);
+
+    if (fstat(fd, &stat_buf) < 0) {
+        fprintf(stderr, "fstat: %m\n");
+        return -1;
+    }
+
     int64_t size = 0;
     list<string> object_list;
 
@@ -184,9 +190,14 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path)
 
         SHA1Checksum hash;
         while (true) {
-            size_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
+            ssize_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
             if (bytes == 0)
                 break;
+            if (bytes < 0) {
+                fprintf(stderr, "Backup contents for %s may be incorrect\n",
+                        path.c_str());
+                break;
+            }
 
             hash.process(block_buf, bytes);
 
@@ -321,7 +332,10 @@ void scanfile(const string& path, bool include)
 
     dictionary file_info;
 
-    lstat(true_path.c_str(), &stat_buf);
+    if (lstat(true_path.c_str(), &stat_buf) < 0) {
+        fprintf(stderr, "lstat(%s): %m\n", path.c_str());
+        return;
+    }
 
     printf("%s\n", path.c_str());
 
@@ -466,6 +480,8 @@ void scandir(const string& path, bool include)
         contents.push_back(filename);
     }
 
+    closedir(dir);
+
     sort(contents.begin(), contents.end());
 
     for (vector<string>::iterator i = contents.begin();
@@ -476,8 +492,6 @@ void scandir(const string& path, bool include)
         else
             scanfile(path + "/" + filename, include);
     }
-
-    closedir(dir);
 }
 
 /* Include the specified file path in the backups.  Append the path to the
@@ -697,7 +711,7 @@ int main(int argc, char *argv[])
     std::ofstream descriptor(desc_filename.c_str());
 
     descriptor << "Format: LBS Snapshot v0.1\n";
-    descriptor << "Producer: " << lbs_version << "\n";
+    descriptor << "Producer: LBS " << lbs_version << "\n";
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     descriptor << "Date: " << desc_buf << "\n";
     descriptor << "Root: " << backup_root << "\n";
