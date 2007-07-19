@@ -554,7 +554,8 @@ void usage(const char *program)
         "                           (defaults to \"bzip2 -c\")\n"
         "  --filter-extension=EXT\n"
         "                       string to append to segment files\n"
-        "                           (defaults to \".bz2\")\n",
+        "                           (defaults to \".bz2\")\n"
+        "  --name=NAME          optional name for this snapshot\n",
         program
     );
 }
@@ -564,6 +565,7 @@ int main(int argc, char *argv[])
     string backup_source = ".";
     string backup_dest = "";
     string localdb_dir = "";
+    string backup_name = "";
 
     while (1) {
         static struct option long_options[] = {
@@ -572,6 +574,7 @@ int main(int argc, char *argv[])
             {"filter", 1, 0, 0},            // 2
             {"filter-extension", 1, 0, 0},  // 3
             {"dest", 1, 0, 0},              // 4
+            {"name", 1, 0, 0},              // 5
             {NULL, 0, 0, 0},
         };
 
@@ -600,6 +603,9 @@ int main(int argc, char *argv[])
                 break;
             case 4:     // --dest
                 backup_dest = optarg;
+                break;
+            case 5:     // --name
+                backup_name = optarg;
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");
@@ -710,13 +716,18 @@ int main(int argc, char *argv[])
     /* Write a backup descriptor file, which says which segments are needed and
      * where to start to restore this snapshot.  The filename is based on the
      * current time. */
-    string desc_filename = backup_dest + "/snapshot-" + desc_buf + ".lbs";
+    string desc_filename = backup_dest + "/snapshot-";
+    if (backup_name.size() > 0)
+        desc_filename += backup_name + "-";
+    desc_filename = desc_filename + desc_buf + ".lbs";
     std::ofstream descriptor(desc_filename.c_str());
 
     descriptor << "Format: LBS Snapshot v0.1\n";
     descriptor << "Producer: LBS " << lbs_version << "\n";
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     descriptor << "Date: " << desc_buf << "\n";
+    if (backup_name.size() > 0)
+        descriptor << "Name: " << backup_name << "\n";
     descriptor << "Root: " << backup_root << "\n";
 
     descriptor << "Segments:\n";
