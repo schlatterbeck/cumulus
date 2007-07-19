@@ -68,8 +68,6 @@ std::ostringstream metadata;
 /* Keep track of all segments which are needed to reconstruct the snapshot. */
 std::set<string> segment_list;
 
-void scandir(const string& path, bool include);
-
 /* Selection of files to include/exclude in the snapshot. */
 std::list<string> includes;         // Paths in which files should be saved
 std::list<string> excludes;         // Paths which will not be saved
@@ -132,22 +130,11 @@ ssize_t file_read(int fd, char *buf, size_t maxlen)
 /* Read the contents of a file (specified by an open file descriptor) and copy
  * the data to the store.  Returns the size of the file (number of bytes
  * dumped), or -1 on error. */
-int64_t dumpfile(int fd, dictionary &file_info, const string &path)
+int64_t dumpfile(int fd, dictionary &file_info, const string &path,
+                 struct stat& stat_buf)
 {
-    struct stat stat_buf;
-
-    if (fstat(fd, &stat_buf) < 0) {
-        fprintf(stderr, "fstat: %m\n");
-        return -1;
-    }
-
     int64_t size = 0;
     list<string> object_list;
-
-    if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
-        fprintf(stderr, "file is no longer a regular file!\n");
-        return -1;
-    }
 
     /* Look up this file in the old stat cache, if we can.  If the stat
      * information indicates that the file has not changed, do not bother
@@ -278,64 +265,18 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path)
     return size;
 }
 
-void scanfile(const string& path, bool include)
+/* Dump a specified filesystem object (file, directory, etc.) based on its
+ * inode information.  If the object is a regular file, an open filehandle is
+ * provided. */
+void dump_inode(const string& path,         // Path within snapshot
+                const string& fullpath,     // Path to object in filesystem
+                struct stat& stat_buf,      // Results of stat() call
+                int fd)                     // Open filehandle if regular file
 {
-    int fd;
-    long flags;
-    struct stat stat_buf;
     char *buf;
-    ssize_t len;
-    int64_t file_size;
-    list<string> refs;
-
-    string true_path;
-    if (relative_paths)
-        true_path = path;
-    else
-        true_path = "/" + path;
-
-    // Set to true if the item is a directory and we should recursively scan
-    bool recurse = false;
-
-    // Set to true if we should scan through the contents of this directory,
-    // but not actually back files up
-    bool scan_only = false;
-
-    // Check this file against the include/exclude list to see if it should be
-    // considered
-    for (list<string>::iterator i = includes.begin();
-         i != includes.end(); ++i) {
-        if (path == *i) {
-            printf("Including %s\n", path.c_str());
-            include = true;
-        }
-    }
-
-    for (list<string>::iterator i = excludes.begin();
-         i != excludes.end(); ++i) {
-        if (path == *i) {
-            printf("Excluding %s\n", path.c_str());
-            include = false;
-        }
-    }
-
-    for (list<string>::iterator i = searches.begin();
-         i != searches.end(); ++i) {
-        if (path == *i) {
-            printf("Scanning %s\n", path.c_str());
-            scan_only = true;
-        }
-    }
-
-    if (!include && !scan_only)
-        return;
-
     dictionary file_info;
-
-    if (lstat(true_path.c_str(), &stat_buf) < 0) {
-        fprintf(stderr, "lstat(%s): %m\n", path.c_str());
-        return;
-    }
+    int64_t file_size;
+    ssize_t len;
 
     printf("%s\n", path.c_str());
 
@@ -376,7 +317,7 @@ void scanfile(const string& path, bool include)
          * the symlink.  Allocate slightly more space, so that we ask for more
          * bytes than we expect and so check for truncation. */
         buf = new char[stat_buf.st_size + 2];
-        len = readlink(true_path.c_str(), buf, stat_buf.st_size + 1);
+        len = readlink(fullpath.c_str(), buf, stat_buf.st_size + 1);
         if (len < 0) {
             fprintf(stderr, "error reading symlink: %m\n");
         } else if (len <= stat_buf.st_size) {
@@ -391,12 +332,97 @@ void scanfile(const string& path, bool include)
     case S_IFREG:
         inode_type = '-';
 
+        file_size = dumpfile(fd, file_info, path, stat_buf);
+        file_info["size"] = encode_int(file_size);
+        close(fd);
+
+        if (file_size < 0)
+            return;             // error occurred; do not dump file
+
+        if (file_size != stat_buf.st_size) {
+            fprintf(stderr, "Warning: Size of %s changed during reading\n",
+                    path.c_str());
+        }
+
+        break;
+    case S_IFDIR:
+        inode_type = 'd';
+        break;
+
+    default:
+        fprintf(stderr, "Unknown inode type: mode=%x\n", stat_buf.st_mode);
+        return;
+    }
+
+    file_info["type"] = string(1, inode_type);
+
+    metadata << "name: " << uri_encode(path) << "\n";
+    dict_output(metadata, file_info);
+    metadata << "\n";
+
+    // Break apart metadata listing if it becomes too large.
+    if (metadata.str().size() > LBS_METADATA_BLOCK_SIZE)
+        metadata_flush();
+}
+
+void scanfile(const string& path, bool include)
+{
+    int fd = -1;
+    long flags;
+    struct stat stat_buf;
+    list<string> refs;
+
+    string true_path;
+    if (relative_paths)
+        true_path = path;
+    else
+        true_path = "/" + path;
+
+    // Set to true if we should scan through the contents of this directory,
+    // but not actually back files up
+    bool scan_only = false;
+
+    // Check this file against the include/exclude list to see if it should be
+    // considered
+    for (list<string>::iterator i = includes.begin();
+         i != includes.end(); ++i) {
+        if (path == *i) {
+            printf("Including %s\n", path.c_str());
+            include = true;
+        }
+    }
+
+    for (list<string>::iterator i = excludes.begin();
+         i != excludes.end(); ++i) {
+        if (path == *i) {
+            printf("Excluding %s\n", path.c_str());
+            include = false;
+        }
+    }
+
+    for (list<string>::iterator i = searches.begin();
+         i != searches.end(); ++i) {
+        if (path == *i) {
+            printf("Scanning %s\n", path.c_str());
+            scan_only = true;
+        }
+    }
+
+    if (!include && !scan_only)
+        return;
+
+    if (lstat(true_path.c_str(), &stat_buf) < 0) {
+        fprintf(stderr, "lstat(%s): %m\n", path.c_str());
+        return;
+    }
+
+    if ((stat_buf.st_mode & S_IFMT) == S_IFREG) {
         /* Be paranoid when opening the file.  We have no guarantee that the
          * file was not replaced between the stat() call above and the open()
-         * call below, so we might not even be opening a regular file.  That
-         * the file descriptor refers to a regular file is checked in
-         * dumpfile().  But we also supply flags to open to to guard against
-         * various conditions before we can perform that verification:
+         * call below, so we might not even be opening a regular file.  We
+         * supply flags to open to to guard against various conditions before
+         * we can perform an lstat to check that the file is still a regular
+         * file:
          *   - O_NOFOLLOW: in the event the file was replaced by a symlink
          *   - O_NONBLOCK: prevents open() from blocking if the file was
          *     replaced by a fifo
@@ -417,80 +443,57 @@ void scanfile(const string& path, bool include)
         flags = fcntl(fd, F_GETFL);
         fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
-        file_size = dumpfile(fd, file_info, path);
-        file_info["size"] = encode_int(file_size);
-        close(fd);
-
-        if (file_size < 0)
-            return;             // error occurred; do not dump file
-
-        if (file_size != stat_buf.st_size) {
-            fprintf(stderr, "Warning: Size of %s changed during reading\n",
-                    path.c_str());
+        /* Perform the stat call again, and check that we still have a regular
+         * file. */
+        if (fstat(fd, &stat_buf) < 0) {
+            fprintf(stderr, "fstat: %m\n");
+            close(fd);
+            return;
         }
 
-        break;
-    case S_IFDIR:
-        inode_type = 'd';
-        recurse = true;
-        break;
-
-    default:
-        fprintf(stderr, "Unknown inode type: mode=%x\n", stat_buf.st_mode);
-        return;
+        if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
+            fprintf(stderr, "file is no longer a regular file!\n");
+            close(fd);
+            return;
+        }
     }
 
-    file_info["type"] = string(1, inode_type);
+    dump_inode(path, true_path, stat_buf, fd);
 
-    metadata << "name: " << uri_encode(path) << "\n";
-    dict_output(metadata, file_info);
-    metadata << "\n";
-
-    // Break apart metadata listing if it becomes too large.
-    if (metadata.str().size() > LBS_METADATA_BLOCK_SIZE)
-        metadata_flush();
+    if (fd >= 0)
+        close(fd);
 
     // If we hit a directory, now that we've written the directory itself,
     // recursively scan the directory.
-    if (recurse)
-        scandir(path, include);
-}
+    if ((stat_buf.st_mode & S_IFMT) == S_IFDIR) {
+        DIR *dir = opendir(true_path.c_str());
 
-void scandir(const string& path, bool include)
-{
-    string true_path;
-    if (relative_paths)
-        true_path = path;
-    else
-        true_path = "/" + path;
+        if (dir == NULL) {
+            fprintf(stderr, "Error: %m\n");
+            return;
+        }
 
-    DIR *dir = opendir(true_path.c_str());
+        struct dirent *ent;
+        vector<string> contents;
+        while ((ent = readdir(dir)) != NULL) {
+            string filename(ent->d_name);
+            if (filename == "." || filename == "..")
+                continue;
+            contents.push_back(filename);
+        }
 
-    if (dir == NULL) {
-        fprintf(stderr, "Error: %m\n");
-        return;
-    }
+        closedir(dir);
 
-    struct dirent *ent;
-    vector<string> contents;
-    while ((ent = readdir(dir)) != NULL) {
-        string filename(ent->d_name);
-        if (filename == "." || filename == "..")
-            continue;
-        contents.push_back(filename);
-    }
+        sort(contents.begin(), contents.end());
 
-    closedir(dir);
-
-    sort(contents.begin(), contents.end());
-
-    for (vector<string>::iterator i = contents.begin();
-         i != contents.end(); ++i) {
-        const string& filename = *i;
-        if (path == ".")
-            scanfile(filename, include);
-        else
-            scanfile(path + "/" + filename, include);
+        for (vector<string>::iterator i = contents.begin();
+             i != contents.end(); ++i) {
+            const string& filename = *i;
+            if (path == ".")
+                scanfile(filename, include);
+            else
+                scanfile(path + "/" + filename, include);
+        }
     }
 }
 
