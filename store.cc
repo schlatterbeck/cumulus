@@ -57,7 +57,7 @@ Tarfile::Tarfile(const string &path, const string &segment)
     filter_fd = spawn_filter(real_fd);
 
     if (tar_fdopen(&t, filter_fd, (char *)path.c_str(), NULL,
-                   O_WRONLY | O_CREAT, 0600, TAR_VERBOSE | TAR_GNU) == -1)
+                   O_WRONLY | O_CREAT, 0666, TAR_VERBOSE | TAR_GNU) == -1)
         throw IOException("Error opening Tarfile");
 }
 
