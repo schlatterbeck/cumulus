@@ -683,7 +683,8 @@ int main(int argc, char *argv[])
 
     /* Initialize the stat cache, for skipping over unchanged files. */
     statcache = new StatCache;
-    statcache->Open(localdb_dir.c_str(), desc_buf);
+    statcache->Open(localdb_dir.c_str(), desc_buf,
+                    backup_scheme.size() ? backup_scheme.c_str() : NULL);
 
     scanfile(".", false);
 

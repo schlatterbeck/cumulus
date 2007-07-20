@@ -35,7 +35,8 @@
 
 class StatCache {
 public:
-    void Open(const char *path, const char *snapshot_name);
+    void Open(const char *path, const char *snapshot_name,
+              const char *snapshot_scheme);
     void Close();
     bool Find(const std::string &path, const struct stat *stat_buf);
     void Save(const std::string &path, struct stat *stat_buf,

@@ -79,10 +79,13 @@ static int pathcmp(const char *path1, const char *path2)
     return pathcmp(slash1 + 1, slash2 + 1);
 }
 
-void StatCache::Open(const char *path, const char *snapshot_name)
+void StatCache::Open(const char *path, const char *snapshot_name,
+                     const char *snapshot_scheme)
 {
     oldpath = path;
     oldpath += "/statcache";
+    if (snapshot_scheme != NULL)
+        oldpath = oldpath + "-" + snapshot_scheme;
     newpath = oldpath + "." + snapshot_name;
 
     oldcache = new ifstream(oldpath.c_str());
