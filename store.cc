@@ -50,7 +50,7 @@ Tarfile::Tarfile(const string &path, const string &segment)
     : size(0),
       segment_name(segment)
 {
-    real_fd = open(path.c_str(), O_WRONLY | O_CREAT, 0600);
+    real_fd = open(path.c_str(), O_WRONLY | O_CREAT, 0666);
     if (real_fd < 0)
         throw IOException("Error opening output file");
 
