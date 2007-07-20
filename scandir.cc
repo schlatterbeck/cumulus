@@ -723,7 +723,7 @@ int main(int argc, char *argv[])
     desc_filename = desc_filename + desc_buf + ".lbs";
     std::ofstream descriptor(desc_filename.c_str());
 
-    descriptor << "Format: LBS Snapshot v0.1\n";
+    descriptor << "Format: LBS Snapshot v0.2\n";
     descriptor << "Producer: LBS " << lbs_version << "\n";
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     descriptor << "Date: " << desc_buf << "\n";
