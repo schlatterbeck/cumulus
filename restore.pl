@@ -140,6 +140,15 @@ sub load_ref {
 # iterate_objects is a helper function used to iterate over the set of object
 # references that contain the file data for a regular file.
 
+sub parse_int {
+    my $str = shift;
+    if ($str =~ /^0/) {
+        return oct($str);
+    } else {
+        return $str + 0;
+    }
+}
+
 sub uri_decode {
     my $str = shift;
     $str =~ s/%([0-9a-f]{2})/chr(hex($1))/ge;
@@ -196,6 +205,8 @@ sub unpack_file {
     if (!defined $info{checksum} || !defined $info{size}) {
         die "File $name is missing checksum or size";
     }
+
+    $info{size} = parse_int($info{size});
 
     # Open the file to be recreated.  The data will be written out by the call
     # to iterate_objects.
@@ -274,17 +285,17 @@ sub process_file {
     my $gid = -1;
     if (defined $info{user}) {
         my @items = split /\s/, $info{user};
-        $uid = $items[0] + 0 if exists $items[0];
+        $uid = parse_int($items[0]) if exists $items[0];
     }
     if (defined $info{group}) {
         my @items = split /\s/, $info{group};
-        $gid = $items[0] + 0 if exists $items[0];
+        $gid = parse_int($items[0]) if exists $items[0];
     }
     chown $uid, $gid, $dest
         or warn "Unable to change ownership for $dest";
 
     if (defined $info{mode}) {
-        my $mode = $info{mode};
+        my $mode = parse_int($info{mode});
         chmod $mode, $dest
             or warn "Unable to change permissions for $dest";
     }
