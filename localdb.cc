@@ -38,7 +38,8 @@ sqlite3_stmt *LocalDb::Prepare(const char *sql)
     return stmt;
 }
 
-void LocalDb::Open(const char *path, const char *snapshot_name)
+void LocalDb::Open(const char *path, const char *snapshot_name,
+                   const char *snapshot_scheme)
 {
     int rc;
 
@@ -58,10 +59,16 @@ void LocalDb::Open(const char *path, const char *snapshot_name)
 
     /* Insert this snapshot into the database, and determine the integer key
      * which will be used to identify it. */
-    sqlite3_stmt *stmt = Prepare("insert into snapshots(name, timestamp) "
-                                 "values (?, julianday('now'))");
+    sqlite3_stmt *stmt = Prepare("insert into "
+                                 "snapshots(name, scheme, timestamp) "
+                                 "values (?, ?, julianday('now'))");
     sqlite3_bind_text(stmt, 1, snapshot_name, strlen(snapshot_name),
                       SQLITE_TRANSIENT);
+    if (snapshot_scheme == NULL)
+        sqlite3_bind_null(stmt, 2);
+    else
+        sqlite3_bind_text(stmt, 2, snapshot_scheme, strlen(snapshot_scheme),
+                          SQLITE_TRANSIENT);
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {

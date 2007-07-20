@@ -555,7 +555,7 @@ void usage(const char *program)
         "  --filter-extension=EXT\n"
         "                       string to append to segment files\n"
         "                           (defaults to \".bz2\")\n"
-        "  --name=NAME          optional name for this snapshot\n",
+        "  --scheme=NAME        optional name for this snapshot\n",
         program
     );
 }
@@ -565,7 +565,7 @@ int main(int argc, char *argv[])
     string backup_source = ".";
     string backup_dest = "";
     string localdb_dir = "";
-    string backup_name = "";
+    string backup_scheme = "";
 
     while (1) {
         static struct option long_options[] = {
@@ -574,7 +574,7 @@ int main(int argc, char *argv[])
             {"filter", 1, 0, 0},            // 2
             {"filter-extension", 1, 0, 0},  // 3
             {"dest", 1, 0, 0},              // 4
-            {"name", 1, 0, 0},              // 5
+            {"scheme", 1, 0, 0},            // 5
             {NULL, 0, 0, 0},
         };
 
@@ -604,8 +604,8 @@ int main(int argc, char *argv[])
             case 4:     // --dest
                 backup_dest = optarg;
                 break;
-            case 5:     // --name
-                backup_name = optarg;
+            case 5:     // --scheme
+                backup_scheme = optarg;
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");
@@ -683,7 +683,8 @@ int main(int argc, char *argv[])
      * snapshot. */
     string database_path = localdb_dir + "/localdb.sqlite";
     db = new LocalDb;
-    db->Open(database_path.c_str(), desc_buf);
+    db->Open(database_path.c_str(), desc_buf,
+             backup_scheme.size() ? backup_scheme.c_str() : NULL);
 
     /* Initialize the stat cache, for skipping over unchanged files. */
     statcache = new StatCache;
@@ -717,8 +718,8 @@ int main(int argc, char *argv[])
      * where to start to restore this snapshot.  The filename is based on the
      * current time. */
     string desc_filename = backup_dest + "/snapshot-";
-    if (backup_name.size() > 0)
-        desc_filename += backup_name + "-";
+    if (backup_scheme.size() > 0)
+        desc_filename += backup_scheme + "-";
     desc_filename = desc_filename + desc_buf + ".lbs";
     std::ofstream descriptor(desc_filename.c_str());
 
@@ -726,8 +727,8 @@ int main(int argc, char *argv[])
     descriptor << "Producer: LBS " << lbs_version << "\n";
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     descriptor << "Date: " << desc_buf << "\n";
-    if (backup_name.size() > 0)
-        descriptor << "Name: " << backup_name << "\n";
+    if (backup_scheme.size() > 0)
+        descriptor << "Scheme: " << backup_scheme << "\n";
     descriptor << "Root: " << backup_root << "\n";
 
     descriptor << "Segments:\n";
