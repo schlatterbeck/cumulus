@@ -617,11 +617,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (argc < optind + 2) {
-        usage(argv[0]);
-        return 1;
-    }
-
     searches.push_back(".");
     if (optind == argc) {
         add_include(".");
