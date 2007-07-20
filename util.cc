@@ -71,18 +71,32 @@ string uri_decode(const string &in)
     return result;
 }
 
-/* Return the string representation of an integer. */
-string encode_int(long long n)
+/* Return the string representation of an integer.  Will try to produce output
+ * in decimal, hexadecimal, or octal according to base, though this is just
+ * advisory.  For negative numbers, will always use decimal. */
+string encode_int(long long n, int base)
 {
     char buf[64];
+
+    if (n >= 0 && base == 16) {
+        sprintf(buf, "0x%llx", n);
+        return buf;
+    }
+
+    if (n > 0 && base == 8) {
+        sprintf(buf, "0%llo", n);
+        return buf;
+    }
+
     sprintf(buf, "%lld", n);
     return buf;
 }
 
-/* Return the string representation of an integer. */
+/* Parse the string representation of an integer.  Accepts decimal, octal, and
+ * hexadecimal, just as C would (recognizes the 0 and 0x prefixes). */
 long long parse_int(const string &s)
 {
-    return strtoll(s.c_str(), NULL, 10);
+    return strtoll(s.c_str(), NULL, 0);
 }
 
 /* Output a dictionary of string key/value pairs to the given output stream.

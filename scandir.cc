@@ -280,7 +280,7 @@ void dump_inode(const string& path,         // Path within snapshot
 
     printf("%s\n", path.c_str());
 
-    file_info["mode"] = encode_int(stat_buf.st_mode & 07777);
+    file_info["mode"] = encode_int(stat_buf.st_mode & 07777, 8);
     file_info["mtime"] = encode_int(stat_buf.st_mtime);
     file_info["user"] = encode_int(stat_buf.st_uid);
     file_info["group"] = encode_int(stat_buf.st_gid);
