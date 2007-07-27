@@ -135,6 +135,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
 {
     int64_t size = 0;
     list<string> object_list;
+    const char *status = NULL;          /* Status indicator printed out */
 
     /* Look up this file in the old stat cache, if we can.  If the stat
      * information indicates that the file has not changed, do not bother
@@ -152,6 +153,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
             const ObjectReference &ref = *i;
             if (!db->IsAvailable(ref)) {
                 cached = false;
+                status = "repack";
                 break;
             }
         }
@@ -173,8 +175,6 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
     /* If the file is new or changed, we must read in the contents a block at a
      * time. */
     if (!cached) {
-        printf("    [new]\n");
-
         SHA1Checksum hash;
         while (true) {
             ssize_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
@@ -211,10 +211,14 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                  * Additionally, keep track of the age of the data by looking
                  * up the age of the block which was expired and using that
                  * instead of the current time. */
-                if (db->IsOldObject(block_csum, bytes, &block_age))
+                if (db->IsOldObject(block_csum, bytes, &block_age)) {
                     o->set_group("compacted");
-                else
+                    if (status == NULL)
+                        status = "partial";
+                } else {
                     o->set_group("data");
+                    status = "new";
+                }
 
                 o->set_data(block_buf, bytes);
                 o->write(tss);
@@ -227,10 +231,16 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
             segment_list.insert(ref.get_segment());
             db->UseObject(ref);
             size += bytes;
+
+            if (status == NULL)
+                status = "old";
         }
 
         file_info["checksum"] = hash.checksum_str();
     }
+
+    if (status != NULL)
+        printf("    [%s]\n", status);
 
     statcache->Save(path, &stat_buf, file_info["checksum"], object_list);
 
