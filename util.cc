@@ -27,7 +27,7 @@ string uri_encode(const string &in)
     for (size_t i = 0; i < in.length(); i++) {
         unsigned char c = in[i];
 
-        if (c >= '+' && c < 0x7f) {
+        if (c >= '+' && c < 0x7f && c != '@') {
             out += c;
         } else {
             char buf[4];
