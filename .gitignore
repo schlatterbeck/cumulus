@@ -1,3 +1,4 @@
+*.o
 lbs
 Makefile.dep
 version
