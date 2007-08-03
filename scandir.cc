@@ -572,7 +572,6 @@ void usage(const char *program)
 
 int main(int argc, char *argv[])
 {
-    string backup_source = ".";
     string backup_dest = "";
     string localdb_dir = "";
     string backup_scheme = "";
@@ -627,15 +626,14 @@ int main(int argc, char *argv[])
         }
     }
 
-    searches.push_back(".");
     if (optind == argc) {
-        add_include(".");
-    } else {
-        for (int i = optind; i < argc; i++)
-            add_include(argv[i]);
+        usage(argv[0]);
+        return 1;
     }
 
-    backup_source = argv[optind];
+    searches.push_back(".");
+    for (int i = optind; i < argc; i++)
+        add_include(argv[i]);
 
     if (backup_dest == "") {
         fprintf(stderr,
