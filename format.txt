@@ -1,50 +1,236 @@
                        Backup Format Description
                   for an LFS-Inspired Backup Solution
 
-NOTE: This is simply a proposal at this point in time, and not yet
-implemented.  Details are subject to change.
+NOTE: This format specification is not yet complete.  Right now the code
+provides the best documentation of the format.
 
-========================================================================
+This document simply describes the snapshot format.  It is described
+from the point of view of a decompressor which wishes to restore the
+files from a snapshot.  It does not specify the exact behavior required
+of the backup program writing the snapshot.
 
-Goals: To provide a stable and extensible data storage format for
-efficient remote filesystem backups.  Among the features desired in the
-format are:
-  - Support for grouping unchanging file contents together, and reusing
-    it for future backups.
-  - Nonetheless allow old backups to be deleted (at least those parts
-    that are not also used by newer backups).
-  - Support some form of rdiff-style incremental differences within a
-    file.
-The current plan is to implement compression and encryption separately:
-not as part of the base format, but simply by passing the backup data
-through filters such as bzip2 or gpg.
+This document does not explain the rationale behind the format; for
+that, see design.txt.
 
-Data is organized into a collection of _objects_, which are grouped
-together for storage purposes into _segments_.  Objects may refer to
-other objects; a snapshot consists of a tree object which in turn refers
-to other objects containing file data.  A new snapshot may be created
-which refers to some of the old objects with file data, if those files
-have not changed.
 
-========================================================================
+DATA CHECKSUMS
+==============
 
-Object naming:
-  - Each segment is assigned a unique 128-bit identifier (uuid).  Each
-    segment is stored as a separate file whose name is based on its
-    uuid.
-  - Objects within a segment are numbered, using a 32-bit counter.
+In several places in the LBS format, a cryptographic checksum may be
+used to allow data integrity to be verified.  At the moment, only the
+SHA-1 checksum is supported, but it is expected that other algorithms
+will be supported in the future.
 
-Each segment is structured as a TAR file (optionally filtered through a
-compressor such as gzip/bzip2, or encrypted).  Objects are stored as
-individual files.
+When a checksum is called for, the checksum is always stored in a text
+format.  The general format used is
+    <algorithm>=<hexdigits>
 
-File attributes: Metadata for each file is stored in a dictionary.
-Dictionary keys include:
-    type: uint8_t ('p', 's', 'c', 'b', 'l', 'd', '-')
-    mode: uint16_t
-    user: uint32_t
-    group: uint32_t
-    size: int64_t
-    atime: int64_t
-    mtime: int64_t
-    ctime: int64_t
+<algorithm> identifies the checksum algorithm used, and allows new
+algorithms to be added later.  At the moment, the only permissible value
+is "sha1", indicating a SHA-1 checksum.
+
+<hexdigits> is a sequence of hexadecimal digits which encode the
+checksum value.  For sha1, <hexdigits> should be precisely 40 digits
+long.
+
+A sample checksum string is
+    sha1=67049e7931ad7db37b5c794d6ad146c82e5f3187
+
+
+SEGMENTS & OBJECTS: STORAGE AND NAMING
+======================================
+
+An LBS snapshot consists, at its base, of a collection of /objects/:
+binary blobs of data, much like a file.  Higher layers interpret the
+contents of objects in various ways, but the lowest layer is simply
+concerned with storing and naming these objects.
+
+An object is a sequence of bytes (octets) of arbitrary length.  An
+object may contain as few as zero bytes (though such objects are not
+very useful).  Object sizes are potentially unbounded, but it is
+recommended that the maximum size of objects produced be on the order of
+megabytes.  Files of essentially unlimited size can be stored in an LBS
+snapshot using objects of modest size, so this should not cause any real
+restrictions.
+
+For storage purposes, objects are grouped together into /segments/.
+Segments use the TAR format; each object within a segment is stored as a
+separate file.  Segments are named using UUIDs (Universally Unique
+Identifiers), which are 128-bit numbers.  The textual form of a UUID is
+a sequence of lowercase hexadecimal digits with hyphens inserted at
+fixed points; an example UUID is
+    a704eeae-97f2-4f30-91a4-d4473956366b
+This segment could be stored in the filesystem as a file
+    a704eeae-97f2-4f30-91a4-d4473956366b.tar
+The UUID used to name a segment is assigned when the segment is created.
+
+Filters can be layered on top of the segment storage to provide
+compression, encryption, or other features.  For example, the example
+segment above might be stored as
+    a704eeae-97f2-4f30-91a4-d4473956366b.tar.bz2
+or
+    a704eeae-97f2-4f30-91a4-d4473956366b.tar.gpg
+if the file data had been filtered through bzip2 or gpg, respectively,
+before storage.  Filtering of segment data is outside the scope of this
+format specification, however; it is assumed that if filtering is used,
+when decompressing the unfiltered data can be recovered (yielding data
+in the TAR format).
+
+Objects within a segment are numbered sequentially.  This sequence
+number is then formatted as an 8-digit (zero-padded) hexadecimal
+(lowercase) value.  The fully qualified name of an object consists of
+the segment name, followed by a slash ("/"), followed by the object
+sequence number.  So, for example
+    a704eeae-97f2-4f30-91a4-d4473956366b/000001ad
+names an object.
+
+Within the segment TAR file, the filename used for each object is its
+fully-qualified name.  Thus, when extracted using the standard tar
+utility, a segment will produce a directory with the same name as the
+segment itself, and that directory will contain a set of
+sequentially-numbered files each storing the contents of a single
+object.
+
+NOTE: When naming an object, the segment portion consists of the UUID
+only.  Any extensions appended to the segment when storing it as a file
+in the filesystem (for example, .tar.bz2) are _not_ part of the name of
+the object.
+
+There are two additional components which may appear in an object name;
+both are optional.
+
+First, a checksum may be added to the object name to express an
+integrity constraint: the referred-to data must match the checksum
+given.  A checksum is enclosed in parentheses and appended to the object
+name:
+    a704eeae-97f2-4f30-91a4-d4473956366b/000001ad(sha1=67049e7931ad7db37b5c794d6ad146c82e5f3187)
+
+Secondly, an object may be /sliced/: a subset of the bytes actually
+stored in the object may be selected to be returned.  The slice syntax
+is
+    [<start>+<length>]
+where <start> is the first byte to return (as a decimal offset) and
+<length> specifies the number of bytes to return (again in decimal).  It
+is invalid to select using the slice syntax a range of bytes that does
+not fall within the original object.  The slice specification should be
+appended to an object name, for example:
+    a704eeae-97f2-4f30-91a4-d4473956366b/000001ad[264+1000]
+selects only bytes 264..1263 from the original object.
+
+Both a checksum and a slice can be used.  In this case, the checksum is
+given first, followed by the slice.  The checksum is computed over the
+original object contents, before slicing.
+
+
+FILE METADATA LISTING
+=====================
+
+A snapshot stores two distinct types of data into the object store
+described above: data and metadata.  Data for a file may be stored as a
+single object, or the data may be broken apart into blocks which are
+stored as separate objects.  The file /metadata/ log (which may be
+spread across multiple objects) specifies the names of the files in a
+snapshot, metadata about them such as ownership and timestamps, and
+gives the list of objects that contain the data for the file.
+
+The metadata log consists of a set of stanzas, each of which are
+formatted somewhat like RFC 822 (email) headers.  An example is:
+
+    name: etc/fstab
+    checksum: sha1=11bd6ec140e4ec3110a91e1dd0f02b63b701421f
+    data: 2f46bce9-4554-4a60-a4a2-543637bd3989/000001f7
+    group: 0 (root)
+    mode: 0644
+    mtime: 1177977313
+    size: 867
+    type: -
+    user: 0 (root)
+
+The meanings of all the fields are described later.  A blank line
+separates stanzas with information about different files.  In addition
+to regular stanzas, the metadata listing may contain a line containing
+an object reference prefixed with "@".  Such a line indicates that the
+contents of the referenced object should be fetched and parsed as a
+metadata listing at this point, prior to continuing to parse the current
+object.
+
+Several common encodings are used for various fields.  The encoding used
+for each field is specified in the field listing that follows.
+    encoded string: An arbitrary string (octet sequence), with bytes
+        optionally escaped by replacing a byte with %xx, where "xx" is a
+        hexadecimal representation of the byte replaced.  For example,
+        space can be replaced with "%20".  This is the same escaping
+        mechanism as used in URLs.
+    integer: An integer, which may be written in decimal, octal, or
+        hexadecimal.  Strings starting with 0 are interpreted as octal,
+        and those starting with 0x are intepreted as hexadecimal.
+
+Common fields (required in all stanzas):
+    name [encoded string]: Full path of the file archived.
+    user [special]: The user ID of the file, as an integer, optionally
+        followed by a space and the corresponding username, as an
+        escaped string enclosed in parentheses.
+    group [special]: The group ID which owns the file.  Encoding is the
+        same as for the user field: an integer, with an optional name in
+        parentheses following.
+    mode [integer]: Unix mode bits for the file.
+    type [special]: A single character which indicates the type of file.
+        The type indicators are meant to be consistent with the
+        characters used to indicate file type in a directory listing:
+            -   regular file
+            b   block device
+            c   character device
+            d   directory
+            l   symlink
+            p   pipe
+            s   socket
+    mtime [integer]: Modification time of the file.
+
+Special fields used for regular files:
+    checksum [string]: Checksum of the file contents.
+    size [integer]: Size of the file, in bytes.
+    data [reference list]: Whitespace-separated list of object
+        references.  The referenced data, when concatenated in the
+        listed order, will reconstruct the file data.  Any reference
+        that begins with a "@" character is an indirect reference--the
+        given object includes a whitespace-separated list of object
+        references which should be parsed in the same manner as the data
+        field.
+
+
+SNAPSHOT DESCRIPTOR
+===================
+
+The snapshot descriptor is a small file which describes a single
+snapshot.  It is one of the few files which is not stored as an object
+in the segment store.  It is stored as a separate file, in plain text,
+but in the same directory as segments are stored.
+
+The name of snapshot descriptor file is
+    snapshot-<scheme>-<timestamp>.lbs
+<scheme> is a descriptive text which can be used to distinguish several
+logically distinct sets of snapshots (such as snapshots for two
+different directory trees) that are being stored in the same location.
+<timestamp> gives the date and time the snapshot was taken; the format
+is %Y%m%dT%H%M%S (20070806T092239 means 2007-08-06 09:22:39).
+
+The contents of the descriptor are a set of RFC 822-style headers (much
+like the metadata listing).  The fields which are defined are:
+    Format: The string "LBS Snapshot v0.2" which identifies this file as
+        an LBS backup descriptor.  The version number (v0.2) might
+        change if there are changes to the format.  It is expected that
+        at some point, once the format is stabilized, the version
+        identifier will be changed to v1.0.
+    Producer: A informative string which identifies the program that
+        produced the backup.
+    Date: The date the snapshot was produced.  This matches the
+        timestamp encoded in the filename, but is written out in full.
+        A timezone is given.  For example: "2007-08-06 09:22:39 -0700".
+    Scheme: The <scheme> field from the descriptor filename.
+    Segments: A whitespace-seprated list of segment names.  Any segment
+        which is referenced by this snapshot must be included in the
+        list, since this list can be used in garbage-collecting old
+        segments, determining which segments need to be downloaded to
+        completely reconstruct a snapshot, etc.
+    Root: A single object reference which points to the metadata
+        listing for the snapshot.
