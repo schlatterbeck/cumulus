@@ -3,14 +3,12 @@
  *
  * Backup data is stored in a collection of objects, which are grouped together
  * into segments for storage purposes.  This implementation of the object store
- * is built on top of libtar, and represents segments as TAR files and objects
- * as files within them. */
+ * represents segments as TAR files and objects as files within them. */
 
 #ifndef _LBS_STORE_H
 #define _LBS_STORE_H
 
 #include <stdint.h>
-#include <libtar.h>
 
 #include <list>
 #include <map>
@@ -41,6 +39,30 @@ public:
     std::string getError() const { return error; }
 };
 
+/* Simplified TAR header--we only need to store regular files, don't need to
+ * handle long filenames, etc. */
+static const int TAR_BLOCK_SIZE = 512;
+
+struct tar_header
+{
+    char name[100];
+    char mode[8];
+    char uid[8];
+    char gid[8];
+    char size[12];
+    char mtime[12];
+    char chksum[8];
+    char typeflag;
+    char linkname[100];
+    char magic[8];
+    char uname[32];
+    char gname[32];
+    char devmajor[8];
+    char devminor[8];
+    char prefix[155];
+    char padding[12];
+};
+
 /* A simple wrapper around a single TAR file to represent a segment.  Objects
  * may only be written out all at once, since the tar header must be written
  * first; incremental writing is not supported. */
@@ -61,11 +83,13 @@ public:
 private:
     size_t size;
     std::string segment_name;
-    TAR *t;
 
     /* Filter support. */
     int real_fd, filter_fd;
     pid_t filter_pid;
+
+    // Write data to the tar file
+    void tar_write(const char *data, size_t size);
 };
 
 class TarSegmentStore {

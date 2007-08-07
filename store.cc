@@ -3,10 +3,10 @@
  *
  * Backup data is stored in a collection of objects, which are grouped together
  * into segments for storage purposes.  This implementation of the object store
- * is built on top of libtar, and represents segments as TAR files and objects
- * as files within them. */
+ * represents segments as TAR files and objects as files within them. */
 
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -50,23 +50,25 @@ Tarfile::Tarfile(const string &path, const string &segment)
     : size(0),
       segment_name(segment)
 {
+    assert(sizeof(struct tar_header) == TAR_BLOCK_SIZE);
+
     real_fd = open(path.c_str(), O_WRONLY | O_CREAT, 0666);
     if (real_fd < 0)
         throw IOException("Error opening output file");
 
     filter_fd = spawn_filter(real_fd);
-
-    if (tar_fdopen(&t, filter_fd, (char *)path.c_str(), NULL,
-                   O_WRONLY | O_CREAT, 0666, TAR_VERBOSE | TAR_GNU) == -1)
-        throw IOException("Error opening Tarfile");
 }
 
 Tarfile::~Tarfile()
 {
-    /* Close the tar file... */
-    tar_append_eof(t);
+    char buf[TAR_BLOCK_SIZE];
 
-    if (tar_close(t) != 0)
+    /* Append the EOF marker: two blocks filled with nulls. */
+    memset(buf, 0, sizeof(buf));
+    tar_write(buf, TAR_BLOCK_SIZE);
+    tar_write(buf, TAR_BLOCK_SIZE);
+
+    if (close(filter_fd) != 0)
         throw IOException("Error closing Tarfile");
 
     /* ...and wait for filter process to finish. */
@@ -126,6 +128,25 @@ int Tarfile::spawn_filter(int fd_out)
     return fds[1];
 }
 
+void Tarfile::tar_write(const char *data, size_t len)
+{
+    size += len;
+
+    while (len > 0) {
+        int res = write(filter_fd, data, len);
+
+        if (res < 0) {
+            if (errno == EINTR)
+                continue;
+            fprintf(stderr, "Write error: %m\n");
+            throw IOException("Write error");
+        }
+
+        len -= res;
+        data += res;
+    }
+}
+
 void Tarfile::write_object(int id, const char *data, size_t len)
 {
     char buf[64];
@@ -138,40 +159,40 @@ void Tarfile::write_object(int id, const char *data, size_t len)
 void Tarfile::internal_write_object(const string &path,
                                     const char *data, size_t len)
 {
-    memset(&t->th_buf, 0, sizeof(struct tar_header));
+    struct tar_header header;
+    memset(&header, 0, sizeof(header));
 
-    th_set_type(t, S_IFREG | 0600);
-    th_set_user(t, 0);
-    th_set_group(t, 0);
-    th_set_mode(t, 0600);
-    th_set_size(t, len);
-    th_set_mtime(t, time(NULL));
-    th_set_path(t, const_cast<char *>(path.c_str()));
-    th_finish(t);
+    assert(path.size() < 100);
+    memcpy(header.name, path.data(), path.size());
+    sprintf(header.mode, "%07o", 0600);
+    sprintf(header.uid, "%07o", 0);
+    sprintf(header.gid, "%07o", 0);
+    sprintf(header.size, "%011o", len);
+    sprintf(header.mtime, "%011o", (int)time(NULL));
+    header.typeflag = '0';
+    strcpy(header.magic, "ustar  ");
+    strcpy(header.uname, "root");
+    strcpy(header.gname, "root");
 
-    if (th_write(t) != 0)
-        throw IOException("Error writing tar header");
+    memset(header.chksum, ' ', sizeof(header.chksum));
+    int checksum = 0;
+    for (int i = 0; i < TAR_BLOCK_SIZE; i++) {
+        checksum += ((uint8_t *)&header)[i];
+    }
+    sprintf(header.chksum, "%06o", checksum);
 
-    size += T_BLOCKSIZE;
+    tar_write((const char *)&header, TAR_BLOCK_SIZE);
 
     if (len == 0)
         return;
 
-    size_t blocks = (len + T_BLOCKSIZE - 1) / T_BLOCKSIZE;
-    size_t padding = blocks * T_BLOCKSIZE - len;
+    tar_write(data, len);
 
-    for (size_t i = 0; i < blocks - 1; i++) {
-        if (tar_block_write(t, &data[i * T_BLOCKSIZE]) == -1)
-            throw IOException("Error writing tar block");
-    }
-
-    char block[T_BLOCKSIZE];
-    memset(block, 0, sizeof(block));
-    memcpy(block, &data[T_BLOCKSIZE * (blocks - 1)], T_BLOCKSIZE - padding);
-    if (tar_block_write(t, block) == -1)
-        throw IOException("Error writing final tar block");
-
-    size += blocks * T_BLOCKSIZE;
+    char padbuf[TAR_BLOCK_SIZE];
+    size_t blocks = (len + TAR_BLOCK_SIZE - 1) / TAR_BLOCK_SIZE;
+    size_t padding = blocks * TAR_BLOCK_SIZE - len;
+    memset(padbuf, 0, padding);
+    tar_write(padbuf, padding);
 }
 
 /* Estimate the size based on the size of the actual output file on disk.
