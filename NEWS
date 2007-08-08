@@ -1,0 +1,41 @@
+UNRELEASED
+    - Build dependence on libtar has been dropped.  All necessary
+      support for writing TAR files is now directly included with the
+      source.
+    - The snapshot format is now documented, at least in part.  See
+      format.txt.
+    - Snapshots now include link count and inode number for files with
+      multiple hard links, so that a restore program could determine
+      which files should be hard linked on restore.  The reference
+      restore.pl script does not use this.
+    - Bugfix: Print a help message instead of crashing if no files are
+      specified.
+
+version 0.2.2 [2007-07-27]
+    - Update reference restore.pl script to handle octal/hexadecimal
+      (format change introduced in 0.2).
+    - Better support for mixing multiple backup schemes: the statcache
+      file is now per-scheme, so performance should be better in cases
+      where multiple different backups (of different source directories)
+      are made, all sharing the same local database directory.
+
+version 0.2.1 [2007-07-20]
+    - Bugfix: Do not print an error when only one directory is specified
+      to back up.
+
+version 0.2 [2007-07-20]
+    - SNAPSHOT FORMAT CHANGE: Metadata logs in backups can now contain
+      octal and hexadecimal values.  Old restore programs may not be
+      able to read these new backups.  The reference restore.pl script
+      has not yet been updated.
+    - LOCAL DATABASE CHANGE: Backups may be assigned a name with the
+      --scheme= command-line option, to allow different backup sets to
+      be mixed in the same directory.  The database schema for the local
+      database is changed.
+    - Improved selection (inclusion/exclusion) of files to be included
+      in a backup.
+    - Device major/minor numbers are dumped for block and character
+      devices.
+
+version 0.1 [2007-07-14]
+    - Initial release.
