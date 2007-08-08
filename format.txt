@@ -186,6 +186,20 @@ Common fields (required in all stanzas):
             s   socket
     mtime [integer]: Modification time of the file.
 
+Optional common fields:
+    links [integer]: Number of hard links to this file, generally only
+        reported if greater than 1.
+    inode [string]: String specifying the inode number of this file when
+        it was dumped.  If "links" is greater than 1, then searching for
+        other files that have an identical "inode" value can be used to
+        determine which files should be hard-linked together when
+        restoring.  The inode field should be treated as an opaque
+        string and compared for equality as such; an implementation may
+        choose whatever representation is convenient.  The format
+        produced by the standard tool is <major>/<minor>/<inode> (where
+        <major> and <minor> specify the device of the containing
+        filesystem and <inode> is the inode number of the file).
+
 Special fields used for regular files:
     checksum [string]: Checksum of the file contents.
     size [integer]: Size of the file, in bytes.
