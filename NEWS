@@ -11,7 +11,7 @@ UNRELEASED
     - Bugfix: Print a help message instead of crashing if no files are
       specified.
 
-version 0.2.2 [2007-07-27]
+0.2.2 [2007-07-27]
     - Update reference restore.pl script to handle octal/hexadecimal
       (format change introduced in 0.2).
     - Better support for mixing multiple backup schemes: the statcache
@@ -19,11 +19,11 @@ version 0.2.2 [2007-07-27]
       where multiple different backups (of different source directories)
       are made, all sharing the same local database directory.
 
-version 0.2.1 [2007-07-20]
+0.2.1 [2007-07-20]
     - Bugfix: Do not print an error when only one directory is specified
       to back up.
 
-version 0.2 [2007-07-20]
+0.2 [2007-07-20]
     - SNAPSHOT FORMAT CHANGE: Metadata logs in backups can now contain
       octal and hexadecimal values.  Old restore programs may not be
       able to read these new backups.  The reference restore.pl script
@@ -37,5 +37,5 @@ version 0.2 [2007-07-20]
     - Device major/minor numbers are dumped for block and character
       devices.
 
-version 0.1 [2007-07-14]
+0.1 [2007-07-14]
     - Initial release.

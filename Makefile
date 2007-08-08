@@ -10,8 +10,8 @@ OBJS=$(SRCS:.cc=.o)
 lbs : $(OBJS)
 	$(CXX) $(LDFLAGS) -o $@ $^
 
-version :
-	(git-describe || echo "Unknown") >version
+version : NEWS
+	(git-describe || (head -n1 NEWS | cut -d" " -f1)) >version
 $(OBJS) : version
 
 clean :
