@@ -305,7 +305,7 @@ void dump_inode(const string& path,         // Path within snapshot
         file_info["group"] += " (" + uri_encode(grp->gr_name) + ")";
     }
 
-    if (stat_buf.st_nlink > 1) {
+    if (stat_buf.st_nlink > 1 && (stat_buf.st_mode & S_IFMT) != S_IFDIR) {
         file_info["links"] = encode_int(stat_buf.st_nlink);
         file_info["inode"] = encode_int(major(stat_buf.st_dev))
             + "/" + encode_int(minor(stat_buf.st_dev))
