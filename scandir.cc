@@ -778,7 +778,7 @@ int main(int argc, char *argv[])
 
     SHA1Checksum checksum_csum;
     if (checksum_csum.process_file(checksum_filename.c_str())) {
-        descriptor << "Checksum-File: " << checksum_csum.checksum_str() << "\n";
+        descriptor << "Checksums: " << checksum_csum.checksum_str() << "\n";
     }
 
     descriptor << "Segments:\n";
