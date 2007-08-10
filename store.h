@@ -17,6 +17,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "localdb.h"
 #include "sha1.h"
 #include "ref.h"
 
@@ -95,7 +96,9 @@ private:
 class TarSegmentStore {
 public:
     // New segments will be stored in the given directory.
-    TarSegmentStore(const std::string &path) { this->path = path; }
+    TarSegmentStore(const std::string &path,
+                    LocalDb *db = NULL)
+        { this->path = path; this->db = db; }
     ~TarSegmentStore() { sync(); }
 
     // Writes an object to segment in the store, and returns the name
@@ -116,10 +119,13 @@ private:
         Tarfile *file;
         std::string name;           // UUID
         int count;                  // Objects written to this segment
+        std::string basename;       // Name of segment without directory
+        std::string fullname;       // Full path to stored segment
     };
 
     std::string path;
     std::map<std::string, struct segment_info *> segments;
+    LocalDb *db;
 
     // Ensure that all segments in the given group have been fully written.
     void close_segment(const std::string &group);

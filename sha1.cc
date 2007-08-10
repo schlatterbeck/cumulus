@@ -30,6 +30,7 @@
 #include "sha1.h"
 
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
 
@@ -346,6 +347,28 @@ SHA1Checksum::~SHA1Checksum()
 void SHA1Checksum::process(const void *data, size_t len)
 {
     sha1_process_bytes(data, len, &ctx);
+}
+
+bool SHA1Checksum::process_file(const char *filename)
+{
+    FILE *f = fopen(filename, "rb");
+    if (f == NULL)
+        return false;
+
+    while (!feof(f)) {
+        char buf[4096];
+        size_t bytes = fread(buf, 1, sizeof(buf), f);
+
+        if (ferror(f)) {
+            fclose(f);
+            return false;
+        }
+
+        process(buf, bytes);
+    }
+
+    fclose(f);
+    return true;
 }
 
 const uint8_t *SHA1Checksum::checksum()

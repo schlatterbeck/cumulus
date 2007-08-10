@@ -675,7 +675,6 @@ int main(int argc, char *argv[])
             printf("    %s\n", i->c_str());
     }
 
-    tss = new TarSegmentStore(backup_dest);
     block_buf = new char[LBS_BLOCK_SIZE];
 
     /* Store the time when the backup started, so it can be included in the
@@ -694,6 +693,8 @@ int main(int argc, char *argv[])
     db = new LocalDb;
     db->Open(database_path.c_str(), desc_buf,
              backup_scheme.size() ? backup_scheme.c_str() : NULL);
+
+    tss = new TarSegmentStore(backup_dest, db);
 
     /* Initialize the stat cache, for skipping over unchanged files. */
     statcache = new StatCache;
@@ -715,14 +716,14 @@ int main(int argc, char *argv[])
     string backup_root = root->get_ref().to_string();
     delete root;
 
-    db->Close();
-
     statcache->Close();
     delete statcache;
 
     tss->sync();
     tss->dump_stats();
     delete tss;
+
+    db->Close();
 
     /* Write a backup descriptor file, which says which segments are needed and
      * where to start to restore this snapshot.  The filename is based on the

@@ -88,6 +88,7 @@ public:
     ~SHA1Checksum();
 
     void process(const void *data, size_t len);
+    bool process_file(const char *filename);
     const uint8_t *checksum();
     size_t checksum_size() const { return 20; }
     std::string checksum_str();

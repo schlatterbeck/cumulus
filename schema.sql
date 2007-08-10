@@ -14,7 +14,9 @@ create table snapshots (
 -- List of segments which have been created.
 create table segments (
     segmentid integer primary key,
-    segment text unique not null
+    segment text unique not null,
+    path text,
+    checksum text
 );
 
 -- Index of all blocks which have been stored in a snapshot, by checksum.

@@ -230,11 +230,10 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
         segment = new segment_info;
 
         segment->name = generate_uuid();
-
-        string filename = path + "/" + segment->name + ".tar";
-        filename += filter_extension;
-        segment->file = new Tarfile(filename, segment->name);
-
+        segment->basename = segment->name + ".tar";
+        segment->basename += filter_extension;
+        segment->fullname = path + "/" + segment->basename;
+        segment->file = new Tarfile(segment->fullname, segment->name);
         segment->count = 0;
 
         segments[group] = segment;
@@ -281,6 +280,15 @@ void TarSegmentStore::close_segment(const string &group)
     struct segment_info *segment = segments[group];
 
     delete segment->file;
+
+    if (db != NULL) {
+        SHA1Checksum segment_checksum;
+        if (segment_checksum.process_file(segment->fullname.c_str())) {
+            string checksum = segment_checksum.checksum_str();
+            db->SetSegmentChecksum(segment->name, segment->basename, checksum);
+        }
+    }
+
     segments.erase(segments.find(group));
     delete segment;
 }

@@ -285,3 +285,26 @@ void LocalDb::UseObject(const ObjectReference& ref)
 
     sqlite3_finalize(stmt);
 }
+
+void LocalDb::SetSegmentChecksum(const std::string &segment,
+                                 const std::string &path,
+                                 const std::string &checksum)
+{
+    int rc;
+    sqlite3_stmt *stmt;
+
+    stmt = Prepare("update segments set path = ?, checksum = ? "
+                   "where segmentid = ?");
+    sqlite3_bind_text(stmt, 1, path.c_str(), path.size(),
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, checksum.c_str(), checksum.size(),
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 3, SegmentToId(segment));
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        fprintf(stderr, "Could not update segment checksum in database!\n");
+    }
+
+    sqlite3_finalize(stmt);
+}

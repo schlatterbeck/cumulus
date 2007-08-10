@@ -30,6 +30,9 @@ public:
     bool IsOldObject(const std::string &checksum, int64_t size, double *age);
     bool IsAvailable(const ObjectReference &ref);
     void UseObject(const ObjectReference& ref);
+
+    void SetSegmentChecksum(const std::string &segment, const std::string &path,
+                            const std::string &checksum);
 private:
     sqlite3 *db;
     int64_t snapshotid;
