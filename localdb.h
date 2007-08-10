@@ -33,6 +33,8 @@ public:
 
     void SetSegmentChecksum(const std::string &segment, const std::string &path,
                             const std::string &checksum);
+    bool GetSegmentChecksum(const std::string &segment,
+                            std::string *seg_path, std::string *seg_checksum);
 private:
     sqlite3 *db;
     int64_t snapshotid;

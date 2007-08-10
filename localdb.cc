@@ -325,3 +325,43 @@ void LocalDb::SetSegmentChecksum(const std::string &segment,
 
     sqlite3_finalize(stmt);
 }
+
+bool LocalDb::GetSegmentChecksum(const string &segment,
+                                 string *seg_path,
+                                 string *seg_checksum)
+{
+    int rc;
+    sqlite3_stmt *stmt;
+    ObjectReference ref;
+    int found = false;
+
+    stmt = Prepare("select path, checksum from segments where segment = ?");
+    sqlite3_bind_text(stmt, 1, segment.c_str(), segment.size(),
+                      SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_DONE) {
+    } else if (rc == SQLITE_ROW) {
+        found = true;
+        const char *val;
+
+        val = (const char *)sqlite3_column_text(stmt, 0);
+        if (val == NULL)
+            found = false;
+        else
+            *seg_path = val;
+
+        val = (const char *)sqlite3_column_text(stmt, 1);
+        if (val == NULL)
+            found = false;
+        else
+            *seg_checksum = val;
+    } else {
+        fprintf(stderr, "Could not execute SELECT statement!\n");
+        ReportError(rc);
+    }
+
+    sqlite3_finalize(stmt);
+
+    return found;
+}

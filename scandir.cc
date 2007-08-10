@@ -723,6 +723,40 @@ int main(int argc, char *argv[])
     tss->dump_stats();
     delete tss;
 
+    /* Write out a checksums file which lists the checksums for all the
+     * segments included in this snapshot.  The format is designed so that it
+     * may be easily verified using the sha1sums command. */
+    const char csum_type[] = "sha1";
+    string checksum_filename = backup_dest + "/snapshot-";
+    if (backup_scheme.size() > 0)
+        checksum_filename += backup_scheme + "-";
+    checksum_filename = checksum_filename + desc_buf + "." + csum_type + "sums";
+    FILE *checksums = fopen(checksum_filename.c_str(), "w");
+    if (checksums != NULL) {
+        for (std::set<string>::iterator i = segment_list.begin();
+             i != segment_list.end(); ++i) {
+            string seg_path, seg_csum;
+            if (db->GetSegmentChecksum(*i, &seg_path, &seg_csum)) {
+                const char *raw_checksum = NULL;
+                if (strncmp(seg_csum.c_str(), csum_type,
+                            strlen(csum_type)) == 0) {
+                    raw_checksum = seg_csum.c_str() + strlen(csum_type);
+                    if (*raw_checksum == '=')
+                        raw_checksum++;
+                    else
+                        raw_checksum = NULL;
+                }
+
+                if (raw_checksum != NULL)
+                    fprintf(checksums, "%s *%s\n",
+                            raw_checksum, seg_path.c_str());
+            }
+        }
+        fclose(checksums);
+    } else {
+        fprintf(stderr, "ERROR: Unable to write checksums file: %m\n");
+    }
+
     db->Close();
 
     /* Write a backup descriptor file, which says which segments are needed and
@@ -741,6 +775,11 @@ int main(int argc, char *argv[])
     if (backup_scheme.size() > 0)
         descriptor << "Scheme: " << backup_scheme << "\n";
     descriptor << "Root: " << backup_root << "\n";
+
+    SHA1Checksum checksum_csum;
+    if (checksum_csum.process_file(checksum_filename.c_str())) {
+        descriptor << "Checksum-File: " << checksum_csum.checksum_str() << "\n";
+    }
 
     descriptor << "Segments:\n";
     for (std::set<string>::iterator i = segment_list.begin();
