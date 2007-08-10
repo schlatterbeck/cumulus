@@ -30,12 +30,18 @@ sqlite3_stmt *LocalDb::Prepare(const char *sql)
     int rc;
     const char *tail;
 
-    rc = sqlite3_prepare(db, sql, strlen(sql), &stmt, &tail);
+    rc = sqlite3_prepare_v2(db, sql, strlen(sql), &stmt, &tail);
     if (rc != SQLITE_OK) {
         throw IOException(string("Error preparing statement: ") + sql);
     }
 
     return stmt;
+}
+
+void LocalDb::ReportError(int rc)
+{
+    fprintf(stderr, "Result code: %d\n", rc);
+    fprintf(stderr, "Error message: %s\n", sqlite3_errmsg(db));
 }
 
 void LocalDb::Open(const char *path, const char *snapshot_name,
@@ -57,6 +63,8 @@ void LocalDb::Open(const char *path, const char *snapshot_name,
         throw IOException("Error starting transaction");
     }
 
+    sqlite3_extended_result_codes(db, 1);
+
     /* Insert this snapshot into the database, and determine the integer key
      * which will be used to identify it. */
     sqlite3_stmt *stmt = Prepare("insert into "
@@ -72,6 +80,7 @@ void LocalDb::Open(const char *path, const char *snapshot_name,
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
+        ReportError(rc);
         sqlite3_close(db);
         throw IOException("Database execution error!");
     }
@@ -79,6 +88,7 @@ void LocalDb::Open(const char *path, const char *snapshot_name,
     snapshotid = sqlite3_last_insert_rowid(db);
     sqlite3_finalize(stmt);
     if (snapshotid == 0) {
+        ReportError(rc);
         sqlite3_close(db);
         throw IOException("Find snapshot id");
     }
@@ -89,7 +99,8 @@ void LocalDb::Close()
     int rc;
     rc = sqlite3_exec(db, "commit", NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "Can't commit database!\n");
+        fprintf(stderr, "DATABASE ERROR: Can't commit database!\n");
+        ReportError(rc);
     }
     sqlite3_close(db);
 }
@@ -179,6 +190,7 @@ void LocalDb::StoreObject(const ObjectReference& ref,
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
         fprintf(stderr, "Could not execute INSERT statement!\n");
+        ReportError(rc);
     }
 
     sqlite3_finalize(stmt);
@@ -203,6 +215,7 @@ ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
                               (const char *)sqlite3_column_text(stmt, 1));
     } else {
         fprintf(stderr, "Could not execute SELECT statement!\n");
+        ReportError(rc);
     }
 
     sqlite3_finalize(stmt);
@@ -230,6 +243,7 @@ bool LocalDb::IsOldObject(const string &checksum, int64_t size, double *age)
         *age = sqlite3_column_double(stmt, 2);
     } else {
         fprintf(stderr, "Could not execute SELECT statement!\n");
+        ReportError(rc);
     }
 
     sqlite3_finalize(stmt);
@@ -258,6 +272,7 @@ bool LocalDb::IsAvailable(const ObjectReference &ref)
             found = true;
     } else {
         fprintf(stderr, "Could not execute SELECT statement!\n");
+        ReportError(rc);
     }
 
     sqlite3_finalize(stmt);
@@ -281,6 +296,7 @@ void LocalDb::UseObject(const ObjectReference& ref)
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
         fprintf(stderr, "Could not execute INSERT statement!\n");
+        ReportError(rc);
     }
 
     sqlite3_finalize(stmt);
@@ -304,6 +320,7 @@ void LocalDb::SetSegmentChecksum(const std::string &segment,
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
         fprintf(stderr, "Could not update segment checksum in database!\n");
+        ReportError(rc);
     }
 
     sqlite3_finalize(stmt);
