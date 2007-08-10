@@ -559,6 +559,7 @@ void usage(const char *program)
 {
     fprintf(
         stderr,
+        "LBS %s\n\n"
         "Usage: %s [OPTION]... --dest=DEST PATHS...\n"
         "Produce backup snapshot of files in SOURCE and store to DEST.\n"
         "\n"
@@ -572,7 +573,7 @@ void usage(const char *program)
         "                       string to append to segment files\n"
         "                           (defaults to \".bz2\")\n"
         "  --scheme=NAME        optional name for this snapshot\n",
-        program
+        lbs_version, program
     );
 }
 
