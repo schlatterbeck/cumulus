@@ -351,7 +351,6 @@ void dump_inode(const string& path,         // Path within snapshot
 
         file_size = dumpfile(fd, file_info, path, stat_buf);
         file_info["size"] = encode_int(file_size);
-        close(fd);
 
         if (file_size < 0)
             return;             // error occurred; do not dump file
