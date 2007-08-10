@@ -1,0 +1,52 @@
+#!/usr/bin/perl -w
+#
+# lbs-util: Tool for managing LBS archives.
+#
+# Usage: lbs-util <repository> <cmd> <args>
+#
+# Available commands:
+#   --list-snapshots
+#   --list-segments
+
+use strict;
+use LBS qw(parse_headers);
+
+die "Too few arguments!\n" unless scalar(@ARGV) >= 2;
+die "Must specify a repository!\n" unless -d $ARGV[0];
+
+my $store = new LBS::Store $ARGV[0];
+my $cmd = $ARGV[1];
+my @args = @ARGV[2 .. $#ARGV];
+
+if ($cmd eq "--list-snapshots") {
+    foreach ($store->list_snapshots()) {
+        print $_, "\n";
+    }
+} elsif ($cmd eq "--list-segments") {
+    foreach ($store->list_segments()) {
+        print $_, "\n";
+    }
+} elsif ($cmd eq "--verify-snapshot") {
+    my $snapshot = $store->load_snapshot($args[0]);
+    my %info = parse_headers($snapshot);
+    print "Root: $info{Root}\n";
+
+    my $metadata = new LBS::MetadataParser $store, $info{Root};
+    while ((my %item = $metadata->get_item())) {
+        print $item{name}, "\n";
+        if ($item{type} eq '-') {
+            my $size = 0;
+            my $verifier = new LBS::ChecksumVerifier $item{checksum};
+            foreach (split /\s+/, $item{data}) {
+                my $data = $store->load_ref($_);
+                $verifier->add($data);
+                $size += length($data);
+            }
+            if (!$verifier->verify() || $size != $item{size}) {
+                fprintf STDERR "Verification failure for $item{name}\n";
+            }
+        }
+    }
+} else {
+    die "Unknown command: $cmd\n";
+}
