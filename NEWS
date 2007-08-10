@@ -1,4 +1,4 @@
-0.3
+0.3 [2007-08-10]
     - LOCAL DATABASE CHANGE: A checksums file is now written out along
       with the snapshot descriptor that contains checksums of segments
       used in a snapshot.  This will allow quick integrity checks of a
@@ -19,6 +19,8 @@
     - Bugfix: File descriptors of files being backed up were closed
       twice.  In some cases this might have led to an unrelated file
       being closed (if the file descriptor was quickly re-used).
+    - Preview of a new lbs-util command for maintaining snapshots.
+      Functionality is currently limited.
 
 0.2.2 [2007-07-27]
     - Update reference restore.pl script to handle octal/hexadecimal
