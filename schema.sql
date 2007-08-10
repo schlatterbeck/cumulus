@@ -44,7 +44,7 @@ create unique index snapshot_contents_unique
 create view segment_info as select * from
     (select segmentid, max(timestamp) as mtime,
             sum(size) as size, count(*) as objects
-       from block_index natural join segments group by segmentid)
+       from block_index join segments using (segmentid) group by segmentid)
 natural join
     (select segmentid, sum(size) as used, count(*) as objects_used
        from block_index where blockid in
