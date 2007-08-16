@@ -72,14 +72,10 @@ public:
     Tarfile(const std::string &path, const std::string &segment);
     ~Tarfile();
 
-    int spawn_filter(int fd_out);
     void write_object(int id, const char *data, size_t len);
 
     // Return an estimate of the size of the file.
     size_t size_estimate();
-
-    void internal_write_object(const std::string &path,
-                               const char *data, size_t len);
 
 private:
     size_t size;
@@ -183,5 +179,13 @@ extern const char *filter_program;
 /* Extension which should be appended to segments written out (.tar is already
  * included; this adds to it) */
 extern const char *filter_extension;
+
+/* Launch a process to filter data written to a file descriptor.  fd_out is the
+ * file descriptor where the filtered data should be written.  program is the
+ * filter program to execute (a single string which will be interpreted by
+ * /bin/sh).  The return value is a file descriptor to which the data to be
+ * filtered should be written.  The process ID of the filter process is stored
+ * at address filter_pid if non-NULL. */
+int spawn_filter(int fd_out, const char *program, pid_t *filter_pid);
 
 #endif // _LBS_STORE_H

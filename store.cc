@@ -56,7 +56,7 @@ Tarfile::Tarfile(const string &path, const string &segment)
     if (real_fd < 0)
         throw IOException("Error opening output file");
 
-    filter_fd = spawn_filter(real_fd);
+    filter_fd = spawn_filter(real_fd, filter_program, &filter_pid);
 }
 
 Tarfile::~Tarfile()
@@ -86,9 +86,10 @@ Tarfile::~Tarfile()
  * on the TAR output.  The file descriptor to which output should be written
  * must be specified; the return value is the file descriptor which will be
  * attached to the standard input of the filter program. */
-int Tarfile::spawn_filter(int fd_out)
+int spawn_filter(int fd_out, const char *program, pid_t *filter_pid)
 {
     int fds[2];
+    pid_t pid;
 
     /* Create a pipe for communicating with the filter process. */
     if (pipe(fds) < 0) {
@@ -96,7 +97,7 @@ int Tarfile::spawn_filter(int fd_out)
     }
 
     /* Create a child process which can exec() the filter program. */
-    filter_pid = fork();
+    pid = fork();
     if (filter_pid < 0)
         throw IOException("Unable to fork filter process");
 
@@ -104,6 +105,8 @@ int Tarfile::spawn_filter(int fd_out)
         /* Parent process */
         close(fds[0]);
         cloexec(fds[1]);
+        if (filter_pid != NULL)
+            *filter_pid = pid;
     } else {
         /* Child process.  Rearrange file descriptors.  stdin is fds[0], stdout
          * is fd_out, stderr is unchanged. */
@@ -118,7 +121,7 @@ int Tarfile::spawn_filter(int fd_out)
         close(fd_out);
 
         /* Exec the filter program. */
-        execlp("/bin/sh", "/bin/sh", "-c", filter_program, NULL);
+        execlp("/bin/sh", "/bin/sh", "-c", program, NULL);
 
         /* Should not reach here except for error cases. */
         fprintf(stderr, "Could not exec filter: %m\n");
@@ -149,18 +152,12 @@ void Tarfile::tar_write(const char *data, size_t len)
 
 void Tarfile::write_object(int id, const char *data, size_t len)
 {
+    struct tar_header header;
+    memset(&header, 0, sizeof(header));
+
     char buf[64];
     sprintf(buf, "%08x", id);
     string path = segment_name + "/" + buf;
-
-    internal_write_object(path, data, len);
-}
-
-void Tarfile::internal_write_object(const string &path,
-                                    const char *data, size_t len)
-{
-    struct tar_header header;
-    memset(&header, 0, sizeof(header));
 
     assert(path.size() < 100);
     memcpy(header.name, path.data(), path.size());
