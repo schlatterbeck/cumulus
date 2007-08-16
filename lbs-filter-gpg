@@ -14,7 +14,7 @@
 #   LBS_GPG_PASSPHRASE  passphrase to supply to gpg, if needed
 
 declare -a gpg_options
-gpg_options=(--quiet)
+gpg_options=(--quiet --batch)
 
 if [ -n "$LBS_GPG_HOME" ]; then
     gpg_options=("${gpg_options[@]}" --homedir "$LBS_GPG_HOME")
