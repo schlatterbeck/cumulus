@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+# Filter for encrypting/decrypting/signing LBS archives using gpg.
+#
+# This takes input on stdin and produces output to stdout.  It can operate in
+# one of several modes, depending upon the command-line argument supplied:
+#   --encrypt           Encrypt the data stream
+#   --decrypt           Decrypt the supplied data
+#   --clearsign         Enclose a text file with a signature
+# Options are controlled by various environment variables:
+#   LBS_GPG_HOME        set the gpg home directory (containing keyrings)
+#   LBS_GPG_ENC_KEY     key ID to use encryption
+#   LBS_GPG_SIGN_KEY    key ID to use for signing
+#   LBS_GPG_PASSPHRASE  passphrase to supply to gpg, if needed
+
+declare -a gpg_options
+gpg_options=(--quiet)
+
+if [ -n "$LBS_GPG_HOME" ]; then
+    gpg_options=("${gpg_options[@]}" --homedir "$LBS_GPG_HOME")
+fi
+
+# Run gpg with the options in $gpg_options and any arguments supplied to this
+# function.  If LBS_GPG_PASSPHRASE is set, it will arrange redirections so that
+# the passphrase is supplied to gpg on a file descriptor.
+run_gpg () {
+    if [ -n "$LBS_GPG_PASSPHRASE" ]; then
+        exec 4<&0
+        echo "$LBS_GPG_PASSPHRASE" |
+            gpg "${gpg_options[@]}" --passphrase-fd=3 "$@" 3<&0 <&4
+    else
+        gpg "${gpg_options[@]}" "$@"
+    fi
+}
+
+case "$1" in
+    --encrypt)
+        if [ -n "$LBS_GPG_ENC_KEY" ]; then
+            gpg_options=("${gpg_options[@]}" --recipient "$LBS_GPG_ENC_KEY")
+        fi
+        run_gpg --encrypt
+        ;;
+
+    --decrypt)
+        run_gpg
+        ;;
+
+    --clearsign)
+        if [ -n "$LBS_GPG_SIGN_KEY" ]; then
+            gpg_options=("${gpg_options[@]}" --local-user "$LBS_GPG_SIGN_KEY")
+        fi
+        run_gpg --clearsign
+        ;;
+
+    *)
+        echo "$0: Unknown command or command not specified: $1" 1>&2
+        exit 1
+        ;;
+esac
