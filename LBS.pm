@@ -124,8 +124,8 @@ automatically validate any object checksums.
 
         print STDERR "### Tempdir is $self->{TMPDIR}\n";
 
-        $self->{EXTENSION} = ".bz2";
-        $self->{FILTER} = "bzip2 -dc";
+        $self->{EXTENSION} = ".gpg";
+        $self->{FILTER} = "lbs-filter-gpg --decrypt";
 
         $self->{CACHED} = [ ];
 

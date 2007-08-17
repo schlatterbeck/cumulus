@@ -7,9 +7,16 @@
 # Available commands:
 #   --list-snapshots
 #   --list-segments
+#   --verify-snapshot <snapshot>
 
 use strict;
 use LBS qw(parse_headers);
+use Term::ReadPassword;
+
+sub get_password {
+    return if exists $ENV{LBS_GPG_PASSPHRASE};
+    $ENV{LBS_GPG_PASSPHRASE} = read_password('Passphrase: ');
+}
 
 die "Too few arguments!\n" unless scalar(@ARGV) >= 2;
 die "Must specify a repository!\n" unless -d $ARGV[0];
@@ -27,6 +34,8 @@ if ($cmd eq "--list-snapshots") {
         print $_, "\n";
     }
 } elsif ($cmd eq "--verify-snapshot") {
+    get_password();
+
     my $snapshot = $store->load_snapshot($args[0]);
     my %info = parse_headers($snapshot);
     print "Root: $info{Root}\n";
