@@ -767,26 +767,29 @@ int main(int argc, char *argv[])
     if (backup_scheme.size() > 0)
         desc_filename += backup_scheme + "-";
     desc_filename = desc_filename + desc_buf + ".lbs";
-    std::ofstream descriptor(desc_filename.c_str());
+    FILE *descriptor = fopen(desc_filename.c_str(), "w");
 
-    descriptor << "Format: LBS Snapshot v0.2\n";
-    descriptor << "Producer: LBS " << lbs_version << "\n";
+    fprintf(descriptor, "Format: LBS Snapshot v0.2\n");
+    fprintf(descriptor, "Producer: LBS %s\n", lbs_version);
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
-    descriptor << "Date: " << desc_buf << "\n";
+    fprintf(descriptor, "Date: %s\n", desc_buf);
     if (backup_scheme.size() > 0)
-        descriptor << "Scheme: " << backup_scheme << "\n";
-    descriptor << "Root: " << backup_root << "\n";
+        fprintf(descriptor, "Scheme: %s\n", backup_scheme.c_str());
+    fprintf(descriptor, "Root: %s\n", backup_root.c_str());
 
     SHA1Checksum checksum_csum;
     if (checksum_csum.process_file(checksum_filename.c_str())) {
-        descriptor << "Checksums: " << checksum_csum.checksum_str() << "\n";
+        string csum = checksum_csum.checksum_str();
+        fprintf(descriptor, "Checksums: %s\n", csum.c_str());
     }
 
-    descriptor << "Segments:\n";
+    fprintf(descriptor, "Segments:\n");
     for (std::set<string>::iterator i = segment_list.begin();
          i != segment_list.end(); ++i) {
-        descriptor << "    " << *i << "\n";
+        fprintf(descriptor, "    %s\n", i->c_str());
     }
+
+    fclose(descriptor);
 
     return 0;
 }
