@@ -98,10 +98,10 @@ int spawn_filter(int fd_out, const char *program, pid_t *filter_pid)
 
     /* Create a child process which can exec() the filter program. */
     pid = fork();
-    if (filter_pid < 0)
+    if (pid < 0)
         throw IOException("Unable to fork filter process");
 
-    if (filter_pid > 0) {
+    if (pid > 0) {
         /* Parent process */
         close(fds[0]);
         cloexec(fds[1]);
