@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -572,6 +573,8 @@ void usage(const char *program)
         "  --filter-extension=EXT\n"
         "                       string to append to segment files\n"
         "                           (defaults to \".bz2\")\n"
+        "  --signature-filter=COMMAND\n"
+        "                       program though which to filter descriptor\n"
         "  --scheme=NAME        optional name for this snapshot\n",
         lbs_version, program
     );
@@ -582,6 +585,7 @@ int main(int argc, char *argv[])
     string backup_dest = "";
     string localdb_dir = "";
     string backup_scheme = "";
+    string signature_filter = "";
 
     while (1) {
         static struct option long_options[] = {
@@ -591,6 +595,7 @@ int main(int argc, char *argv[])
             {"filter-extension", 1, 0, 0},  // 3
             {"dest", 1, 0, 0},              // 4
             {"scheme", 1, 0, 0},            // 5
+            {"signature-filter", 1, 0, 0},  // 6
             {NULL, 0, 0, 0},
         };
 
@@ -622,6 +627,9 @@ int main(int argc, char *argv[])
                 break;
             case 5:     // --scheme
                 backup_scheme = optarg;
+                break;
+            case 6:     // --signature-filter
+                signature_filter = optarg;
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");
@@ -762,12 +770,26 @@ int main(int argc, char *argv[])
 
     /* Write a backup descriptor file, which says which segments are needed and
      * where to start to restore this snapshot.  The filename is based on the
-     * current time. */
+     * current time.  If a signature filter program was specified, filter the
+     * data through that to give a chance to sign the descriptor contents. */
     string desc_filename = backup_dest + "/snapshot-";
     if (backup_scheme.size() > 0)
         desc_filename += backup_scheme + "-";
     desc_filename = desc_filename + desc_buf + ".lbs";
-    FILE *descriptor = fopen(desc_filename.c_str(), "w");
+
+    int descriptor_fd = open(desc_filename.c_str(), O_WRONLY | O_CREAT, 0666);
+    if (descriptor_fd < 0) {
+        fprintf(stderr, "Unable to open descriptor output file: %m\n");
+        return 1;
+    }
+    pid_t signature_pid = 0;
+    if (signature_filter.size() > 0) {
+        int new_fd = spawn_filter(descriptor_fd, signature_filter.c_str(),
+                                  &signature_pid);
+        close(descriptor_fd);
+        descriptor_fd = new_fd;
+    }
+    FILE *descriptor = fdopen(descriptor_fd, "w");
 
     fprintf(descriptor, "Format: LBS Snapshot v0.2\n");
     fprintf(descriptor, "Producer: LBS %s\n", lbs_version);
@@ -790,6 +812,15 @@ int main(int argc, char *argv[])
     }
 
     fclose(descriptor);
+
+    if (signature_pid) {
+        int status;
+        waitpid(signature_pid, &status, 0);
+
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+            throw IOException("Signature filter process error");
+        }
+    }
 
     return 0;
 }

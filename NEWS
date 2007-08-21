@@ -1,6 +1,10 @@
 0.4?
     - Include an example filter script, lbs-filter-gpg, for encrypting
       segment data as it is written.
+    - Add support for signed snapshot descriptor files (via the
+      --signature-filter option).  Due to the checksums contained in the
+      snapshot descriptor, the signature covers the entire contents of
+      the snapshot.
 
 0.3 [2007-08-10]
     - LOCAL DATABASE CHANGE: A checksums file is now written out along
