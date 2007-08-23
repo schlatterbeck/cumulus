@@ -200,6 +200,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
             // Store a copy of the object if one does not yet exist
             if (ref.get_segment().size() == 0) {
                 LbsObject *o = new LbsObject;
+                int object_group;
 
                 /* We might still have seen this checksum before, if the object
                  * was stored at some time in the past, but we have decided to
@@ -212,8 +213,15 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                  * Additionally, keep track of the age of the data by looking
                  * up the age of the block which was expired and using that
                  * instead of the current time. */
-                if (db->IsOldObject(block_csum, bytes, &block_age)) {
-                    o->set_group("compacted");
+                if (db->IsOldObject(block_csum, bytes,
+                                    &block_age, &object_group)) {
+                    if (object_group == 0) {
+                        o->set_group("data");
+                    } else {
+                        char group[32];
+                        sprintf(group, "compacted-%d", object_group);
+                        o->set_group(group);
+                    }
                     if (status == NULL)
                         status = "partial";
                 } else {

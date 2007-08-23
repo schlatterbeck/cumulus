@@ -223,14 +223,15 @@ ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
     return ref;
 }
 
-bool LocalDb::IsOldObject(const string &checksum, int64_t size, double *age)
+bool LocalDb::IsOldObject(const string &checksum, int64_t size, double *age,
+                          int *group)
 {
     int rc;
     sqlite3_stmt *stmt;
     bool found = false;
 
-    stmt = Prepare("select segmentid, object, timestamp from block_index "
-                   "where checksum = ? and size = ?");
+    stmt = Prepare("select segmentid, object, timestamp, expired "
+                   "from block_index where checksum = ? and size = ?");
     sqlite3_bind_text(stmt, 1, checksum.c_str(), checksum.size(),
                       SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 2, size);
@@ -241,6 +242,7 @@ bool LocalDb::IsOldObject(const string &checksum, int64_t size, double *age)
     } else if (rc == SQLITE_ROW) {
         found = true;
         *age = sqlite3_column_double(stmt, 2);
+        *group = sqlite3_column_int(stmt, 3);
     } else {
         fprintf(stderr, "Could not execute SELECT statement!\n");
         ReportError(rc);
