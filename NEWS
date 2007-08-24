@@ -1,10 +1,19 @@
-0.4?
+0.4 [2007-08-24]
+    - Documentation improvements: a getting started README, and a
+      description of some of the implementation details.
     - Include an example filter script, lbs-filter-gpg, for encrypting
       segment data as it is written.
     - Add support for signed snapshot descriptor files (via the
       --signature-filter option).  Due to the checksums contained in the
       snapshot descriptor, the signature covers the entire contents of
       the snapshot.
+    - Preview release of lbs-util.py, a Python-based program for
+      managing LBS snapshots.  It currently implements a very simple
+      form of automatic segment cleaning, though this isn't much tested.
+    - Improved segment repacking support; after cleaning segments,
+      objects can be written out in different groups based on age.  This
+      may help with long-term segment cleaning efficiency, but probably
+      needs more tuning.
 
 0.3 [2007-08-10]
     - LOCAL DATABASE CHANGE: A checksums file is now written out along
