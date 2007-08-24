@@ -1,4 +1,5 @@
 *.o
+*.pyc
 lbs
 Makefile.dep
 version
