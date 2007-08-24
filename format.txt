@@ -248,3 +248,7 @@ like the metadata listing).  The fields which are defined are:
         completely reconstruct a snapshot, etc.
     Root: A single object reference which points to the metadata
         listing for the snapshot.
+    Checksums: A checksum file may be produced (with the same name as
+        the snapshot descriptor file, but with extension .sha1sums
+        instead of .lbs) containing SHA-1 checksums of all segments.
+        This field contains a checksum of that file.

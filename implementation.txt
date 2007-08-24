@@ -1,0 +1,91 @@
+                  LBS: An LFS-Inspired Backup Solution
+                        Implementation Overview
+
+HIGH-LEVEL OVERVIEW
+===================
+
+There are two different classes of data stored, typically in different
+directories:
+
+The SNAPSHOT directory contains the actual backup contents.  It consists
+of segment data (typically in compressed/encrypted form, one segment per
+file) as well as various small per-snapshot files such as the snapshot
+descriptor files (which names each snapshot and tells where to locate
+the data for it) and checksum files (which list checksums of segments
+for quick integrity checking).  The snapshot directory may be stored on
+a remote server.  It is write-only, in the sense that data does not need
+to be read from the snapshot directory to create a new snapshot, and
+files in it are immutable once created (they may be deleted if they are
+no longer needed, but file contents are never changed).
+
+The LOCAL DATABASE contains indexes used during the backup process.
+Files here keep track of what information is known to be stored in the
+snapshot directory, so that new snapshots can appropriate re-use data.
+The local database, as its name implies, should be stored somewhere
+local, since random access (read and write) will be required during the
+backup process.  Unlike the snapshot directory, files here are not
+immutable.
+
+Only the data stored in the snapshot directory is required to restore a
+snapshot.  The local database does not need to be backed up (stored at
+multiple separate locations, etc.).  The contents of the local database
+can be rebuilt (at least in theory) from data in the snapshot directory
+and the local filesystem; it is expected that tools will eventually be
+provided to do so.
+
+The format of data in the snapshot directory is described in format.txt.
+The format of data in the local database is more fluid and may evolve
+over time.  The current structure of the local database is described in
+this document.
+
+
+LOCAL DATABASE FORMAT
+=====================
+
+The local database directory currently contains two files:
+localdb.sqlite and a statcache file.  (Actually, two types of files.  It
+is possible to create snapshots using different schemes, and have them
+share the same local database directory.  In this case, there will still
+be one localdb.sqlite file, but one statcache file for each backup
+scheme.)
+
+Each statcache file is a plain text file, with a format similar to the
+file metadata listing used in the snapshot directory.  The purpose of
+the statcache file is to speed the backup process by making it possible
+to determine if a file has changed since the previous snapshot by
+comparing the results of a stat() system call with the data in the
+statcache file, and if the file is unchanged, providing the checksum and
+list of data blocks used to previously store the file.  The statcache
+file is rewritten each time a snapshot is taken, and can safely be
+deleted (with the only major side effect being that the first backups
+after doing so will progress much more slowly).
+
+localdb.sqlite is an SQLite database file, which is used for indexing
+objects stored in the snapshot directory and various other purposes.
+The database schema is contained in the file schema.sql in the LBS
+source.  Among the data tracked by localdb.sqlite:
+
+  - A list of segments stored in the snapshot directory.  This might not
+    include all segments (segments belonging to old snapshots might be
+    removed), but for correctness all segments listed in the local
+    database must exist in the snapshot directory.
+
+  - A block index which tracks objects in the snapshot directory used to
+    store file data.  It is indexed by block checksum, and so can be
+    used while generating a snapshot to determine if a just-read block
+    of data is already stored in the snapshot directory, and if so how
+    to name it.
+
+  - A list of recent snapshots, together with a list of the objects from
+    the block index they reference.
+
+The localdb SQL database is central to data sharing and segment
+cleaning.  When creating a new snapshot, information about the new
+snapshot and the blocks is uses (including any new ones) is written to
+the database.  Using the database, separate segment cleaning processes
+can determine how much data in various segments is still live, and
+determine which segments are best candidates for cleaning.  Cleaning is
+performed by updating the database to mark objects in the cleaned
+segments as unavailable for use in future snapshots; when the backup
+process next runs, any files that would use these expired blocks instead
+have a copy of the data written to a new segment.

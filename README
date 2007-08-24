@@ -1,0 +1,136 @@
+                  LBS: An LFS-Inspired Backup Solution
+
+How to Build
+------------
+
+Dependencies:
+  - libuuid
+  - sqlite3
+
+Building should be a simple matter of running "make".  This will produce
+an executable called "lbs".
+
+
+Setting up Backups
+------------------
+
+Two directories are needed for backups: one for storing the backup
+snapshots themselves, and one for storing bookkeeping information to go
+with the backups.  In this example, the first will be "/lbs", and the
+second "/lbs.db", but any directories will do.  Only the first
+directory, /lbs, needs to be stored somewhere safe.  The second is only
+used when creating new snapshots, and is not needed when restoring.
+
+  1. Create the snapshot directory and the local database directory:
+        $ mkdir /lbs /lbs.db
+
+  2. Initialize the local database using the provided script schema.sql
+     from the source:
+        $ sqlite3 /lbs.db/localdb.sqlite
+        sqlite> .read schema.sql
+        sqlite> .exit
+
+  3. If encrypting or signing backups with gpg, generate appropriate
+     keypairs.  The keys can be kept in a user keyring or in a separate
+     keyring just for backups; this example does the latter.
+        $ mkdir /lbs.db/gpg; chmod 700 /lbs.db/gpg
+        $ gpg --homedir /lbs.db/gpg --gen-key
+            (generate a keypair for encryption; enter a passphrase for
+            the secret key)
+        $ gpg --homedir /lbs.db/gpg --gen-key
+            (generate a second keypair for signing; for automatic
+            signing do not use a passphrase to protect the secret key)
+     Be sure to store the secret key needed for decryption somewhere
+     safe, perhaps with the backup itself (the key protected with an
+     appropriate passphrase).  The secret signing key need not be stored
+     with the backups (since in the event of data loss, it probably
+     isn't necessary to create future backups that are signed with the
+     same key).
+
+     To achieve better compression, the ecnryption key can be edited to
+     alter the preferred compression algorithms to list bzip2 before
+     zlib.  Run
+        $ gpg --homedir /lbs.db/gpg --edit-key <encryption key>
+        Command> pref
+            (prints a terse listing of preferences associated with the
+            key)
+        Command> setpref
+            (allows preferences to be changed; copy the same preferences
+            list printed out by the previous command, but change the
+            order of the compression algorithms, which start with "Z",
+            to be "Z3 Z2 Z1" which stands for "BZIP2, ZLIB, ZIP")
+        Command> save
+
+    Copy the provided encryption filter program, lbs-filter-gpg,
+    somewhere it may be run from.
+
+  4. Create a script for launching the LBS backup process.  A simple
+     version is:
+
+        #!/bin/sh
+        export LBS_GPG_HOME=/lbs.db/gpg
+        export LBS_GPG_ENC_KEY=<encryption key>
+        export LBS_GPG_SIGN_KEY=<signing key>
+        lbs --dest=/lbs --localdb=/lbs.db
+            --filter="lbs-filter-gpg --encrypt" --filter-extension=.gpg \
+            --signature-filter="lbs-filter-gpg --clearsign" \
+            /etc /home /other/paths/to/store
+
+    Make appropriate substitutions for the key IDs and any relevant
+    paths.  If desired, insert an option "--scheme=<name>" to specify a
+    name for this backup scheme which will be included in the snapshot
+    file names (for example, use a name based on the hostname or
+    descriptive of the files backed up).
+
+
+Backup Maintenance
+------------------
+
+Segment cleaning must periodically be done to identify backup segments
+that are mostly unused, but are storing a small amount of useful data.
+Data in these segments will be rewritten into new segments in future
+backups to eliminate the dependence on the almost-empty old segments.
+
+Segment cleaning is currently a mostly manual process.  An automatic
+tool for performing segment cleaning will be available in the future.
+
+Old backup snapshots can be pruned from the snapshot directory (/lbs) to
+recover space.  Deleting an old backup snapshot is a simlpe matter of
+deleting the appropriate snapshot descriptor file (snapshot-*.lbs) and
+any associated checksums (snapshot-*.sha1sums).  Segments used by that
+snapshot, but not any other snapshots, can be identified by running the
+clean-segments.pl script from the /lbs directory--this will perform a
+scan of the current directory to identify unreferenced segments, and
+will print a list to stdout.  Assuming the list looks reasonable, the
+segments can be quickly deleted with
+    $ rm `./clean-segments.pl`
+
+The clean-segments.pl script will also print out a warning message if
+any snapshots appear to depend upon segments which are not present; this
+is a serious error which indicates that some of the data needed to
+recover a snapshot appears to be lost.
+
+
+Restoring a Snapshot
+--------------------
+
+The restore.pl script is a simple (proof-of-concept, really) program for
+restoring the contents of an LBS snapshot.  Ideally, it should be stored
+with the backup files so it is available if it is needed.
+
+The restore.pl script does not know how to decompress segments, so this
+step must be performed manually.  Create a temporary directory for
+holding all decompressed objects.  Copy the snapshot descriptor file
+(*.lbs) for the snapshot to be restored to this temporary directory.
+The snapshot descriptor includes a list of all segments which are needed
+for the snapshot.  For each of these snapshots, decompress the segment
+file (with gpg or the appropriate program based on whatever filter was
+used), then pipe the resulting data through "tar -xf -" to extract.  Do
+this from the temporary directory; the temporary directory should be
+filled with one directory for each segment decompressed.
+
+Run restore.pl giving two arguments: the snapshot descriptor file
+(*.lbs) in the temporary directory, and a directory where the restored
+files should be written.
+
+A better recovery tool will be provided in the future.
