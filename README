@@ -47,7 +47,7 @@ used when creating new snapshots, and is not needed when restoring.
      isn't necessary to create future backups that are signed with the
      same key).
 
-     To achieve better compression, the ecnryption key can be edited to
+     To achieve better compression, the encryption key can be edited to
      alter the preferred compression algorithms to list bzip2 before
      zlib.  Run
         $ gpg --homedir /lbs.db/gpg --edit-key <encryption key>
@@ -95,7 +95,7 @@ Segment cleaning is currently a mostly manual process.  An automatic
 tool for performing segment cleaning will be available in the future.
 
 Old backup snapshots can be pruned from the snapshot directory (/lbs) to
-recover space.  Deleting an old backup snapshot is a simlpe matter of
+recover space.  Deleting an old backup snapshot is a simple matter of
 deleting the appropriate snapshot descriptor file (snapshot-*.lbs) and
 any associated checksums (snapshot-*.sha1sums).  Segments used by that
 snapshot, but not any other snapshots, can be identified by running the
