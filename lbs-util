@@ -68,10 +68,14 @@ def cmd_list_snapshot_sizes():
         previous = set(segments)
         print "%s: %.3f +%.3f -%.3f" % (s, size / 1024.0**2, added / 1024.0**2, removed / 1024.0**2)
 
-# Build checksum list for objects in the given segments
+# Build checksum list for objects in the given segments, or all segments if
+# none are specified.
 def cmd_object_checksums(segments):
+    get_passphrase()
     lowlevel = lbs.LowlevelDataStore(options.store)
     store = lbs.ObjectStore(lowlevel)
+    if len(segments) == 0:
+        segments = sorted(lowlevel.list_segments())
     for s in segments:
         for (o, data) in store.load_segment(s):
             csum = lbs.ChecksumCreator().update(data).compute()
