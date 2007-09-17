@@ -128,7 +128,7 @@ class ObjectStore:
     def cleanup(self):
         if self.cachedir is not None:
             # TODO: Avoid use of system, make this safer
-            os.system("rm -rv " + self.cachedir)
+            os.system("rm -rf " + self.cachedir)
         self.cachedir = None
 
     @staticmethod
@@ -192,7 +192,7 @@ class ObjectStore:
         if segment in self.lru_list: self.lru_list.remove(segment)
         self.lru_list.append(segment)
         while len(self.lru_list) > self.CACHE_SIZE:
-            os.system("rm -rv " + os.path.join(self.cachedir, self.lru_list[0]))
+            os.system("rm -rf " + os.path.join(self.cachedir, self.lru_list[0]))
             self.lru_list = self.lru_list[1:]
         return open(path, 'rb').read()
 
