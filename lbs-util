@@ -22,6 +22,16 @@ def get_passphrase():
     if not os.environ.has_key(ENV_KEY):
         os.environ[ENV_KEY] = getpass.getpass()
 
+# Delete old snapshots from the local database, though do not actually schedule
+# any segment cleaning.
+# Syntax: $0 --localdb=LOCALDB prune-db
+def cmd_prune_db():
+    db = lbs.LocalDatabase(options.localdb)
+
+    # Delete old snapshots from the local database.
+    db.garbage_collect()
+    db.commit()
+
 # Run the segment cleaner.
 # Syntax: $0 --localdb=LOCALDB clean
 def cmd_clean(clean_threshold=7.0):
@@ -125,6 +135,8 @@ cmd = args[0]
 args = args[1:]
 if cmd == 'clean':
     cmd_clean()
+elif cmd == 'prune-db':
+    cmd_prune_db()
 elif cmd == 'list-snapshots':
     cmd_list_snapshots()
 elif cmd == 'object-sums':
