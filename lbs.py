@@ -187,7 +187,6 @@ class ObjectStore:
     def load_object(self, segment, object):
         path = os.path.join(self.get_cachedir(), segment, object)
         if not os.access(path, os.R_OK):
-            print "Extracting", segment
             self.extract_segment(segment)
         if segment in self.lru_list: self.lru_list.remove(segment)
         self.lru_list.append(segment)
