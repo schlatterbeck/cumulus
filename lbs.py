@@ -298,11 +298,60 @@ def read_metadata(object_store, root):
 class MetadataItem:
     """Metadata for a single file (or directory or...) from a snapshot."""
 
+    # Functions for parsing various datatypes that can appear in a metadata log
+    # item.
+    @staticmethod
+    def decode_int(s):
+        """Decode an integer, expressed in decimal, octal, or hexadecimal."""
+        if s.startswith("0x"):
+            return int(s, 16)
+        elif s.startswith("0"):
+            return int(s, 8)
+        else:
+            return int(s, 10)
+
+    @staticmethod
+    def decode_str(s):
+        """Decode a URI-encoded (%xx escapes) string."""
+        def hex_decode(m): return chr(int(m.group(1), 16))
+        return re.sub(r"%([0-9a-f]{2})", hex_decode, s)
+
+    @staticmethod
+    def raw_str(s):
+        """An unecoded string."""
+        return s
+
+    @staticmethod
+    def decode_user(s):
+        """Decode a user/group to a tuple of uid/gid followed by name."""
+        items = s.split()
+        uid = MetadataItem.decode_int(items[0])
+        name = None
+        if len(items) > 1:
+            if items[1].startswith("(") and items[1].endswith(")"):
+                name = MetadataItem.decode_str(items[1][1:-1])
+        return (uid, name)
+
+    @staticmethod
+    def decode_device(s):
+        """Decode a device major/minor number."""
+        (major, minor) = map(MetadataItem.decode_int, s.split("/"))
+        return (major, minor)
+
+    class Items: pass
+
     def __init__(self, fields, object_store):
         """Initialize from a dictionary of key/value pairs from metadata log."""
 
         self.fields = fields
         self.object_store = object_store
+        self.keys = []
+        self.items = self.Items()
+        for (k, v) in fields.items():
+            if k in self.field_types:
+                decoder = self.field_types[k]
+                setattr(self.items, k, decoder(v))
+                self.keys.append(k)
 
     def data(self):
         """Return an iterator for the data blocks that make up a file."""
@@ -333,6 +382,22 @@ class MetadataItem:
                 follow_ref(ref[1:])
             else:
                 yield ref
+
+# Description of fields that might appear, and how they should be parsed.
+MetadataItem.field_types = {
+    'name': MetadataItem.decode_str,
+    'type': MetadataItem.raw_str,
+    'mode': MetadataItem.decode_int,
+    'device': MetadataItem.decode_device,
+    'user': MetadataItem.decode_user,
+    'group': MetadataItem.decode_user,
+    'mtime': MetadataItem.decode_int,
+    'links': MetadataItem.decode_int,
+    'inode': MetadataItem.raw_str,
+    'checksum': MetadataItem.decode_str,
+    'size': MetadataItem.decode_int,
+    'contents': MetadataItem.decode_str,
+}
 
 def iterate_metadata(object_store, root):
     for d in parse(read_metadata(object_store, root), lambda l: len(l) == 0):

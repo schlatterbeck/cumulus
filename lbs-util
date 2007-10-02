@@ -2,7 +2,7 @@
 #
 # Utility for managing LBS archives.
 
-import getpass, os, sys
+import getpass, os, stat, sys, time
 from optparse import OptionParser
 import lbs
 
@@ -128,6 +128,93 @@ def cmd_verify_snapshots(snapshots):
                 raise ValueError("Bad checksum found")
     store.cleanup()
 
+# Restore a snapshot, or some subset of files from it
+def cmd_restore_snapshot(args):
+    get_passphrase()
+    lowlevel = lbs.LowlevelDataStore(options.store)
+    store = lbs.ObjectStore(lowlevel)
+    snapshot = lbs.parse_full(store.load_snapshot(args[0]))
+    destdir = args[1]
+    paths = args[2:]
+
+    def warn(m, msg):
+        print "Warning: %s: %s" % (m.items.name, msg)
+
+    for m in lbs.iterate_metadata(store, snapshot['Root']):
+        pathname = os.path.normpath(m.items.name)
+        while os.path.isabs(pathname):
+            pathname = pathname[1:]
+        print pathname
+        destpath = os.path.join(destdir, pathname)
+        (path, filename) = os.path.split(destpath)
+
+        # TODO: Check for ../../../paths that might attempt to write outside
+        # the destination directory.  Maybe also check attempts to follow
+        # symlinks pointing outside?
+
+        try:
+            if not os.path.isdir(path):
+                os.makedirs(path)
+
+            if m.items.type == '-':
+                file = open(destpath, 'wb')
+                verifier = lbs.ChecksumVerifier(m.items.checksum)
+                size = 0
+                for block in m.data():
+                    data = store.get(block)
+                    verifier.update(data)
+                    size += len(data)
+                    file.write(data)
+                file.close()
+                if int(m.fields['size']) != size:
+                    raise ValueError("File size does not match!")
+                if not verifier.valid():
+                    raise ValueError("Bad checksum found")
+            elif m.items.type == 'd':
+                if filename != '.':
+                    os.mkdir(destpath)
+            elif m.items.type == 'l':
+                os.symlink(m.items.contents, destpath)
+            elif m.items.type == 'p':
+                os.mkfifo(destpath)
+            elif m.items.type in ('c', 'b'):
+                if m.items.type == 'c':
+                    mode = 0600 | stat.S_IFCHR
+                else:
+                    mode = 0600 | stat.S_IFBLK
+                os.mknod(destpath, mode, os.makedev(*m.items.device))
+            elif m.items.type == 's':
+                pass        # TODO: Implement
+            else:
+                warn(m, "Unknown type code: " + m.items.type)
+                continue
+
+        except Exception, e:
+            warn(m, "Error restoring: %s" % (e,))
+            continue
+
+        try:
+            uid = m.items.user[0]
+            gid = m.items.group[0]
+            os.lchown(destpath, uid, gid)
+        except Exception, e:
+            warn(m, "Error restoring file ownership: %s" % (e,))
+
+        if m.items.type == 'l':
+            continue
+
+        try:
+            os.chmod(destpath, m.items.mode)
+        except Exception, e:
+            warn(m, "Error restoring file permissions: %s" % (e,))
+
+        try:
+            os.utime(destpath, (time.time(), m.items.mtime))
+        except Exception, e:
+            warn(m, "Error restoring file timestamps: %s" % (e,))
+
+    store.cleanup()
+
 if len(args) == 0:
     parser.print_usage()
     sys.exit(1)
@@ -147,6 +234,8 @@ elif cmd == 'list-snapshot-sizes':
     cmd_list_snapshot_sizes()
 elif cmd == 'verify-snapshots':
     cmd_verify_snapshots(args)
+elif cmd == 'restore-snapshot':
+    cmd_restore_snapshot(args)
 else:
     print "Unknown command:", cmd
     parser.print_usage()

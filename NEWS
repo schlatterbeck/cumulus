@@ -6,6 +6,8 @@
       features of the Perl implementation, plus some other new features.
       The Perl library and utility are deprecated, and will be removed
       in the future.
+    - Preliminary snapshot restore support in lbs-util.  This is still
+      not yet extensively tested.
 
 0.4 [2007-08-24]
     - Documentation improvements: a getting started README, and a
