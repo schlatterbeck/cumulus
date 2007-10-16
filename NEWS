@@ -1,11 +1,11 @@
-0.5?
+0.5 [2007-10-16]
     - Much improved Python interface for accessing and manipulating LBS
       archives and local database information.  The interface should not
-      yet be considered stable.
+      yet be considered completely stable.
     - Python implementation of lbs-util now includes most of the
       features of the Perl implementation, plus some other new features.
-      The Perl library and utility are deprecated, and will be removed
-      in the future.
+      The Perl library and utility are deprecated and have been removed
+      from this release.
     - Preliminary snapshot restore support in lbs-util.  This is still
       not yet extensively tested.
 
