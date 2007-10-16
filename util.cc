@@ -67,7 +67,7 @@ string uri_decode(const string &in)
     *output = '\0';
 
     string result(buf);
-    delete buf;
+    delete[] buf;
     return result;
 }
 
