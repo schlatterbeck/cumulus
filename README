@@ -114,9 +114,10 @@ recover a snapshot appears to be lost.
 Restoring a Snapshot
 --------------------
 
-The restore.pl script is a simple (proof-of-concept, really) program for
-restoring the contents of an LBS snapshot.  Ideally, it should be stored
-with the backup files so it is available if it is needed.
+The contrib/restore.pl script is a simple (proof-of-concept, really)
+program for restoring the contents of an LBS snapshot.  Ideally, it
+should be stored with the backup files so it is available if it is
+needed.
 
 The restore.pl script does not know how to decompress segments, so this
 step must be performed manually.  Create a temporary directory for
@@ -133,4 +134,5 @@ Run restore.pl giving two arguments: the snapshot descriptor file
 (*.lbs) in the temporary directory, and a directory where the restored
 files should be written.
 
-A better recovery tool will be provided in the future.
+The lbs-util program also now has some preliminary support for restoring
+snapsots (documentation coming soon).
