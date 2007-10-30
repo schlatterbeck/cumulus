@@ -103,6 +103,17 @@ def cmd_read_snapshots(snapshots):
         print d['Segments'].split()
     store.cleanup()
 
+# Produce a flattened metadata dump from a snapshot
+def cmd_read_metadata(snapshot):
+    get_passphrase()
+    lowlevel = lbs.LowlevelDataStore(options.store)
+    store = lbs.ObjectStore(lowlevel)
+    d = lbs.parse_full(store.load_snapshot(snapshot))
+    metadata = lbs.read_metadata(store, d['Root'])
+    for l in metadata:
+        sys.stdout.write(l)
+    store.cleanup()
+
 # Verify snapshot integrity
 def cmd_verify_snapshots(snapshots):
     get_passphrase()
@@ -230,6 +241,8 @@ elif cmd == 'object-sums':
     cmd_object_checksums(args)
 elif cmd == 'read-snapshots':
     cmd_read_snapshots(args)
+elif cmd == 'read-metadata':
+    cmd_read_metadata(args[0])
 elif cmd == 'list-snapshot-sizes':
     cmd_list_snapshot_sizes()
 elif cmd == 'verify-snapshots':
