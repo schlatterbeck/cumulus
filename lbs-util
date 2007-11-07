@@ -6,6 +6,15 @@ import getpass, os, stat, sys, time
 from optparse import OptionParser
 import lbs
 
+# We support up to "LBS Snapshot v0.2" formats, but are also limited by the lbs
+# module.
+FORMAT_VERSION = min(lbs.FORMAT_VERSION, (0, 2))
+
+def check_version(format):
+    ver = lbs.parse_metadata_version(format)
+    if ver > FORMAT_VERSION:
+        raise RuntimeError("Unsupported LBS format: " + format)
+
 parser = OptionParser(usage="%prog [option]... command [arg]...")
 parser.add_option("-v", action="store_true", dest="verbose", default=False,
                   help="increase verbosity")
@@ -66,6 +75,7 @@ def cmd_list_snapshot_sizes():
     previous = set()
     for s in sorted(lowlevel.list_snapshots()):
         d = lbs.parse_full(store.load_snapshot(s))
+        check_version(d['Format'])
         segments = d['Segments'].split()
         (size, added, removed) = (0, 0, 0)
         for seg in segments:
@@ -99,6 +109,7 @@ def cmd_read_snapshots(snapshots):
     store = lbs.ObjectStore(lowlevel)
     for s in snapshots:
         d = lbs.parse_full(store.load_snapshot(s))
+        check_version(d['Format'])
         print d
         print d['Segments'].split()
     store.cleanup()
@@ -109,6 +120,7 @@ def cmd_read_metadata(snapshot):
     lowlevel = lbs.LowlevelDataStore(options.store)
     store = lbs.ObjectStore(lowlevel)
     d = lbs.parse_full(store.load_snapshot(snapshot))
+    check_version(d['Format'])
     metadata = lbs.read_metadata(store, d['Root'])
     for l in metadata:
         sys.stdout.write(l)
@@ -122,6 +134,7 @@ def cmd_verify_snapshots(snapshots):
     for s in snapshots:
         print "#### Snapshot", s
         d = lbs.parse_full(store.load_snapshot(s))
+        check_version(d['Format'])
         print "## Root:", d['Root']
         metadata = lbs.iterate_metadata(store, d['Root'])
         for m in metadata:
@@ -145,6 +158,7 @@ def cmd_restore_snapshot(args):
     lowlevel = lbs.LowlevelDataStore(options.store)
     store = lbs.ObjectStore(lowlevel)
     snapshot = lbs.parse_full(store.load_snapshot(args[0]))
+    check_version(snapshot['Format'])
     destdir = args[1]
     paths = args[2:]
 

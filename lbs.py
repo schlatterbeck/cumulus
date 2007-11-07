@@ -12,6 +12,9 @@ from __future__ import division
 import os, re, sha, tarfile, tempfile, thread
 from pysqlite2 import dbapi2 as sqlite3
 
+# The largest supported snapshot format that can be understood.
+FORMAT_VERSION = (0, 2)         # LBS Snapshot v0.2
+
 # Maximum number of nested indirect references allowed in a snapshot.
 MAX_RECURSION_DEPTH = 3
 
@@ -260,6 +263,15 @@ def parse_full(lines):
         return parse(lines).next()
     except StopIteration:
         return {}
+
+def parse_metadata_version(s):
+    """Convert a string with the snapshot version format to a tuple."""
+
+    m = re.match(r"^LBS Snapshot v(\d+(\.\d+)*)$", s)
+    if m is None:
+        return ()
+    else:
+        return tuple([int(d) for d in m.group(1).split(".")])
 
 def read_metadata(object_store, root):
     """Iterate through all lines in the metadata log, following references."""
