@@ -1,0 +1,116 @@
+#!/usr/bin/python
+#
+# Generate parity blocks for backup segments, so that the corruption or loss of
+# some segment data can be recovered, and does not render a snapshot
+# unreadable.
+#
+# par2 is used to generate the parity blocks.  This script merely automates the
+# creation and maintenance of these parity files.
+#
+# This program will incrementally update parity files.  Input files which are
+# not protected will have parity files generated.  If there are many new files,
+# they will be grouped into about 16-file blocks and parity files generated for
+# each block.  If files have been deleted, obsolete parity sets will be
+# removed.
+#
+# The generated parity files are given a name of parity-<hexdigits>.par2.
+# Associated with each is a parity-<hexdigits>.manifest file which specifies
+# how many file losses are protected against, and which files specifically are
+# protected by that set.
+
+import md5, os, re, sys
+from subprocess import Popen
+
+SEG_REGEXP = r"^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\.\S+)?$"
+
+def build_parity_set(files, recoverycount):
+    """Low-level function to call out to par2 to generate parity files.
+
+    Given a specific list of files, use par2 to generate a set of checksums for
+    recovery of that exact file list.  Arrange so that at least recoverycount
+    files can be lost from the set and still recover the data.
+    """
+
+    files.sort()
+    name = md5.md5()
+    for f in files: name.update(f)
+    name = name.hexdigest()
+
+    maxsize = max([os.stat(os.path.join(basedir, f)).st_size for f in files])
+    blocksize = (maxsize + 15) // 16
+    blocksize = (blocksize + 3) & ~3
+
+    print name, blocksize, files
+
+    p = Popen(["par2", "create", "-s%d" % (blocksize,),
+               "-c%d" % (recoverycount * 16), "-n%d" % (recoverycount,),
+               "-u", "-v", "parity-%s" % (name,)] + files,
+              cwd=basedir)
+    retcode = p.wait()
+    if retcode:
+        raise RuntimeError("Nonzero return code from par2: %s" % (retcode,))
+
+    descfile = open(os.path.join(basedir, "parity-%s.manifest" % (name,)), 'w')
+    descfile.write("%d\n" % (recoverycount,))
+    for f in files:
+        descfile.write(f + "\n")
+    descfile.close()
+
+def generate_parity(files):
+    """Generate parity files for the given list of input files.
+
+    This will automatically break the list of input files into smaller chunks,
+    and generate separate parity files for each chunk.
+    """
+
+    files = list(files)
+    files.sort()
+
+    while files:
+        count = min(16, len(files))
+        redundancy = 1 + count // 4
+        build_parity_set(files[0:count], redundancy)
+        files = files[count:]
+
+def remove_parity(manifest):
+    """Delete the given set of parity files and associated metadata."""
+
+    suffix = '.manifest'
+    if manifest.endswith(suffix):
+        manifest = manifest[:-len(suffix)]
+    matches = [f for f in file_list if f.startswith(manifest)]
+    print "Delete", matches
+    for f in matches:
+        os.unlink(os.path.join(basedir, f))
+
+basedir = sys.argv[1]
+file_list = os.listdir(basedir)
+
+parity_list = [f for f in file_list if re.match(r"^parity-.*\.manifest$", f)]
+segment_list = set(f for f in file_list if re.match(SEG_REGEXP, f))
+
+to_delete = []
+
+for p in parity_list:
+    files = [l.strip() for l in open(os.path.join(basedir, p))]
+    redundancy = int(files[0])
+    files = files[1:]
+    missing = 0
+    for f in files:
+        if not os.access(os.path.join(basedir, f), os.F_OK):
+            missing += 1
+    min_redundancy = 1 + len(files) // 8
+    if missing:
+        print "Parity set %s is missing %d files, can recover %d more" \
+            % (p, missing, redundancy - missing)
+    if redundancy - missing < min_redundancy or missing:
+        to_delete.append(p)
+    else:
+        segment_list.difference_update(files)
+
+print "Need parity:", list(segment_list)
+generate_parity(segment_list)
+
+print "Deleting:", to_delete
+for p in to_delete:
+    remove_parity(p)
