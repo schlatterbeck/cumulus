@@ -1,3 +1,12 @@
+0.5.1 [2007-11-13]
+    - Have the lbs-util tool check the version number when reading a
+      snapshot, and signal an error if the format is not recognized.
+    - Include a sample script, contrib/parity-gen, for creating
+      RAID-like parity sets to recover from some segment corruption.
+      The par2 command (http://parchive.sourceforge.net/) is used to
+      actually generate the parity sets; the parity-gen script simply
+      automates maintaining the parity sets.
+
 0.5 [2007-10-16]
     - Much improved Python interface for accessing and manipulating LBS
       archives and local database information.  The interface should not
