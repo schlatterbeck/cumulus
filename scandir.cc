@@ -348,7 +348,7 @@ void dump_inode(const string& path,         // Path within snapshot
             fprintf(stderr, "error reading symlink: %m\n");
         } else if (len <= stat_buf.st_size) {
             buf[len] = '\0';
-            file_info["contents"] = uri_encode(buf);
+            file_info["target"] = uri_encode(buf);
         } else if (len > stat_buf.st_size) {
             fprintf(stderr, "error reading symlink: name truncated\n");
         }
@@ -356,7 +356,7 @@ void dump_inode(const string& path,         // Path within snapshot
         delete[] buf;
         break;
     case S_IFREG:
-        inode_type = '-';
+        inode_type = 'f';
 
         file_size = dumpfile(fd, file_info, path, stat_buf);
         file_info["size"] = encode_int(file_size);
@@ -799,7 +799,7 @@ int main(int argc, char *argv[])
     }
     FILE *descriptor = fdopen(descriptor_fd, "w");
 
-    fprintf(descriptor, "Format: LBS Snapshot v0.2\n");
+    fprintf(descriptor, "Format: LBS Snapshot v0.6\n");
     fprintf(descriptor, "Producer: LBS %s\n", lbs_version);
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     fprintf(descriptor, "Date: %s\n", desc_buf);

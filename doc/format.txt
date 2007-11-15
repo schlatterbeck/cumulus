@@ -1,5 +1,6 @@
                        Backup Format Description
                   for an LFS-Inspired Backup Solution
+                      Version: "LBS Snapshot v0.6"
 
 NOTE: This format specification is not yet complete.  Right now the code
 provides the best documentation of the format.
@@ -166,7 +167,8 @@ for each field is specified in the field listing that follows.
         and those starting with 0x are intepreted as hexadecimal.
 
 Common fields (required in all stanzas):
-    name [encoded string]: Full path of the file archived.
+    path [encoded string]: Full path of the file archived.  Note: In
+        previous versions (<= 0.2) the name of this field was "name".
     user [special]: The user ID of the file, as an integer, optionally
         followed by a space and the corresponding username, as an
         escaped string enclosed in parentheses.
@@ -176,14 +178,19 @@ Common fields (required in all stanzas):
     mode [integer]: Unix mode bits for the file.
     type [special]: A single character which indicates the type of file.
         The type indicators are meant to be consistent with the
-        characters used to indicate file type in a directory listing:
-            -   regular file
+        characters used with the -type option to find(1), and the file
+        type checks in test(1):
+            f   regular file
             b   block device
             c   character device
             d   directory
             l   symlink
             p   pipe
             s   socket
+        Note that previous versions used '-' to indicate a regular file.
+        This character should not be generated in any new snapshots, but
+        may be encountered in old snapshots (those with a format version
+        <= 0.2).
     mtime [integer]: Modification time of the file.
 
 Optional common fields:
@@ -199,6 +206,7 @@ Optional common fields:
         produced by the standard tool is <major>/<minor>/<inode> (where
         <major> and <minor> specify the device of the containing
         filesystem and <inode> is the inode number of the file).
+    ctime [integer]: Change time for the inode.
 
 Special fields used for regular files:
     checksum [string]: Checksum of the file contents.
@@ -210,6 +218,16 @@ Special fields used for regular files:
         given object includes a whitespace-separated list of object
         references which should be parsed in the same manner as the data
         field.
+
+Special fields used for symbolic links:
+    target[encoded string]: The target of the symlink, as returned by
+        readlink(2).  Note: In old version of the format (<= 0.2), this
+        field was called "contents" instead of "target".
+
+Special fields used for block and character device files:
+    device[special]: The major and minor number of the device.  Encoded
+        as "major/minor", where major is the major device number encoded
+        into an integer, and minor is the minor device number.
 
 
 SNAPSHOT DESCRIPTOR
@@ -230,8 +248,8 @@ is %Y%m%dT%H%M%S (20070806T092239 means 2007-08-06 09:22:39).
 
 The contents of the descriptor are a set of RFC 822-style headers (much
 like the metadata listing).  The fields which are defined are:
-    Format: The string "LBS Snapshot v0.2" which identifies this file as
-        an LBS backup descriptor.  The version number (v0.2) might
+    Format: The string "LBS Snapshot v0.6" which identifies this file as
+        an LBS backup descriptor.  The version number (v0.6) might
         change if there are changes to the format.  It is expected that
         at some point, once the format is stabilized, the version
         identifier will be changed to v1.0.
