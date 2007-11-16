@@ -99,12 +99,21 @@ long long parse_int(const string &s)
     return strtoll(s.c_str(), NULL, 0);
 }
 
-/* Output a dictionary of string key/value pairs to the given output stream.
- * The format is a sequence of lines of the form "key: value". */
-void dict_output(ostream &o, map<string, string> dict)
+/* Encode a dictionary of string key/value pairs into a sequence of lines of
+ * the form "key: value". */
+string encode_dict(const map<string, string>& dict)
 {
+    string result;
     for (map<string, string>::const_iterator i = dict.begin();
          i != dict.end(); ++i) {
-        o << i->first << ": " << i->second << "\n";
+        result += i->first + ": " + i->second + "\n";
     }
+    return result;
+}
+
+/* Output a dictionary of string key/value pairs to the given output stream.
+ * The format is a sequence of lines of the form "key: value". */
+void dict_output(ostream &o, const map<string, string>& dict)
+{
+    o << encode_dict(dict);
 }

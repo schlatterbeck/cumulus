@@ -1,5 +1,5 @@
-/* LBS: An LFS-inspired filesystem backup system Copyright (C) 2007  Michael
- * Vrable
+/* LBS: An LFS-inspired filesystem backup system
+ * Copyright (C) 2007  Michael Vrable
  *
  * To speed backups, we maintain a "stat cache" containing selected information
  * about all regular files, including modification times and the list of blocks

@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "localdb.h"
+#include "metadata.h"
 #include "store.h"
 #include "sha1.h"
 #include "statcache.h"
@@ -44,12 +45,11 @@ using std::ostream;
 static const char lbs_version[] = LBS_STRINGIFY(LBS_VERSION);
 
 static TarSegmentStore *tss = NULL;
+static MetadataWriter *metawriter = NULL;
 
 /* Buffer for holding a single block of data read from a file. */
 static const size_t LBS_BLOCK_SIZE = 1024 * 1024;
 static char *block_buf;
-
-static const size_t LBS_METADATA_BLOCK_SIZE = 65536;
 
 /* Local database, which tracks objects written in this and previous
  * invocations to help in creating incremental snapshots. */
@@ -58,13 +58,6 @@ LocalDb *db;
 /* Stat cache, which stored data locally to speed the backup process by quickly
  * skipping files which have not changed. */
 StatCache *statcache;
-
-/* Contents of the root object.  This will contain a set of indirect links to
- * the metadata objects. */
-std::ostringstream metadata_root;
-
-/* Buffer for building up metadata. */
-std::ostringstream metadata;
 
 /* Keep track of all segments which are needed to reconstruct the snapshot. */
 std::set<string> segment_list;
@@ -78,28 +71,11 @@ std::list<string> searches;         // Directories we don't want to save, but
 
 bool relative_paths = true;
 
-/* Ensure contents of metadata are flushed to an object. */
-void metadata_flush()
+/* Ensure that the given segment is listed as a dependency of the current
+ * snapshot. */
+void add_segment(const string& segment)
 {
-    string m = metadata.str();
-    if (m.size() == 0)
-        return;
-
-    /* Write current metadata information to a new object. */
-    LbsObject *meta = new LbsObject;
-    meta->set_group("metadata");
-    meta->set_data(m.data(), m.size());
-    meta->write(tss);
-    meta->checksum();
-
-    /* Write a reference to this block in the root. */
-    ObjectReference ref = meta->get_ref();
-    metadata_root << "@" << ref.to_string() << "\n";
-    segment_list.insert(ref.get_segment());
-
-    delete meta;
-
-    metadata.str("");
+    segment_list.insert(segment);
 }
 
 /* Read data from a file descriptor and return the amount of data read.  A
@@ -381,13 +357,7 @@ void dump_inode(const string& path,         // Path within snapshot
 
     file_info["type"] = string(1, inode_type);
 
-    metadata << "name: " << uri_encode(path) << "\n";
-    dict_output(metadata, file_info);
-    metadata << "\n";
-
-    // Break apart metadata listing if it becomes too large.
-    if (metadata.str().size() > LBS_METADATA_BLOCK_SIZE)
-        metadata_flush();
+    metawriter->add(path, file_info);
 }
 
 void scanfile(const string& path, bool include)
@@ -713,6 +683,8 @@ int main(int argc, char *argv[])
 
     tss = new TarSegmentStore(backup_dest, db);
 
+    metawriter = new MetadataWriter(tss);
+
     /* Initialize the stat cache, for skipping over unchanged files. */
     statcache = new StatCache;
     statcache->Open(localdb_dir.c_str(), desc_buf,
@@ -720,21 +692,14 @@ int main(int argc, char *argv[])
 
     scanfile(".", false);
 
-    metadata_flush();
-    const string md = metadata_root.str();
-
-    LbsObject *root = new LbsObject;
-    root->set_group("metadata");
-    root->set_data(md.data(), md.size());
-    root->write(tss);
-    root->checksum();
-    segment_list.insert(root->get_ref().get_segment());
-
-    string backup_root = root->get_ref().to_string();
-    delete root;
+    ObjectReference root_ref = metawriter->close();
+    add_segment(root_ref.get_segment());
+    string backup_root = root_ref.to_string();
 
     statcache->Close();
     delete statcache;
+
+    delete metawriter;
 
     tss->sync();
     tss->dump_stats();
