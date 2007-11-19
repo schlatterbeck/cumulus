@@ -229,33 +229,14 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
 
     statcache->Save(path, &stat_buf, file_info["checksum"], object_list);
 
-    /* For files that only need to be broken apart into a few objects, store
-     * the list of objects directly.  For larger files, store the data
-     * out-of-line and provide a pointer to the indrect object. */
-    if (object_list.size() < 8) {
-        string blocklist = "";
-        for (list<string>::iterator i = object_list.begin();
-             i != object_list.end(); ++i) {
-            if (i != object_list.begin())
-                blocklist += " ";
-            blocklist += *i;
-        }
-        file_info["data"] = blocklist;
-    } else {
-        string blocklist = "";
-        for (list<string>::iterator i = object_list.begin();
-             i != object_list.end(); ++i) {
-            blocklist += *i + "\n";
-        }
-
-        LbsObject *i = new LbsObject;
-        i->set_group("metadata");
-        i->set_data(blocklist.data(), blocklist.size());
-        i->write(tss);
-        file_info["data"] = "@" + i->get_name();
-        segment_list.insert(i->get_ref().get_segment());
-        delete i;
+    string blocklist = "";
+    for (list<string>::iterator i = object_list.begin();
+         i != object_list.end(); ++i) {
+        if (i != object_list.begin())
+            blocklist += "\n    ";
+        blocklist += *i;
     }
+    file_info["data"] = blocklist;
 
     return size;
 }
