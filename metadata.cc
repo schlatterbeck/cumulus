@@ -88,6 +88,7 @@ void MetadataWriter::metadata_flush()
         fprintf(statcache_out, "@@%s\n%s", refstr.c_str(), i->text.c_str());
     }
 
+    chunk_size = 0;
     items.clear();
 }
 
