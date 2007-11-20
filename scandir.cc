@@ -257,6 +257,7 @@ void dump_inode(const string& path,         // Path within snapshot
     printf("%s\n", path.c_str());
 
     file_info["mode"] = encode_int(stat_buf.st_mode & 07777, 8);
+    file_info["ctime"] = encode_int(stat_buf.st_ctime);
     file_info["mtime"] = encode_int(stat_buf.st_mtime);
     file_info["user"] = encode_int(stat_buf.st_uid);
     file_info["group"] = encode_int(stat_buf.st_gid);
@@ -273,10 +274,11 @@ void dump_inode(const string& path,         // Path within snapshot
 
     if (stat_buf.st_nlink > 1 && (stat_buf.st_mode & S_IFMT) != S_IFDIR) {
         file_info["links"] = encode_int(stat_buf.st_nlink);
-        file_info["inode"] = encode_int(major(stat_buf.st_dev))
-            + "/" + encode_int(minor(stat_buf.st_dev))
-            + "/" + encode_int(stat_buf.st_ino);
     }
+
+    file_info["inode"] = encode_int(major(stat_buf.st_dev))
+        + "/" + encode_int(minor(stat_buf.st_dev))
+        + "/" + encode_int(stat_buf.st_ino);
 
     char inode_type;
 
@@ -664,12 +666,15 @@ int main(int argc, char *argv[])
 
     tss = new TarSegmentStore(backup_dest, db);
 
-    metawriter = new MetadataWriter(tss);
-
     /* Initialize the stat cache, for skipping over unchanged files. */
     statcache = new StatCache;
     statcache->Open(localdb_dir.c_str(), desc_buf,
                     backup_scheme.size() ? backup_scheme.c_str() : NULL);
+
+    metawriter = new MetadataWriter(tss, localdb_dir.c_str(), desc_buf,
+                                    backup_scheme.size()
+                                        ? backup_scheme.c_str()
+                                        : NULL);
 
     scanfile(".", false);
 

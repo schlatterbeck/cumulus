@@ -10,6 +10,8 @@
 #ifndef _LBS_METADATA_H
 #define _LBS_METADATA_H
 
+#include <stdio.h>
+#include <list>
 #include <string>
 #include <sstream>
 
@@ -17,17 +19,33 @@
 #include "ref.h"
 #include "util.h"
 
+/* Metadata for a single inode, ready to be written out. */
+struct MetadataItem {
+    int offset;
+    std::string text;
+};
+
 class MetadataWriter {
 public:
-    MetadataWriter(TarSegmentStore *store);
+    MetadataWriter(TarSegmentStore *store, const char *path,
+                   const char *snapshot_name, const char *snapshot_scheme);
     void add(const std::string& path, dictionary info);
     ObjectReference close();
 
 private:
     void metadata_flush();
 
+    // Where are objects eventually written to?
     TarSegmentStore *store;
-    std::ostringstream metadata, metadata_root;
+
+    // File descriptors for reading/writing local statcache data
+    std::string statcache_path, statcache_tmp_path;
+    FILE *statcache_out;
+
+    // Metadata not yet written out to the segment store
+    size_t chunk_size;
+    std::list<MetadataItem> items;
+    std::ostringstream metadata_root;
 };
 
 #endif // _LBS_METADATA_H
