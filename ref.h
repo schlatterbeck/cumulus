@@ -68,6 +68,7 @@ public:
     ObjectReference(const std::string& segment, int sequence);
     ObjectReference(const std::string& segment, const std::string& sequence);
 
+    bool is_null() { return segment.size() == 0; }
     std::string to_string() const;
     static ObjectReference *parse(const std::string& s);
 
@@ -87,6 +88,8 @@ public:
     void clear_range() { range_start = range_length = 0; range_valid = false; }
     void set_range(size_t start, size_t length)
         { range_start = start; range_length = length; range_valid = true; }
+
+    bool merge(ObjectReference ref);
 
 private:
     std::string segment, object, checksum;

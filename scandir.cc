@@ -256,6 +256,16 @@ void dump_inode(const string& path,         // Path within snapshot
 
     printf("%s\n", path.c_str());
 
+    if (metawriter->find(path)) {
+        ObjectReference *r = metawriter->old_ref();
+        if (r != NULL) {
+            string s = r->to_string();
+            printf("    cached at %s\n", s.c_str());
+            delete r;
+        }
+    }
+
+    file_info["path"] = uri_encode(path);
     file_info["mode"] = encode_int(stat_buf.st_mode & 07777, 8);
     file_info["ctime"] = encode_int(stat_buf.st_ctime);
     file_info["mtime"] = encode_int(stat_buf.st_mtime);
@@ -340,7 +350,7 @@ void dump_inode(const string& path,         // Path within snapshot
 
     file_info["type"] = string(1, inode_type);
 
-    metawriter->add(path, file_info);
+    metawriter->add(file_info);
 }
 
 void scanfile(const string& path, bool include)

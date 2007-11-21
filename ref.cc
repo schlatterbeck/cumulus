@@ -142,3 +142,36 @@ ObjectReference *ObjectReference::parse(const std::string& str)
 
     return ref;
 }
+
+/* Attempt to merge a new object reference into the current one.  Returns a
+ * boolean indicating success; if successful this reference is modified so that
+ * it refers to the range of bytes originally covered by this reference plus
+ * the reference passed in.  Merging only succeeds if both references refer to
+ * the same object and the byte ranges are contiguous. */
+bool ObjectReference::merge(ObjectReference ref)
+{
+    // Exception: We can always merge into a null object
+    if (is_null()) {
+        *this = ref;
+        return true;
+    }
+
+    if (segment != ref.segment)
+        return false;
+    if (object != ref.object)
+        return false;
+
+    // TODO: Allow the case where only one checksum was filled in
+    if (checksum_valid != ref.checksum_valid || checksum != ref.checksum)
+        return false;
+
+    if (!range_valid || !ref.range_valid)
+        return false;
+
+    if (range_start + range_length == ref.range_start) {
+        range_length += ref.range_length;
+        return true;
+    } else {
+        return false;
+    }
+}

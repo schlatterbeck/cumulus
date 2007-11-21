@@ -23,29 +23,45 @@
 struct MetadataItem {
     int offset;
     std::string text;
+
+    bool reused;
+    ObjectReference ref;
 };
 
 class MetadataWriter {
 public:
     MetadataWriter(TarSegmentStore *store, const char *path,
                    const char *snapshot_name, const char *snapshot_scheme);
-    void add(const std::string& path, dictionary info);
+    void add(dictionary info);
     ObjectReference close();
+
+    bool find(const std::string& path);
+    ObjectReference *old_ref() const {
+        return ObjectReference::parse(old_metadata_loc);
+    }
+
+    dictionary get_old_metadata() const { return old_metadata; }
 
 private:
     void metadata_flush();
+    void read_statcache();
 
     // Where are objects eventually written to?
     TarSegmentStore *store;
 
     // File descriptors for reading/writing local statcache data
     std::string statcache_path, statcache_tmp_path;
-    FILE *statcache_out;
+    FILE *statcache_in, *statcache_out;
 
     // Metadata not yet written out to the segment store
     size_t chunk_size;
     std::list<MetadataItem> items;
     std::ostringstream metadata_root;
+
+    // Statcache information read back in from a previous run
+    bool old_metadata_eof;
+    dictionary old_metadata;
+    std::string old_metadata_loc;   // Reference to where the metadata is found
 };
 
 #endif // _LBS_METADATA_H
