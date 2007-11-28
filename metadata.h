@@ -11,6 +11,8 @@
 #define _LBS_METADATA_H
 
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <list>
 #include <string>
 #include <sstream>
@@ -40,7 +42,12 @@ public:
         return ObjectReference::parse(old_metadata_loc);
     }
 
+    bool matched() const { return found_match; }
+    bool is_unchanged(const struct stat *stat_buf);
+
     dictionary get_old_metadata() const { return old_metadata; }
+    std::list<ObjectReference> get_blocks();
+    std::string get_checksum() { return old_metadata["checksum"]; }
 
 private:
     void metadata_flush();
@@ -59,6 +66,7 @@ private:
     std::ostringstream metadata_root;
 
     // Statcache information read back in from a previous run
+    bool found_match;               // Result of last call to find
     bool old_metadata_eof;
     dictionary old_metadata;
     std::string old_metadata_loc;   // Reference to where the metadata is found

@@ -13,7 +13,6 @@
 #include "metadata.h"
 #include "ref.h"
 #include "store.h"
-#include "statcache.h"
 #include "util.h"
 
 using std::list;
@@ -84,6 +83,7 @@ MetadataWriter::MetadataWriter(TarSegmentStore *store,
         throw IOException("Error opening statcache");
     }
 
+    found_match = false;
     old_metadata_eof = false;
 
     this->store = store;
@@ -164,15 +164,83 @@ bool MetadataWriter::find(const string& path)
     while (!old_metadata_eof) {
         string old_path = uri_decode(old_metadata["path"]);
         int cmp = pathcmp(old_path.c_str(), path_str);
-        if (cmp == 0)
+        if (cmp == 0) {
+            found_match = true;
             return true;
-        else if (cmp > 0)
+        } else if (cmp > 0) {
+            found_match = false;
             return false;
-        else
+        } else {
             read_statcache();
+        }
     }
 
+    found_match = false;
     return false;
+}
+
+/* Does a file appear to be unchanged from the previous time it was backed up,
+ * based on stat information?
+ *
+ * TODO: Notice files that were modified as they were being backed up the last
+ * time. */
+bool MetadataWriter::is_unchanged(const struct stat *stat_buf)
+{
+    if (old_metadata.find("ctime") == old_metadata.end())
+        return false;
+    if (stat_buf->st_ctime != parse_int(old_metadata["ctime"]))
+        return false;
+
+    if (old_metadata.find("mtime") == old_metadata.end())
+        return false;
+    if (stat_buf->st_mtime != parse_int(old_metadata["mtime"]))
+        return false;
+
+    if (old_metadata.find("size") == old_metadata.end())
+        return false;
+    if (stat_buf->st_size != parse_int(old_metadata["size"]))
+        return false;
+
+    if (old_metadata.find("inode") == old_metadata.end())
+        return false;
+    string inode = encode_int(major(stat_buf->st_dev))
+        + "/" + encode_int(minor(stat_buf->st_dev))
+        + "/" + encode_int(stat_buf->st_ino);
+    if (inode != old_metadata["inode"])
+        return false;
+
+    return true;
+}
+
+list<ObjectReference> MetadataWriter::get_blocks()
+{
+    list<ObjectReference> blocks;
+
+    /* Parse the list of blocks. */
+    const char *s = old_metadata["data"].c_str();
+    while (*s != '\0') {
+        if (isspace(*s)) {
+            s++;
+            continue;
+        }
+
+        string ref = "";
+        while (*s != '\0' && !isspace(*s)) {
+            char buf[2];
+            buf[0] = *s;
+            buf[1] = '\0';
+            ref += buf;
+            s++;
+        }
+
+        ObjectReference *r = ObjectReference::parse(ref);
+        if (r != NULL) {
+            blocks.push_back(*r);
+            delete r;
+        }
+    }
+
+    return blocks;
 }
 
 /* Ensure contents of metadata are flushed to an object. */

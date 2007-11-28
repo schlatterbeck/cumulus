@@ -4,8 +4,7 @@ CXXFLAGS=-O -Wall -D_FILE_OFFSET_BITS=64 $(DEBUG) \
 	 `pkg-config --cflags $(PACKAGES)` -DLBS_VERSION=`cat version`
 LDFLAGS=$(DEBUG) `pkg-config --libs $(PACKAGES)`
 
-SRCS=localdb.cc metadata.cc ref.cc scandir.cc sha1.cc statcache.cc store.cc \
-     util.cc
+SRCS=localdb.cc metadata.cc ref.cc scandir.cc sha1.cc store.cc util.cc
 OBJS=$(SRCS:.cc=.o)
 
 lbs : $(OBJS)

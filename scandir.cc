@@ -28,7 +28,6 @@
 #include "metadata.h"
 #include "store.h"
 #include "sha1.h"
-#include "statcache.h"
 #include "util.h"
 
 using std::list;
@@ -54,10 +53,6 @@ static char *block_buf;
 /* Local database, which tracks objects written in this and previous
  * invocations to help in creating incremental snapshots. */
 LocalDb *db;
-
-/* Stat cache, which stored data locally to speed the backup process by quickly
- * skipping files which have not changed. */
-StatCache *statcache;
 
 /* Keep track of all segments which are needed to reconstruct the snapshot. */
 std::set<string> segment_list;
@@ -119,9 +114,9 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
      * re-reading the entire contents. */
     bool cached = false;
 
-    if (statcache->Find(path, &stat_buf)) {
+    if (metawriter->matched() && metawriter->is_unchanged(&stat_buf)) {
         cached = true;
-        const list<ObjectReference> &blocks = statcache->get_blocks();
+        list<ObjectReference> blocks = metawriter->get_blocks();
 
         /* If any of the blocks in the object have been expired, then we should
          * fall back to fully reading in the file. */
@@ -137,7 +132,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
 
         /* If everything looks okay, use the cached information */
         if (cached) {
-            file_info["checksum"] = statcache->get_checksum();
+            file_info["checksum"] = metawriter->get_checksum();
             for (list<ObjectReference>::const_iterator i = blocks.begin();
                  i != blocks.end(); ++i) {
                 const ObjectReference &ref = *i;
@@ -227,8 +222,6 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
     if (status != NULL)
         printf("    [%s]\n", status);
 
-    statcache->Save(path, &stat_buf, file_info["checksum"], object_list);
-
     string blocklist = "";
     for (list<string>::iterator i = object_list.begin();
          i != object_list.end(); ++i) {
@@ -256,14 +249,7 @@ void dump_inode(const string& path,         // Path within snapshot
 
     printf("%s\n", path.c_str());
 
-    if (metawriter->find(path)) {
-        ObjectReference *r = metawriter->old_ref();
-        if (r != NULL) {
-            string s = r->to_string();
-            printf("    cached at %s\n", s.c_str());
-            delete r;
-        }
-    }
+    metawriter->find(path);
 
     file_info["path"] = uri_encode(path);
     file_info["mode"] = encode_int(stat_buf.st_mode & 07777, 8);
@@ -677,10 +663,6 @@ int main(int argc, char *argv[])
     tss = new TarSegmentStore(backup_dest, db);
 
     /* Initialize the stat cache, for skipping over unchanged files. */
-    statcache = new StatCache;
-    statcache->Open(localdb_dir.c_str(), desc_buf,
-                    backup_scheme.size() ? backup_scheme.c_str() : NULL);
-
     metawriter = new MetadataWriter(tss, localdb_dir.c_str(), desc_buf,
                                     backup_scheme.size()
                                         ? backup_scheme.c_str()
@@ -691,9 +673,6 @@ int main(int argc, char *argv[])
     ObjectReference root_ref = metawriter->close();
     add_segment(root_ref.get_segment());
     string backup_root = root_ref.to_string();
-
-    statcache->Close();
-    delete statcache;
 
     delete metawriter;
 
