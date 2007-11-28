@@ -9,6 +9,7 @@
 
 #include <string>
 #include <iostream>
+#include <map>
 
 #include "metadata.h"
 #include "ref.h"
@@ -16,6 +17,7 @@
 #include "util.h"
 
 using std::list;
+using std::map;
 using std::string;
 using std::ostream;
 using std::ostringstream;
@@ -61,6 +63,27 @@ static int pathcmp(const char *path1, const char *path2)
         return 1;
 
     return pathcmp(slash1 + 1, slash2 + 1);
+}
+
+/* Encode a dictionary of string key/value pairs into a sequence of lines of
+ * the form "key: value".  If it exists, the key "name" is treated specially
+ * and will be listed first. */
+static string encode_dict(const map<string, string>& dict)
+{
+    string result;
+
+    if (dict.find("name") != dict.end()) {
+        result += "name: " + dict.at("name") + "\n";
+    }
+
+    for (map<string, string>::const_iterator i = dict.begin();
+         i != dict.end(); ++i) {
+        if (i->first == "name")
+            continue;
+        result += i->first + ": " + i->second + "\n";
+    }
+
+    return result;
 }
 
 MetadataWriter::MetadataWriter(TarSegmentStore *store,

@@ -15,9 +15,6 @@
 std::string uri_encode(const std::string &in);
 std::string uri_decode(const std::string &in);
 std::string encode_int(long long n, int base=10);
-std::string encode_dict(const std::map<std::string, std::string>& dict);
-void dict_output(std::ostream &o,
-                 const std::map<std::string, std::string>& dict);
 
 long long parse_int(const std::string &s);
 
