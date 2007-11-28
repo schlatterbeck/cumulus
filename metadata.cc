@@ -162,7 +162,7 @@ bool MetadataWriter::find(const string& path)
 {
     const char *path_str = path.c_str();
     while (!old_metadata_eof) {
-        string old_path = uri_decode(old_metadata["path"]);
+        string old_path = uri_decode(old_metadata["name"]);
         int cmp = pathcmp(old_path.c_str(), path_str);
         if (cmp == 0) {
             found_match = true;

@@ -251,7 +251,7 @@ void dump_inode(const string& path,         // Path within snapshot
 
     metawriter->find(path);
 
-    file_info["path"] = uri_encode(path);
+    file_info["name"] = uri_encode(path);
     file_info["mode"] = encode_int(stat_buf.st_mode & 07777, 8);
     file_info["ctime"] = encode_int(stat_buf.st_ctime);
     file_info["mtime"] = encode_int(stat_buf.st_mtime);
