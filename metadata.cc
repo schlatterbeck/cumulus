@@ -106,7 +106,6 @@ MetadataWriter::MetadataWriter(TarSegmentStore *store,
         throw IOException("Error opening statcache");
     }
 
-    found_match = false;
     old_metadata_eof = false;
 
     this->store = store;
@@ -187,18 +186,14 @@ bool MetadataWriter::find(const string& path)
     while (!old_metadata_eof) {
         string old_path = uri_decode(old_metadata["name"]);
         int cmp = pathcmp(old_path.c_str(), path_str);
-        if (cmp == 0) {
-            found_match = true;
+        if (cmp == 0)
             return true;
-        } else if (cmp > 0) {
-            found_match = false;
+        else if (cmp > 0)
             return false;
-        } else {
+        else
             read_statcache();
-        }
     }
 
-    found_match = false;
     return false;
 }
 
@@ -256,11 +251,9 @@ list<ObjectReference> MetadataWriter::get_blocks()
             s++;
         }
 
-        ObjectReference *r = ObjectReference::parse(ref);
-        if (r != NULL) {
-            blocks.push_back(*r);
-            delete r;
-        }
+        ObjectReference r = ObjectReference::parse(ref);
+        if (!r.is_null())
+            blocks.push_back(r);
     }
 
     return blocks;
@@ -350,11 +343,10 @@ void MetadataWriter::add(dictionary info)
     item.text += encode_dict(info) + "\n";
 
     if (info == old_metadata) {
-        ObjectReference *ref = ObjectReference::parse(old_metadata_loc);
-        if (ref != NULL) {
+        ObjectReference ref = ObjectReference::parse(old_metadata_loc);
+        if (!ref.is_null()) {
             item.reused = true;
-            item.ref = *ref;
-            delete ref;
+            item.ref = ref;
         }
     }
 

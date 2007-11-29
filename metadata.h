@@ -38,11 +38,10 @@ public:
     ObjectReference close();
 
     bool find(const std::string& path);
-    ObjectReference *old_ref() const {
+    ObjectReference old_ref() const {
         return ObjectReference::parse(old_metadata_loc);
     }
 
-    bool matched() const { return found_match; }
     bool is_unchanged(const struct stat *stat_buf);
 
     dictionary get_old_metadata() const { return old_metadata; }
@@ -66,7 +65,6 @@ private:
     std::ostringstream metadata_root;
 
     // Statcache information read back in from a previous run
-    bool found_match;               // Result of last call to find
     bool old_metadata_eof;
     dictionary old_metadata;
     std::string old_metadata_loc;   // Reference to where the metadata is found

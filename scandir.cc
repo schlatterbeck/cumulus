@@ -114,7 +114,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
      * re-reading the entire contents. */
     bool cached = false;
 
-    if (metawriter->matched() && metawriter->is_unchanged(&stat_buf)) {
+    if (metawriter->find(path) && metawriter->is_unchanged(&stat_buf)) {
         cached = true;
         list<ObjectReference> blocks = metawriter->get_blocks();
 
@@ -248,8 +248,6 @@ void dump_inode(const string& path,         // Path within snapshot
     ssize_t len;
 
     printf("%s\n", path.c_str());
-
-    metawriter->find(path);
 
     file_info["name"] = uri_encode(path);
     file_info["mode"] = encode_int(stat_buf.st_mode & 07777, 8);

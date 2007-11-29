@@ -68,9 +68,9 @@ public:
     ObjectReference(const std::string& segment, int sequence);
     ObjectReference(const std::string& segment, const std::string& sequence);
 
-    bool is_null() { return segment.size() == 0; }
+    bool is_null() const { return segment.size() == 0; }
     std::string to_string() const;
-    static ObjectReference *parse(const std::string& s);
+    static ObjectReference parse(const std::string& s);
 
     std::string get_segment() const { return segment; }
     std::string get_sequence() const { return object; }

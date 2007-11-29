@@ -54,6 +54,9 @@ ObjectReference::ObjectReference(const std::string& segment,
 
 string ObjectReference::to_string() const
 {
+    if (is_null())
+        return "/";
+
     string result = segment + "/" + object;
 
     if (checksum_valid)
@@ -71,7 +74,7 @@ string ObjectReference::to_string() const
 /* Parse a string object reference and return a pointer to a new
  * ObjectReference.  The caller is responsible for freeing the object.  NULL is
  * returned if there is an error in the syntax. */
-ObjectReference *ObjectReference::parse(const std::string& str)
+ObjectReference ObjectReference::parse(const std::string& str)
 {
     const char *s = str.c_str();
     const char *t;
@@ -81,7 +84,7 @@ ObjectReference *ObjectReference::parse(const std::string& str)
     while ((*t >= '0' && *t <= '9') || (*t >= 'a' && *t <= 'f') || (*t == '-'))
         t++;
     if (*t != '/')
-        return NULL;
+        return ObjectReference();
     string segment(s, t - s);
 
     // Object sequence number
@@ -90,7 +93,7 @@ ObjectReference *ObjectReference::parse(const std::string& str)
     while ((*t >= '0' && *t <= '9') || (*t >= 'a' && *t <= 'f'))
         t++;
     if (*t != '\0' && *t != '(' && *t != '[')
-        return NULL;
+        return ObjectReference();
     string object(s, t - s);
 
     // Checksum
@@ -101,7 +104,7 @@ ObjectReference *ObjectReference::parse(const std::string& str)
         while (*t != ')' && *t != '\0')
             t++;
         if (*t != ')')
-            return NULL;
+            return ObjectReference();
         checksum = string(s, t - s);
         t++;
     }
@@ -115,7 +118,7 @@ ObjectReference *ObjectReference::parse(const std::string& str)
         while (*t >= '0' && *t <= '9')
             t++;
         if (*t != '+')
-            return NULL;
+            return ObjectReference();
 
         string val(s, t - s);
         range1 = atoll(val.c_str());
@@ -125,7 +128,7 @@ ObjectReference *ObjectReference::parse(const std::string& str)
         while (*t >= '0' && *t <= '9')
             t++;
         if (*t != ']')
-            return NULL;
+            return ObjectReference();
 
         val = string(s, t - s);
         range2 = atoll(val.c_str());
@@ -133,12 +136,12 @@ ObjectReference *ObjectReference::parse(const std::string& str)
         have_range = true;
     }
 
-    ObjectReference *ref = new ObjectReference(segment, object);
+    ObjectReference ref(segment, object);
     if (checksum.size() > 0)
-        ref->set_checksum(checksum);
+        ref.set_checksum(checksum);
 
     if (have_range)
-        ref->set_range(range1, range2);
+        ref.set_range(range1, range2);
 
     return ref;
 }
