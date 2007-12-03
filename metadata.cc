@@ -198,12 +198,13 @@ bool MetadataWriter::find(const string& path)
 }
 
 /* Does a file appear to be unchanged from the previous time it was backed up,
- * based on stat information?
- *
- * TODO: Notice files that were modified as they were being backed up the last
- * time. */
+ * based on stat information? */
 bool MetadataWriter::is_unchanged(const struct stat *stat_buf)
 {
+    if (old_metadata.find("volatile") != old_metadata.end()
+        && parse_int(old_metadata["volatile"]) != 0)
+        return false;
+
     if (old_metadata.find("ctime") == old_metadata.end())
         return false;
     if (stat_buf->st_ctime != parse_int(old_metadata["ctime"]))

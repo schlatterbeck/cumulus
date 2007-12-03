@@ -248,6 +248,7 @@ void dump_inode(const string& path,         // Path within snapshot
     ssize_t len;
 
     printf("%s\n", path.c_str());
+    metawriter->find(path);
 
     file_info["name"] = uri_encode(path);
     file_info["mode"] = encode_int(stat_buf.st_mode & 07777, 8);
@@ -255,6 +256,11 @@ void dump_inode(const string& path,         // Path within snapshot
     file_info["mtime"] = encode_int(stat_buf.st_mtime);
     file_info["user"] = encode_int(stat_buf.st_uid);
     file_info["group"] = encode_int(stat_buf.st_gid);
+
+    time_t now = time(NULL);
+    if (now - stat_buf.st_ctime < 30 || now - stat_buf.st_mtime < 30)
+        if ((stat_buf.st_mode & S_IFMT) != S_IFDIR)
+            file_info["volatile"] = "1";
 
     struct passwd *pwd = getpwuid(stat_buf.st_uid);
     if (pwd != NULL) {
@@ -320,6 +326,7 @@ void dump_inode(const string& path,         // Path within snapshot
         if (file_size != stat_buf.st_size) {
             fprintf(stderr, "Warning: Size of %s changed during reading\n",
                     path.c_str());
+            file_info["volatile"] = "1";
         }
 
         break;
