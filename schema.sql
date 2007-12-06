@@ -16,10 +16,11 @@ create table segments (
     segmentid integer primary key,
     segment text unique not null,
     path text,
-    checksum text
+    checksum text,
+    size integer
 );
 
--- Index of all blocks which have been stored in a snapshot, by checksum.
+-- Index of all blocks which have been stored, by checksum.
 create table block_index (
     blockid integer primary key,
     segmentid integer not null,
@@ -32,6 +33,13 @@ create table block_index (
 create index block_content_index on block_index(checksum);
 create unique index block_name_index on block_index(segmentid, object);
 
+-- Summary of segment utilization for each snapshots.
+create table segments_used (
+    snapshotid integer not null,
+    segmentid integer not null,
+    utilization real
+);
+
 -- Index tracking which blocks are used by which snapshots.
 create table snapshot_contents (
     blockid integer,
@@ -39,21 +47,3 @@ create table snapshot_contents (
 );
 create unique index snapshot_contents_unique
     on snapshot_contents(blockid, snapshotid);
-
--- Summary statistics for each segment.
-create view segment_info as select * from
-    (select segmentid, max(timestamp) as mtime,
-            sum(size) as size, count(*) as objects
-       from block_index join segments using (segmentid) group by segmentid)
-natural join
-    (select segmentid, sum(size) as used, count(*) as objects_used
-       from block_index where blockid in
-            (select blockid from snapshot_contents) group by segmentid);
-
--- Ranking of segments to be cleaned, using a benefit function of
--- (fraction free space)*(age of youngest object).
-create view cleaning_order as select *, (1-u)*age/(u+0.1) as benefit from
-    (select segmentid,
-            cast(used as real) / size as u, julianday('now') - mtime as age
-        from segment_info)
-where benefit > 0;

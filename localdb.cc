@@ -32,6 +32,7 @@ sqlite3_stmt *LocalDb::Prepare(const char *sql)
 
     rc = sqlite3_prepare_v2(db, sql, strlen(sql), &stmt, &tail);
     if (rc != SQLITE_OK) {
+        ReportError(rc);
         throw IOException(string("Error preparing statement: ") + sql);
     }
 
@@ -92,11 +93,54 @@ void LocalDb::Open(const char *path, const char *snapshot_name,
         sqlite3_close(db);
         throw IOException("Find snapshot id");
     }
+
+    /* Create a temporary table which will be used to keep track of the objects
+     * used by this snapshot.  When the database is closed, we will summarize
+     * the results of this table into segments_used. */
+    rc = sqlite3_exec(db,
+                      "create temporary table snapshot_refs ("
+                      "    segmentid integer not null,"
+                      "    object text not null,"
+                      "    size integer not null"
+                      ")", NULL, NULL, NULL);
+    if (rc != SQLITE_OK) {
+        ReportError(rc);
+        sqlite3_close(db);
+        throw IOException("Database initialization");
+    }
+    rc = sqlite3_exec(db,
+                      "create unique index snapshot_refs_index "
+                      "on snapshot_refs(segmentid, object)",
+                      NULL, NULL, NULL);
+    if (rc != SQLITE_OK) {
+        ReportError(rc);
+        sqlite3_close(db);
+        throw IOException("Database initialization");
+    }
 }
 
 void LocalDb::Close()
 {
     int rc;
+
+    /* Summarize the snapshot_refs table into segments_used. */
+    sqlite3_stmt *stmt = Prepare("insert into segments_used "
+                                 "select ? as snapshotid, segmentid, "
+                                 "cast(used as real) / size as utilization "
+                                 "from "
+                                 "(select segmentid, sum(size) as used "
+                                 "from snapshot_refs group by segmentid) "
+                                 "join segments using (segmentid)");
+    sqlite3_bind_int64(stmt, 1, snapshotid);
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_OK && rc != SQLITE_DONE) {
+        ReportError(rc);
+        sqlite3_close(db);
+        fprintf(stderr, "DATABASE ERROR: Unable to create segment summary!\n");
+    }
+    sqlite3_finalize(stmt);
+
+    /* Commit changes to the database and close. */
     rc = sqlite3_exec(db, "commit", NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
         fprintf(stderr, "DATABASE ERROR: Can't commit database!\n");
@@ -302,6 +346,20 @@ void LocalDb::UseObject(const ObjectReference& ref)
     }
 
     sqlite3_finalize(stmt);
+
+    stmt = Prepare("insert or ignore into snapshot_refs "
+                   "select segmentid, object, size from block_index "
+                   "where segmentid = ? and object = ?");
+    sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
+    sqlite3_bind_text(stmt, 2, obj.c_str(), obj.size(), SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        fprintf(stderr, "Could not execute INSERT statement!\n");
+        ReportError(rc);
+    }
+
+    sqlite3_finalize(stmt);
 }
 
 void LocalDb::SetSegmentChecksum(const std::string &segment,
@@ -311,13 +369,16 @@ void LocalDb::SetSegmentChecksum(const std::string &segment,
     int rc;
     sqlite3_stmt *stmt;
 
-    stmt = Prepare("update segments set path = ?, checksum = ? "
+    stmt = Prepare("update segments set path = ?, checksum = ?, "
+                   "size = (select sum(size) from block_index "
+                   "        where segmentid = ?) "
                    "where segmentid = ?");
     sqlite3_bind_text(stmt, 1, path.c_str(), path.size(),
                       SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, checksum.c_str(), checksum.size(),
                       SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 3, SegmentToId(segment));
+    sqlite3_bind_int64(stmt, 4, SegmentToId(segment));
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
