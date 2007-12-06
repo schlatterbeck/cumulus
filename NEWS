@@ -1,3 +1,20 @@
+0.6
+    - SNAPSHOT FORMAT CHANGE: A few minor tweaks have been made to the
+      snapshot format.  There is nothing substantial--this is primarily
+      a cleaning up of the format before use becomes more widespread.
+      Updated tools will be needed to properly understand the new
+      snapshots.  Tools will continue to be able to read the old
+      snapshot format.
+    - LOCAL DATABASE CHANGE: The local database has been changed so that
+      segment utilization data for past snapshots is stored more
+      efficiently.  The script in contrib/upgrade0.6-localdb.sql must be
+      run on a database to upgrade it prior to running backups with the
+      new tool.
+    - The statcache implementation has been reworked, and the format
+      changed.  The first backup will run more slowly since the old
+      statcache data will be ignored.  New statcache data will be
+      written to statcache2.  The old statcache file can be deleted.
+
 0.5.1 [2007-11-13]
     - Have the lbs-util tool check the version number when reading a
       snapshot, and signal an error if the format is not recognized.
