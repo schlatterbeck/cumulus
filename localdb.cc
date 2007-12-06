@@ -331,26 +331,11 @@ void LocalDb::UseObject(const ObjectReference& ref)
     int rc;
     sqlite3_stmt *stmt;
 
-    stmt = Prepare("insert or ignore into snapshot_contents "
-                   "select blockid, ? as snapshotid from block_index "
-                   "where segmentid = ? and object = ?");
-    sqlite3_bind_int64(stmt, 1, snapshotid);
-    sqlite3_bind_int64(stmt, 2, SegmentToId(ref.get_segment()));
-    string obj = ref.get_sequence();
-    sqlite3_bind_text(stmt, 3, obj.c_str(), obj.size(), SQLITE_TRANSIENT);
-
-    rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
-        fprintf(stderr, "Could not execute INSERT statement!\n");
-        ReportError(rc);
-    }
-
-    sqlite3_finalize(stmt);
-
     stmt = Prepare("insert or ignore into snapshot_refs "
                    "select segmentid, object, size from block_index "
                    "where segmentid = ? and object = ?");
     sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
+    string obj = ref.get_sequence();
     sqlite3_bind_text(stmt, 2, obj.c_str(), obj.size(), SQLITE_TRANSIENT);
 
     rc = sqlite3_step(stmt);

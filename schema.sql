@@ -39,11 +39,3 @@ create table segments_used (
     segmentid integer not null,
     utilization real
 );
-
--- Index tracking which blocks are used by which snapshots.
-create table snapshot_contents (
-    blockid integer,
-    snapshotid integer
-);
-create unique index snapshot_contents_unique
-    on snapshot_contents(blockid, snapshotid);
