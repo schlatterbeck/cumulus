@@ -269,6 +269,11 @@ void MetadataWriter::metadata_flush()
     ObjectReference indirect;
     for (list<MetadataItem>::iterator i = items.begin();
          i != items.end(); ++i) {
+        // If indirectly referencing any other metadata logs, be sure those
+        // segments are properly referenced.
+        if (i->reused)
+            add_segment(i->ref.get_segment());
+
         // Write out an indirect reference to any previous objects which could
         // be reused
         if (!i->reused || !indirect.merge(i->ref)) {

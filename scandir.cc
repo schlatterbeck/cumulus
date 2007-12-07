@@ -138,7 +138,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                 const ObjectReference &ref = *i;
                 object_list.push_back(ref.to_string());
                 if (ref.is_normal())
-                    segment_list.insert(ref.get_segment());
+                    add_segment(ref.get_segment());
                 db->UseObject(ref);
             }
             size = stat_buf.st_size;
@@ -228,7 +228,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
 
             object_list.push_back(ref.to_string());
             if (ref.is_normal())
-                segment_list.insert(ref.get_segment());
+                add_segment(ref.get_segment());
             db->UseObject(ref);
             size += bytes;
 
