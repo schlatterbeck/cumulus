@@ -64,11 +64,15 @@ std::string generate_uuid();
  * and converted to and from the text representation. */
 class ObjectReference {
 public:
+    enum RefType { REF_NULL, REF_ZERO, REF_NORMAL };
+
     ObjectReference();
+    ObjectReference(RefType t);
     ObjectReference(const std::string& segment, int sequence);
     ObjectReference(const std::string& segment, const std::string& sequence);
 
-    bool is_null() const { return segment.size() == 0; }
+    bool is_null() const { return type == REF_NULL; }
+    bool is_normal() const { return type == REF_NORMAL; }
     std::string to_string() const;
     static ObjectReference parse(const std::string& s);
 
@@ -92,6 +96,7 @@ public:
     bool merge(ObjectReference ref);
 
 private:
+    RefType type;
     std::string segment, object, checksum;
     size_t range_start, range_length;
     bool checksum_valid, range_valid;

@@ -29,12 +29,21 @@ string generate_uuid()
 }
 
 ObjectReference::ObjectReference()
-    : segment(""), object("")
+    : type(REF_NULL), segment(""), object("")
 {
+    clear_checksum();
+    clear_range();
+}
+
+ObjectReference::ObjectReference(RefType t)
+    : type(t), segment(""), object("")
+{
+    clear_checksum();
+    clear_range();
 }
 
 ObjectReference::ObjectReference(const std::string& segment, int sequence)
-    : segment(segment)
+    : type(REF_NORMAL), segment(segment)
 {
     char seq_buf[64];
     sprintf(seq_buf, "%08x", sequence);
@@ -46,7 +55,7 @@ ObjectReference::ObjectReference(const std::string& segment, int sequence)
 
 ObjectReference::ObjectReference(const std::string& segment,
                                  const std::string& sequence)
-    : segment(segment), object(sequence)
+    : type(REF_NORMAL), segment(segment), object(sequence)
 {
     clear_checksum();
     clear_range();
@@ -54,13 +63,18 @@ ObjectReference::ObjectReference(const std::string& segment,
 
 string ObjectReference::to_string() const
 {
-    if (is_null())
-        return "/";
+    if (type == REF_NULL)
+        return "null";
 
-    string result = segment + "/" + object;
+    string result;
+    if (type == REF_ZERO) {
+        result = "zero";
+    } else if (type == REF_NORMAL) {
+        result = segment + "/" + object;
 
-    if (checksum_valid)
-        result += "(" + checksum + ")";
+        if (checksum_valid)
+            result += "(" + checksum + ")";
+    }
 
     if (range_valid) {
         char buf[64];
@@ -78,22 +92,34 @@ ObjectReference ObjectReference::parse(const std::string& str)
 {
     const char *s = str.c_str();
     const char *t;
+    ObjectReference::RefType type = ObjectReference::REF_NORMAL;
+
+    // Special case: explicit zero objects
+    if (strncmp(s, "zero", 4) == 0) {
+        type = ObjectReference::REF_ZERO;
+        s += 4;
+    }
 
     // Segment
     t = s;
-    while ((*t >= '0' && *t <= '9') || (*t >= 'a' && *t <= 'f') || (*t == '-'))
-        t++;
-    if (*t != '/')
-        return ObjectReference();
+    if (type == ObjectReference::REF_NORMAL) {
+        while ((*t >= '0' && *t <= '9') || (*t >= 'a' && *t <= 'f')
+               || (*t == '-'))
+            t++;
+        if (*t != '/')
+            return ObjectReference();
+    }
     string segment(s, t - s);
 
     // Object sequence number
-    t++;
-    s = t;
-    while ((*t >= '0' && *t <= '9') || (*t >= 'a' && *t <= 'f'))
+    if (type == ObjectReference::REF_NORMAL) {
         t++;
-    if (*t != '\0' && *t != '(' && *t != '[')
-        return ObjectReference();
+        s = t;
+        while ((*t >= '0' && *t <= '9') || (*t >= 'a' && *t <= 'f'))
+            t++;
+        if (*t != '\0' && *t != '(' && *t != '[')
+            return ObjectReference();
+    }
     string object(s, t - s);
 
     // Checksum
@@ -111,7 +137,7 @@ ObjectReference ObjectReference::parse(const std::string& str)
 
     // Range
     bool have_range = false;
-    int64_t range1, range2;
+    int64_t range1 = 0, range2 = 0;
     if (*t == '[') {
         t++;
         s = t;
@@ -136,7 +162,18 @@ ObjectReference ObjectReference::parse(const std::string& str)
         have_range = true;
     }
 
-    ObjectReference ref(segment, object);
+    ObjectReference ref;
+    switch (type) {
+    case ObjectReference::REF_ZERO:
+        ref = ObjectReference(ObjectReference::REF_ZERO);
+        break;
+    case ObjectReference::REF_NORMAL:
+        ref = ObjectReference(segment, object);
+        break;
+    default:
+        return ObjectReference();
+    }
+
     if (checksum.size() > 0)
         ref.set_checksum(checksum);
 

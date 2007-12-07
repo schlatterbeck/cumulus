@@ -136,6 +136,10 @@ class ObjectStore:
 
     @staticmethod
     def parse_ref(refstr):
+        m = re.match(r"^zero\[(\d+)\+(\d+)\]$", refstr)
+        if m:
+            return ("zero", None, None, (int(m.group(1)), int(m.group(2))))
+
         m = re.match(r"^([-0-9a-f]+)\/([0-9a-f]+)(\(\S+\))?(\[(\d+)\+(\d+)\])?$", refstr)
         if not m: return
 
@@ -205,6 +209,9 @@ class ObjectStore:
         """
 
         (segment, object, checksum, slice) = self.parse_ref(refstr)
+
+        if segment == "zero":
+            return "\0" * slice[1]
 
         data = self.load_object(segment, object)
 

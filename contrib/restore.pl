@@ -85,11 +85,16 @@ sub verifier_check {
 # necessary integrity checks (if a checksum is included), and return the object
 # data.
 sub load_ref {
-    # First, try to parse the object reference string into constituent pieces.
-    # The format is segment/object(checksum)[range].  Both the checksum and
-    # range are optional.
     my $ref_str = shift;
 
+    # Check for special objects before attempting general parsing.
+    if ($ref_str =~ m/^zero\[(\d+)\+(\d+)\]$/) {
+        return "\0" x ($2 + 0);
+    }
+
+    # Try to parse the object reference string into constituent pieces.  The
+    # format is segment/object(checksum)[range].  Both the checksum and range
+    # are optional.
     if ($ref_str !~ m/^([-0-9a-f]+)\/([0-9a-f]+)(\(\S+\))?(\[\S+\])?$/) {
         die "Malformed object reference: $ref_str";
     }

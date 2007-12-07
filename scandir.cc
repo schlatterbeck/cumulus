@@ -137,7 +137,8 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                  i != blocks.end(); ++i) {
                 const ObjectReference &ref = *i;
                 object_list.push_back(ref.to_string());
-                segment_list.insert(ref.get_segment());
+                if (ref.is_normal())
+                    segment_list.insert(ref.get_segment());
                 db->UseObject(ref);
             }
             size = stat_buf.st_size;
@@ -160,16 +161,34 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
 
             hash.process(block_buf, bytes);
 
+            // Sparse file processing: if we read a block of all zeroes, encode
+            // that explicitly.
+            bool all_zero = true;
+            for (int i = 0; i < bytes; i++) {
+                if (block_buf[i] != 0) {
+                    all_zero = false;
+                    break;
+                }
+            }
+
             // Either find a copy of this block in an already-existing segment,
             // or index it so it can be re-used in the future
             double block_age = 0.0;
+            ObjectReference ref;
+
             SHA1Checksum block_hash;
             block_hash.process(block_buf, bytes);
             string block_csum = block_hash.checksum_str();
-            ObjectReference ref = db->FindObject(block_csum, bytes);
+
+            if (all_zero) {
+                ref = ObjectReference(ObjectReference::REF_ZERO);
+                ref.set_range(0, bytes);
+            } else {
+                ObjectReference ref = db->FindObject(block_csum, bytes);
+            }
 
             // Store a copy of the object if one does not yet exist
-            if (ref.get_segment().size() == 0) {
+            if (ref.is_null()) {
                 LbsObject *o = new LbsObject;
                 int object_group;
 
@@ -208,7 +227,8 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
             }
 
             object_list.push_back(ref.to_string());
-            segment_list.insert(ref.get_segment());
+            if (ref.is_normal())
+                segment_list.insert(ref.get_segment());
             db->UseObject(ref);
             size += bytes;
 

@@ -304,6 +304,11 @@ bool LocalDb::IsAvailable(const ObjectReference &ref)
     sqlite3_stmt *stmt;
     bool found = false;
 
+    // Special objects (such as the zero object) aren't stored in segments, and
+    // so are always available.
+    if (!ref.is_normal())
+        return true;
+
     stmt = Prepare("select count(*) from block_index "
                    "where segmentid = ? and object = ? and expired is null");
     sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
@@ -330,6 +335,9 @@ void LocalDb::UseObject(const ObjectReference& ref)
 {
     int rc;
     sqlite3_stmt *stmt;
+
+    if (!ref.is_normal())
+        return;
 
     stmt = Prepare("insert or ignore into snapshot_refs "
                    "select segmentid, object, size from block_index "

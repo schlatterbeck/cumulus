@@ -122,6 +122,18 @@ Both a checksum and a slice can be used.  In this case, the checksum is
 given first, followed by the slice.  The checksum is computed over the
 original object contents, before slicing.
 
+Special Objects
+---------------
+
+In addition to the standard syntax for objects described above, the
+special name "zero" may be used instead of segment/sequence number.
+This represents an object consisting entirely of zeroes.  The zero
+object must have a slice specification appended to indicate the size of
+the object.  For example
+    zero[0+1024]
+represents a block consisting of 1024 null bytes.  A checksum should not
+be given.
+
 
 FILE METADATA LISTING
 =====================
