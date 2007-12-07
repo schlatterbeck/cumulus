@@ -243,7 +243,7 @@ sub process_file {
     # Restore the specified file.  How to do so depends upon the file type, so
     # dispatch based on that.
     my $dest = "$DEST_DIR/$filename";
-    if ($type eq '-') {
+    if ($type eq '-' || $type eq 'f') {
         # Regular file
         unpack_file($filename, %info);
     } elsif ($type eq 'd') {
@@ -253,11 +253,12 @@ sub process_file {
         }
     } elsif ($type eq 'l') {
         # Symlink
-        if (!defined($info{contents})) {
+        my $target = $info{target} || $info{contents};
+        if (!defined($target)) {
             die "Symlink $filename has no value specified";
         }
-        my $contents = uri_decode($info{contents});
-        symlink $contents, $dest
+        $target = uri_decode($target);
+        symlink $target, $dest
             or die "Cannot create symlink $filename: $!";
 
         # TODO: We can't properly restore all metadata for symbolic links

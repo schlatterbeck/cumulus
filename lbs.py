@@ -13,7 +13,7 @@ import os, re, sha, tarfile, tempfile, thread
 from pysqlite2 import dbapi2 as sqlite3
 
 # The largest supported snapshot format that can be understood.
-FORMAT_VERSION = (0, 2)         # LBS Snapshot v0.2
+FORMAT_VERSION = (0, 6)         # LBS Snapshot v0.6
 
 # Maximum number of nested indirect references allowed in a snapshot.
 MAX_RECURSION_DEPTH = 3
@@ -402,12 +402,14 @@ MetadataItem.field_types = {
     'device': MetadataItem.decode_device,
     'user': MetadataItem.decode_user,
     'group': MetadataItem.decode_user,
+    'ctime': MetadataItem.decode_int,
     'mtime': MetadataItem.decode_int,
     'links': MetadataItem.decode_int,
     'inode': MetadataItem.raw_str,
     'checksum': MetadataItem.decode_str,
     'size': MetadataItem.decode_int,
     'contents': MetadataItem.decode_str,
+    'target': MetadataItem.decode_str,
 }
 
 def iterate_metadata(object_store, root):
@@ -452,17 +454,16 @@ class LocalDatabase:
                        where snapshotid < (select max(snapshotid)
                                            from snapshots)""")
 
-        # Delete entries in the snapshot_contents table which are for
-        # non-existent snapshots.
-        cur.execute("""delete from snapshot_contents
+        # Delete entries in the segments_used table which are for non-existent
+        # snapshots.
+        cur.execute("""delete from segments_used
                        where snapshotid not in
                            (select snapshotid from snapshots)""")
 
         # Find segments which contain no objects used by any current snapshots,
         # and delete them from the segment table.
         cur.execute("""delete from segments where segmentid not in
-                           (select distinct segmentid from snapshot_contents
-                                natural join block_index)""")
+                           (select segmentid from segments_used)""")
 
         # Finally, delete objects contained in non-existent segments.  We can't
         # simply delete unused objects, since we use the set of unused objects
@@ -574,18 +575,10 @@ class LocalDatabase:
 
         cur = self.cursor()
 
-        # First step: Mark all unused-and-expired objects with expired = -1,
-        # which will cause us to mostly ignore these objects when rebalancing.
-        # At the end, we will set these objects to be in group expired = 0.
-        # Mark expired objects which still seem to be in use with expired = 0;
-        # these objects will later have values set to indicate groupings of
-        # objects when repacking.
-        cur.execute("""update block_index set expired = -1
-                       where expired is not null""")
-
+        # Mark all expired objects with expired = 0; these objects will later
+        # have values set to indicate groupings of objects when repacking.
         cur.execute("""update block_index set expired = 0
-                       where expired is not null and blockid in
-                           (select blockid from snapshot_contents)""")
+                       where expired is not null""")
 
         # We will want to aim for at least one full segment for each bucket
         # that we eventually create, but don't know how many bytes that should
@@ -595,7 +588,7 @@ class LocalDatabase:
         # segments, but for now don't worry too much about that.)  If we can't
         # compute an average, it's probably because there are no expired
         # segments, so we have no more work to do.
-        cur.execute("""select avg(size) from segment_info
+        cur.execute("""select avg(size) from segments
                        where segmentid in
                            (select distinct segmentid from block_index
                             where expired is not null)""")
@@ -678,6 +671,5 @@ class LocalDatabase:
         cutoffs.reverse()
         for i in range(len(cutoffs)):
             cur.execute("""update block_index set expired = ?
-                           where round(? - timestamp) > ? and expired >= 0""",
+                           where round(? - timestamp) > ?""",
                         (i, now, cutoffs[i]))
-        cur.execute("update block_index set expired = 0 where expired = -1")

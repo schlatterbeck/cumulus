@@ -6,9 +6,9 @@ import getpass, os, stat, sys, time
 from optparse import OptionParser
 import lbs
 
-# We support up to "LBS Snapshot v0.2" formats, but are also limited by the lbs
+# We support up to "LBS Snapshot v0.6" formats, but are also limited by the lbs
 # module.
-FORMAT_VERSION = min(lbs.FORMAT_VERSION, (0, 2))
+FORMAT_VERSION = min(lbs.FORMAT_VERSION, (0, 6))
 
 def check_version(format):
     ver = lbs.parse_metadata_version(format)
@@ -138,7 +138,7 @@ def cmd_verify_snapshots(snapshots):
         print "## Root:", d['Root']
         metadata = lbs.iterate_metadata(store, d['Root'])
         for m in metadata:
-            if m.fields['type'] != '-': continue
+            if m.fields['type'] not in ('-', 'f'): continue
             print "%s [%d bytes]" % (m.fields['name'], int(m.fields['size']))
             verifier = lbs.ChecksumVerifier(m.fields['checksum'])
             size = 0
@@ -181,7 +181,7 @@ def cmd_restore_snapshot(args):
             if not os.path.isdir(path):
                 os.makedirs(path)
 
-            if m.items.type == '-':
+            if m.items.type in ('-', 'f'):
                 file = open(destpath, 'wb')
                 verifier = lbs.ChecksumVerifier(m.items.checksum)
                 size = 0
@@ -199,7 +199,12 @@ def cmd_restore_snapshot(args):
                 if filename != '.':
                     os.mkdir(destpath)
             elif m.items.type == 'l':
-                os.symlink(m.items.contents, destpath)
+                try:
+                    target = m.items.target
+                except:
+                    # Old (v0.2 format) name for 'target'
+                    target = m.items.contents
+                os.symlink(target, destpath)
             elif m.items.type == 'p':
                 os.mkfifo(destpath)
             elif m.items.type in ('c', 'b'):

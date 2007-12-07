@@ -17,6 +17,7 @@ create table segments (
     segment text unique not null,
     path text,
     checksum text,
+    mtime real,
     size integer
 );
 
@@ -39,3 +40,12 @@ create table segments_used (
     segmentid integer not null,
     utilization real
 );
+
+-- Overall estimate of segment utilization, for all snapshots combined.
+create view segment_info as
+select segmentid, mtime, size, cast(size * utilization as integer) as used,
+       utilization
+from segments join
+     (select segmentid, max(utilization) as utilization
+      from segments_used group by segmentid)
+using (segmentid);
