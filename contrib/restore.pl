@@ -128,7 +128,7 @@ sub load_ref {
 
         my $object_size = length $contents;
         my ($start, $length);
-        if ($1 ne "") {
+        if (defined($1)) {
             ($start, $length) = ($2 + 0, $3 + 0);
         } else {
             ($start, $length) = (0, $3 + 0);
