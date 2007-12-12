@@ -8,7 +8,8 @@ create table snapshots (
     snapshotid integer primary key,
     name text not null,
     scheme text,
-    timestamp real
+    timestamp real,
+    intent real
 );
 
 -- List of segments which have been created.

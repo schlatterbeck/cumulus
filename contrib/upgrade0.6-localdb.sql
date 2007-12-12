@@ -7,7 +7,8 @@
 -- Database schema changes: the size and mtime columns were added to the
 -- segments table, and the segments_used table was added.  Rather than upgrade
 -- the segments table in-place, we create a new table and then rename it over
--- the old segments table.
+-- the old segments table.  The intent column was also added to the snapshots
+-- table.
 create table segments_new (
     segmentid integer primary key,
     segment text unique not null,
@@ -22,6 +23,12 @@ create table segments_used (
     segmentid integer not null,
     utilization real
 );
+
+alter table snapshots add column intent real;
+
+-- Initialize the intent column; set all old snapshots to have intent 1
+-- (intended to be a daily snapshot).
+update snapshots set intent = 1;
 
 -- Compute the size of each of the segments, if possible, based on our
 -- knowledge of the objects stored in them.

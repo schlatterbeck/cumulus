@@ -22,7 +22,7 @@
 class LocalDb {
 public:
     void Open(const char *path, const char *snapshot_name,
-              const char *snapshot_scheme);
+              const char *snapshot_scheme, double intent);
     void Close();
     void StoreObject(const ObjectReference& ref,
                      const std::string &checksum, int64_t size, double age);

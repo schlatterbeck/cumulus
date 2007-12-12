@@ -57,6 +57,11 @@ LocalDb *db;
 /* Keep track of all segments which are needed to reconstruct the snapshot. */
 std::set<string> segment_list;
 
+/* Snapshot intent: 1=daily, 7=weekly, etc.  This is not used directly, but is
+ * stored in the local database and can help guide segment cleaning and
+ * snapshot expiration policies. */
+double snapshot_intent = 1.0;
+
 /* Selection of files to include/exclude in the snapshot. */
 std::list<string> includes;         // Paths in which files should be saved
 std::list<string> excludes;         // Paths which will not be saved
@@ -557,7 +562,9 @@ void usage(const char *program)
         "                           (defaults to \".bz2\")\n"
         "  --signature-filter=COMMAND\n"
         "                       program though which to filter descriptor\n"
-        "  --scheme=NAME        optional name for this snapshot\n",
+        "  --scheme=NAME        optional name for this snapshot\n"
+        "  --intent=FLOAT       intended backup type: 1=daily, 7=weekly, ...\n"
+        "                           (defaults to \"1\")\n",
         lbs_version, program
     );
 }
@@ -578,6 +585,7 @@ int main(int argc, char *argv[])
             {"dest", 1, 0, 0},              // 4
             {"scheme", 1, 0, 0},            // 5
             {"signature-filter", 1, 0, 0},  // 6
+            {"intent", 1, 0, 0},            // 7
             {NULL, 0, 0, 0},
         };
 
@@ -612,6 +620,11 @@ int main(int argc, char *argv[])
                 break;
             case 6:     // --signature-filter
                 signature_filter = optarg;
+                break;
+            case 7:     // --intent
+                snapshot_intent = atof(optarg);
+                if (snapshot_intent <= 0)
+                    snapshot_intent = 1;
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");
@@ -683,7 +696,8 @@ int main(int argc, char *argv[])
     string database_path = localdb_dir + "/localdb.sqlite";
     db = new LocalDb;
     db->Open(database_path.c_str(), desc_buf,
-             backup_scheme.size() ? backup_scheme.c_str() : NULL);
+             backup_scheme.size() ? backup_scheme.c_str() : NULL,
+             snapshot_intent);
 
     tss = new TarSegmentStore(backup_dest, db);
 
