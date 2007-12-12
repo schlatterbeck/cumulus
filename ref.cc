@@ -78,7 +78,11 @@ string ObjectReference::to_string() const
 
     if (range_valid) {
         char buf[64];
-        sprintf(buf, "[%zu+%zu]", range_start, range_length);
+        if (range_start == 0) {
+            sprintf(buf, "[%zu]", range_length);
+        } else {
+            sprintf(buf, "[%zu+%zu]", range_start, range_length);
+        }
         result += buf;
     }
 
@@ -143,21 +147,28 @@ ObjectReference ObjectReference::parse(const std::string& str)
         s = t;
         while (*t >= '0' && *t <= '9')
             t++;
-        if (*t != '+')
-            return ObjectReference();
 
-        string val(s, t - s);
-        range1 = atoll(val.c_str());
+        // Abbreviated-length only range?
+        if (*t == ']') {
+            string val(s, t - s);
+            range2 = atoll(val.c_str());
+        } else {
+            if (*t != '+')
+                return ObjectReference();
 
-        t++;
-        s = t;
-        while (*t >= '0' && *t <= '9')
+            string val(s, t - s);
+            range1 = atoll(val.c_str());
+
             t++;
-        if (*t != ']')
-            return ObjectReference();
+            s = t;
+            while (*t >= '0' && *t <= '9')
+                t++;
+            if (*t != ']')
+                return ObjectReference();
 
-        val = string(s, t - s);
-        range2 = atoll(val.c_str());
+            val = string(s, t - s);
+            range2 = atoll(val.c_str());
+        }
 
         have_range = true;
     }

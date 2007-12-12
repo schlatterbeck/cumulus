@@ -88,8 +88,8 @@ sub load_ref {
     my $ref_str = shift;
 
     # Check for special objects before attempting general parsing.
-    if ($ref_str =~ m/^zero\[(\d+)\+(\d+)\]$/) {
-        return "\0" x ($2 + 0);
+    if ($ref_str =~ m/^zero\[((\d+)\+)?(\d+)\]$/) {
+        return "\0" x ($3 + 0);
     }
 
     # Try to parse the object reference string into constituent pieces.  The
@@ -122,12 +122,17 @@ sub load_ref {
     # If a range was specified, then only a subset of the bytes of the object
     # are desired.  Extract just the desired bytes.
     if ($range) {
-        if ($range !~ m/^\[(\d+)\+(\d+)\]$/) {
+        if ($range !~ m/^\[((\d+)\+)?(\d+)\]$/) {
             die "Malformed object range: $range";
         }
 
         my $object_size = length $contents;
-        my ($start, $length) = ($1 + 0, $2 + 0);
+        my ($start, $length);
+        if ($1 ne "") {
+            ($start, $length) = ($2 + 0, $3 + 0);
+        } else {
+            ($start, $length) = (0, $3 + 0);
+        }
         if ($start >= $object_size || $start + $length > $object_size) {
             die "Object range $range falls outside object bounds "
                 . "(actual size $object_size)";

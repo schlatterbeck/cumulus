@@ -116,7 +116,11 @@ is invalid to select using the slice syntax a range of bytes that does
 not fall within the original object.  The slice specification should be
 appended to an object name, for example:
     a704eeae-97f2-4f30-91a4-d4473956366b/000001ad[264+1000]
-selects only bytes 264..1263 from the original object.
+selects only bytes 264..1263 from the original object.  As an
+abbreviation, the slice syntax
+    [<length>]
+is shorthand for
+    [0+<length>]
 
 Both a checksum and a slice can be used.  In this case, the checksum is
 given first, followed by the slice.  The checksum is computed over the
@@ -130,9 +134,9 @@ special name "zero" may be used instead of segment/sequence number.
 This represents an object consisting entirely of zeroes.  The zero
 object must have a slice specification appended to indicate the size of
 the object.  For example
-    zero[0+1024]
+    zero[1024]
 represents a block consisting of 1024 null bytes.  A checksum should not
-be given.
+be given.  The slice syntax should use the abbreviated length-only form.
 
 
 FILE METADATA LISTING

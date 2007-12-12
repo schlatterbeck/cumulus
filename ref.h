@@ -39,7 +39,8 @@
  * range specifier is given, then by default the entire object is used.
  *    <range> ::= <start> "+" <length>
  * Both <start> and <length> are decimal values.  If included, the range is
- * enclosed in brackets.
+ * enclosed in brackets.  As an abbreviation, if <start> is 0 then the range
+ * can be given as just <length> (no "+" needed).
  *
  * When both a checksum and a range are included, note that the checksum is
  * taken over the entire original object, before the range is taken into

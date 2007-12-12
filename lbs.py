@@ -139,11 +139,11 @@ class ObjectStore:
 
     @staticmethod
     def parse_ref(refstr):
-        m = re.match(r"^zero\[(\d+)\+(\d+)\]$", refstr)
+        m = re.match(r"^zero\[(\d+)\]$", refstr)
         if m:
-            return ("zero", None, None, (int(m.group(1)), int(m.group(2))))
+            return ("zero", None, None, (0, int(m.group(1))))
 
-        m = re.match(r"^([-0-9a-f]+)\/([0-9a-f]+)(\(\S+\))?(\[(\d+)\+(\d+)\])?$", refstr)
+        m = re.match(r"^([-0-9a-f]+)\/([0-9a-f]+)(\(\S+\))?(\[((\d+)\+)?(\d+)\])?$", refstr)
         if not m: return
 
         segment = m.group(1)
@@ -155,7 +155,11 @@ class ObjectStore:
             checksum = checksum.lstrip("(").rstrip(")")
 
         if slice is not None:
-            slice = (int(m.group(5)), int(m.group(6)))
+            if m.group(5) is None:
+                # Abbreviated slice
+                slice = (0, int(m.group(7)))
+            else:
+                slice = (int(m.group(6)), int(m.group(7)))
 
         return (segment, object, checksum, slice)
 
