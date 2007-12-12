@@ -189,7 +189,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                 ref = ObjectReference(ObjectReference::REF_ZERO);
                 ref.set_range(0, bytes);
             } else {
-                ObjectReference ref = db->FindObject(block_csum, bytes);
+                ref = db->FindObject(block_csum, bytes);
             }
 
             // Store a copy of the object if one does not yet exist
