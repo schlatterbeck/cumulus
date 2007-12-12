@@ -132,6 +132,7 @@ def cmd_verify_snapshots(snapshots):
     lowlevel = lbs.LowlevelDataStore(options.store)
     store = lbs.ObjectStore(lowlevel)
     for s in snapshots:
+        lbs.accessed_segments.clear()
         print "#### Snapshot", s
         d = lbs.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
@@ -150,6 +151,17 @@ def cmd_verify_snapshots(snapshots):
                 raise ValueError("File size does not match!")
             if not verifier.valid():
                 raise ValueError("Bad checksum found")
+
+        # Verify that the list of segments included with the snapshot was
+        # actually accurate: covered all segments that were really read, and
+        # doesn't contain duplicates.
+        listed_segments = set(d['Segments'].split())
+        if lbs.accessed_segments - listed_segments:
+            print "Error: Some segments not listed in descriptor!"
+            print sorted(list(lbs.accessed_segments - listed_segments))
+        if listed_segments - lbs.accessed_segments :
+            print "Warning: Extra unused segments listed in descriptor!"
+            print sorted(list(listed_segments - lbs.accessed_segments))
     store.cleanup()
 
 # Restore a snapshot, or some subset of files from it

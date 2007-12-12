@@ -18,6 +18,9 @@ FORMAT_VERSION = (0, 6)         # LBS Snapshot v0.6
 # Maximum number of nested indirect references allowed in a snapshot.
 MAX_RECURSION_DEPTH = 3
 
+# All segments which have been accessed this session.
+accessed_segments = set()
+
 class Struct:
     """A class which merely acts as a data container.
 
@@ -157,6 +160,7 @@ class ObjectStore:
         return (segment, object, checksum, slice)
 
     def get_segment(self, segment):
+        accessed_segments.add(segment)
         raw = self.store.lowlevel_open(segment + ".tar.gpg")
 
         (input, output) = os.popen2("lbs-filter-gpg --decrypt")
@@ -192,6 +196,7 @@ class ObjectStore:
             f.close()
 
     def load_object(self, segment, object):
+        accessed_segments.add(segment)
         path = os.path.join(self.get_cachedir(), segment, object)
         if not os.access(path, os.R_OK):
             self.extract_segment(segment)
