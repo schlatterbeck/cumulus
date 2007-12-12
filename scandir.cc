@@ -228,6 +228,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                 o->write(tss);
                 ref = o->get_ref();
                 db->StoreObject(ref, block_csum, bytes, block_age);
+                ref.set_range(0, bytes);
                 delete o;
             }
 
