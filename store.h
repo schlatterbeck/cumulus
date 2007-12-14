@@ -115,6 +115,7 @@ private:
         Tarfile *file;
         std::string name;           // UUID
         int count;                  // Objects written to this segment
+        int size;                   // Combined size of objects written
         std::string basename;       // Name of segment without directory
         std::string fullname;       // Full path to stored segment
     };

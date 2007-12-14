@@ -359,20 +359,19 @@ void LocalDb::UseObject(const ObjectReference& ref)
 
 void LocalDb::SetSegmentChecksum(const std::string &segment,
                                  const std::string &path,
-                                 const std::string &checksum)
+                                 const std::string &checksum,
+                                 int size)
 {
     int rc;
     sqlite3_stmt *stmt;
 
-    stmt = Prepare("update segments set path = ?, checksum = ?, "
-                   "size = (select sum(size) from block_index "
-                   "        where segmentid = ?) "
+    stmt = Prepare("update segments set path = ?, checksum = ?, size = ? "
                    "where segmentid = ?");
     sqlite3_bind_text(stmt, 1, path.c_str(), path.size(),
                       SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, checksum.c_str(), checksum.size(),
                       SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt, 3, SegmentToId(segment));
+    sqlite3_bind_int64(stmt, 3, size);
     sqlite3_bind_int64(stmt, 4, SegmentToId(segment));
 
     rc = sqlite3_step(stmt);

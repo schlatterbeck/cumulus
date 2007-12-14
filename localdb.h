@@ -33,7 +33,7 @@ public:
     void UseObject(const ObjectReference& ref);
 
     void SetSegmentChecksum(const std::string &segment, const std::string &path,
-                            const std::string &checksum);
+                            const std::string &checksum, int size);
     bool GetSegmentChecksum(const std::string &segment,
                             std::string *seg_path, std::string *seg_checksum);
 private:

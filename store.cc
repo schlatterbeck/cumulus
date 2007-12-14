@@ -232,6 +232,7 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
         segment->fullname = path + "/" + segment->basename;
         segment->file = new Tarfile(segment->fullname, segment->name);
         segment->count = 0;
+        segment->size = 0;
 
         segments[group] = segment;
     } else {
@@ -244,6 +245,7 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
 
     segment->file->write_object(id, data, len);
     segment->count++;
+    segment->size += len;
 
     group_sizes[group] += len;
 
@@ -282,7 +284,8 @@ void TarSegmentStore::close_segment(const string &group)
         SHA1Checksum segment_checksum;
         if (segment_checksum.process_file(segment->fullname.c_str())) {
             string checksum = segment_checksum.checksum_str();
-            db->SetSegmentChecksum(segment->name, segment->basename, checksum);
+            db->SetSegmentChecksum(segment->name, segment->basename, checksum,
+                                   segment->size);
         }
     }
 
