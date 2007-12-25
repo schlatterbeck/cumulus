@@ -22,6 +22,8 @@ parser.add_option("--store", dest="store",
                   help="specify path to backup data store")
 parser.add_option("--localdb", dest="localdb",
                   help="specify path to local database")
+parser.add_option("--intent", dest="intent", default=1.0,
+                  help="give expected next snapshot type when cleaning")
 (options, args) = parser.parse_args(sys.argv[1:])
 
 # Read a passphrase from the user and store it in the LBS_GPG_PASSPHRASE
@@ -38,8 +40,8 @@ def cmd_prune_db():
     db = lbs.LocalDatabase(options.localdb)
 
     # Delete old snapshots from the local database.
-    db.garbage_collect()
-    db.commit()
+    #db.garbage_collect()
+    #db.commit()
 
 # Run the segment cleaner.
 # Syntax: $0 --localdb=LOCALDB clean
@@ -47,7 +49,9 @@ def cmd_clean(clean_threshold=7.0):
     db = lbs.LocalDatabase(options.localdb)
 
     # Delete old snapshots from the local database.
-    db.garbage_collect()
+    intent = float(options.intent)
+    for s in db.list_schemes():
+        db.garbage_collect(s, intent)
 
     # Expire segments which are poorly-utilized.
     for s in db.get_segment_cleaning_list():

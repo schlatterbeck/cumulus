@@ -460,15 +460,57 @@ class LocalDatabase:
         "Return a DB-API cursor for directly accessing the local database."
         return self.db_connection.cursor()
 
-    def garbage_collect(self):
-        """Delete entries from old snapshots from the database."""
+    def list_schemes(self):
+        """Return the list of snapshots found in the local database.
+
+        The returned value is a list of tuples (id, scheme, name, time, intent).
+        """
+
+        cur = self.cursor()
+        cur.execute("select distinct scheme from snapshots")
+        schemes = [row[0] for row in cur.fetchall()]
+        schemes.sort()
+        return schemes
+
+    def garbage_collect(self, scheme, intent=1.0):
+        """Delete entries from old snapshots from the database.
+
+        Only snapshots with the specified scheme name will be deleted.  If
+        intent is given, it gives the intended next snapshot type, to determine
+        how aggressively to clean (for example, intent=7 could be used if the
+        next snapshot will be a weekly snapshot).
+        """
 
         cur = self.cursor()
 
-        # Delete old snapshots.
-        cur.execute("""delete from snapshots
-                       where snapshotid < (select max(snapshotid)
-                                           from snapshots)""")
+        # Get the list of old snapshots for this scheme.  Delete all the old
+        # ones.  Rules for what to keep:
+        #   - Always keep the most recent snapshot.
+        #   - If snapshot X is younger than Y, and X has higher intent, then Y
+        #     can be deleted.
+        cur.execute("""select snapshotid, name, intent,
+                              julianday('now') - timestamp as age
+                       from snapshots where scheme = ?
+                       order by age""", (scheme,))
+
+        first = True
+        max_intent = intent
+        for (id, name, snap_intent, snap_age) in cur.fetchall():
+            can_delete = False
+            if snap_intent < max_intent:
+                # Delete small-intent snapshots if there is a more recent
+                # large-intent snapshot.
+                can_delete = True
+            elif snap_intent == intent:
+                # Delete previous snapshots with the specified intent level.
+                can_delete = True
+
+            if can_delete and not first:
+                print "Delete snapshot %d (%s)" % (id, name)
+                cur.execute("delete from snapshots where snapshotid = ?",
+                            (id,))
+            first = False
+            max_intent = max(max_intent, snap_intent)
 
         # Delete entries in the segments_used table which are for non-existent
         # snapshots.
@@ -519,6 +561,10 @@ class LocalDatabase:
             info.size_bytes = row[2]
             info.mtime = row[3]
             info.age_days = row[4]
+
+            # If age is not available for whatever reason, treat it as 0.0.
+            if info.age_days is None:
+                info.age_days = 0.0
 
             # Benefit calculation: u is the estimated fraction of each segment
             # which is utilized (bytes belonging to objects still in use
