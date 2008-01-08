@@ -24,6 +24,10 @@ using std::ostringstream;
 
 static const size_t LBS_METADATA_BLOCK_SIZE = 65536;
 
+// If true, forces a full write of metadata: will not include pointers to
+// metadata in old snapshots.
+bool flag_full_metadata = false;
+
 /* TODO: Move to header file */
 void add_segment(const string& segment);
 
@@ -348,7 +352,7 @@ void MetadataWriter::add(dictionary info)
     item.reused = false;
     item.text += encode_dict(info) + "\n";
 
-    if (info == old_metadata) {
+    if (info == old_metadata && !flag_full_metadata) {
         ObjectReference ref = ObjectReference::parse(old_metadata_loc);
         if (!ref.is_null()) {
             item.reused = true;

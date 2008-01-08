@@ -565,7 +565,8 @@ void usage(const char *program)
         "                       program though which to filter descriptor\n"
         "  --scheme=NAME        optional name for this snapshot\n"
         "  --intent=FLOAT       intended backup type: 1=daily, 7=weekly, ...\n"
-        "                           (defaults to \"1\")\n",
+        "                           (defaults to \"1\")\n"
+        "  --full-metadata      do not re-use metadata from previous backups\n",
         lbs_version, program
     );
 }
@@ -587,6 +588,7 @@ int main(int argc, char *argv[])
             {"scheme", 1, 0, 0},            // 5
             {"signature-filter", 1, 0, 0},  // 6
             {"intent", 1, 0, 0},            // 7
+            {"full-metadata", 0, 0, 0},     // 8
             {NULL, 0, 0, 0},
         };
 
@@ -626,6 +628,9 @@ int main(int argc, char *argv[])
                 snapshot_intent = atof(optarg);
                 if (snapshot_intent <= 0)
                     snapshot_intent = 1;
+                break;
+            case 8:     // --full-metadata
+                flag_full_metadata = true;
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");

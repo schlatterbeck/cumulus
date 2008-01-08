@@ -21,6 +21,8 @@
 #include "ref.h"
 #include "util.h"
 
+extern bool flag_full_metadata;
+
 /* Metadata for a single inode, ready to be written out. */
 struct MetadataItem {
     int offset;
