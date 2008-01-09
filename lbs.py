@@ -733,5 +733,6 @@ class LocalDatabase:
         cutoffs.reverse()
         for i in range(len(cutoffs)):
             cur.execute("""update block_index set expired = ?
-                           where round(? - timestamp) > ?""",
+                           where round(? - timestamp) > ?
+                             and expired is not null""",
                         (i, now, cutoffs[i]))
