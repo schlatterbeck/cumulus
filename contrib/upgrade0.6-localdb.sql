@@ -23,6 +23,8 @@ create table segments_used (
     segmentid integer not null,
     utilization real
 );
+create unique index segments_used_index
+    on segments_used(snapshotid, segmentid);
 
 alter table snapshots add column intent real;
 

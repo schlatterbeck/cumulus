@@ -125,14 +125,21 @@ void LocalDb::Close()
     int rc;
 
     /* Summarize the snapshot_refs table into segments_used. */
-    sqlite3_stmt *stmt = Prepare("insert into segments_used "
-                                 "select ? as snapshotid, segmentid, "
-                                 "cast(used as real) / size as utilization "
-                                 "from "
-                                 "(select segmentid, sum(size) as used "
-                                 "from snapshot_refs group by segmentid) "
-                                 "join segments using (segmentid)");
+    sqlite3_stmt *stmt = Prepare(
+        "insert or replace into segments_used "
+        "select ? as snapshotid, segmentid, max(utilization) from ("
+        "    select segmentid, cast(used as real) / size as utilization "
+        "    from "
+        "    (select segmentid, sum(size) as used from snapshot_refs "
+        "       group by segmentid) "
+        "    join segments using (segmentid) "
+        "  union "
+        "    select segmentid, utilization from segments_used "
+        "    where snapshotid = ? "
+        ") group by segmentid"
+    );
     sqlite3_bind_int64(stmt, 1, snapshotid);
+    sqlite3_bind_int64(stmt, 2, snapshotid);
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_OK && rc != SQLITE_DONE) {
         ReportError(rc);
@@ -239,6 +246,15 @@ void LocalDb::StoreObject(const ObjectReference& ref,
     }
 
     sqlite3_finalize(stmt);
+
+    if (age != 0.0) {
+        stmt = Prepare("update segments set mtime = max(mtime, ?) "
+                       "where segmentid = ?");
+        sqlite3_bind_double(stmt, 1, age);
+        sqlite3_bind_int64(stmt, 2, SegmentToId(ref.get_segment()));
+        rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
 }
 
 ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
@@ -357,6 +373,27 @@ void LocalDb::UseObject(const ObjectReference& ref)
     sqlite3_finalize(stmt);
 }
 
+void LocalDb::UseSegment(const std::string &segment, double utilization)
+{
+    int rc;
+    sqlite3_stmt *stmt;
+
+    stmt = Prepare("insert or replace "
+                   "into segments_used(snapshotid, segmentid, utilization) "
+                   "values (?, ?, ?)");
+    sqlite3_bind_int64(stmt, 1, snapshotid);
+    sqlite3_bind_int64(stmt, 2, SegmentToId(segment));
+    sqlite3_bind_double(stmt, 3, utilization);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        fprintf(stderr, "Could not insert segment use record!\n");
+        ReportError(rc);
+    }
+
+    sqlite3_finalize(stmt);
+}
+
 void LocalDb::SetSegmentChecksum(const std::string &segment,
                                  const std::string &path,
                                  const std::string &checksum,
@@ -365,7 +402,8 @@ void LocalDb::SetSegmentChecksum(const std::string &segment,
     int rc;
     sqlite3_stmt *stmt;
 
-    stmt = Prepare("update segments set path = ?, checksum = ?, size = ? "
+    stmt = Prepare("update segments set path = ?, checksum = ?, size = ?, "
+                   "mtime = coalesce(mtime, julianday('now')) "
                    "where segmentid = ?");
     sqlite3_bind_text(stmt, 1, path.c_str(), path.size(),
                       SQLITE_TRANSIENT);

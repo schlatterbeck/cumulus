@@ -12,6 +12,7 @@
 #include <map>
 
 #include "metadata.h"
+#include "localdb.h"
 #include "ref.h"
 #include "store.h"
 #include "util.h"
@@ -29,6 +30,7 @@ static const size_t LBS_METADATA_BLOCK_SIZE = 65536;
 bool flag_full_metadata = false;
 
 /* TODO: Move to header file */
+extern LocalDb *db;
 void add_segment(const string& segment);
 
 /* Like strcmp, but sorts in the order that files will be visited in the
@@ -275,8 +277,10 @@ void MetadataWriter::metadata_flush()
          i != items.end(); ++i) {
         // If indirectly referencing any other metadata logs, be sure those
         // segments are properly referenced.
-        if (i->reused)
+        if (i->reused) {
             add_segment(i->ref.get_segment());
+            db->UseSegment(i->ref.get_segment(), 1.0);
+        }
 
         // Write out an indirect reference to any previous objects which could
         // be reused
@@ -324,6 +328,7 @@ void MetadataWriter::metadata_flush()
     ObjectReference ref = meta->get_ref();
     metadata_root << "@" << ref.to_string() << "\n";
     add_segment(ref.get_segment());
+    db->UseSegment(ref.get_segment(), 1.0);
 
     delete meta;
 
@@ -378,6 +383,7 @@ ObjectReference MetadataWriter::close()
     root->write(store);
     root->checksum();
     add_segment(root->get_ref().get_segment());
+    db->UseSegment(root->get_ref().get_segment(), 1.0);
 
     ObjectReference ref = root->get_ref();
     delete root;

@@ -41,6 +41,8 @@ create table segments_used (
     segmentid integer not null,
     utilization real
 );
+create unique index segments_used_index
+    on segments_used(snapshotid, segmentid);
 
 -- Overall estimate of segment utilization, for all snapshots combined.
 create view segment_info as

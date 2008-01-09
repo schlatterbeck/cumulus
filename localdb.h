@@ -31,6 +31,7 @@ public:
                      int *group);
     bool IsAvailable(const ObjectReference &ref);
     void UseObject(const ObjectReference& ref);
+    void UseSegment(const std::string &segment, double utilization);
 
     void SetSegmentChecksum(const std::string &segment, const std::string &path,
                             const std::string &checksum, int size);
