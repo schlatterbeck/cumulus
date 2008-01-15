@@ -1,0 +1,11 @@
+* Allow different fields to be written out to the metadata log and the
+statcache file.
+
+* Implement a scheme for cleaning metadata log segments when metadata is
+re-used.
+
+* Allow direct backup to a remote network server, probably implemented
+using an external helper script which is called to transfer a file.
+
+* Continue to investigate schemes for adding parity blocks for error
+recovery.

@@ -2,9 +2,10 @@
     - SNAPSHOT FORMAT CHANGE: A few minor tweaks have been made to the
       snapshot format.  There is nothing substantial--this is primarily
       a cleaning up of the format before use becomes more widespread.
-      Updated tools will be needed to properly understand the new
-      snapshots.  Tools will continue to be able to read the old
-      snapshot format.
+      An efficient and explicit means for representing sparse files has
+      been added to the format.  Updated tools will be needed to
+      properly understand the new snapshots.  Tools will continue to be
+      able to read the old snapshot format.
     - LOCAL DATABASE CHANGE: The local database has been changed so that
       segment utilization data for past snapshots is stored more
       efficiently.  The script in contrib/upgrade0.6-localdb.sql must be
@@ -14,6 +15,14 @@
       changed.  The first backup will run more slowly since the old
       statcache data will be ignored.  New statcache data will be
       written to statcache2.  The old statcache file can be deleted.
+    - Metadata is shared between snapshots where possible.  The
+      --full-metadata option can be used to disable this (completely
+      writing out all metadata with the new snapshot).
+    - Add an "intent" field to snapshots, which specifies informally how
+      long a snapshot is intended to be kept.  For example, 1 can be
+      used for daily snapshots, and 7 for weekly snapshots.  Segment
+      cleaning is now partly guided by intent values, but tuning of the
+      cleaning algorithms is not yet finished.
 
 0.5.1 [2007-11-13]
     - Have the lbs-util tool check the version number when reading a
