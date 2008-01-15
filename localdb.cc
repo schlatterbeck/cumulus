@@ -248,10 +248,12 @@ void LocalDb::StoreObject(const ObjectReference& ref,
     sqlite3_finalize(stmt);
 
     if (age != 0.0) {
-        stmt = Prepare("update segments set mtime = max(mtime, ?) "
+        stmt = Prepare("update segments "
+                       "set mtime = coalesce(max(mtime, ?), ?) "
                        "where segmentid = ?");
         sqlite3_bind_double(stmt, 1, age);
-        sqlite3_bind_int64(stmt, 2, SegmentToId(ref.get_segment()));
+        sqlite3_bind_double(stmt, 2, age);
+        sqlite3_bind_int64(stmt, 3, SegmentToId(ref.get_segment()));
         rc = sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
