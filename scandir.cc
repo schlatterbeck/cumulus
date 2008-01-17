@@ -790,6 +790,7 @@ int main(int argc, char *argv[])
     fprintf(descriptor, "Date: %s\n", desc_buf);
     if (backup_scheme.size() > 0)
         fprintf(descriptor, "Scheme: %s\n", backup_scheme.c_str());
+    fprintf(descriptor, "Backup-Intent: %g\n", snapshot_intent);
     fprintf(descriptor, "Root: %s\n", backup_root.c_str());
 
     SHA1Checksum checksum_csum;
