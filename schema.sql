@@ -19,7 +19,8 @@ create table segments (
     path text,
     checksum text,
     mtime real,
-    size integer
+    size integer,
+    expire_time integer         -- snapshotid of latest snapshot when expired
 );
 
 -- Index of all blocks which have been stored, by checksum.

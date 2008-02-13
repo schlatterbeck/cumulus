@@ -15,7 +15,8 @@ create table segments_new (
     path text,
     checksum text,
     mtime real,
-    size integer
+    size integer,
+    expire_time integer
 );
 
 create table segments_used (
@@ -35,7 +36,7 @@ update snapshots set intent = 1;
 -- Compute the size of each of the segments, if possible, based on our
 -- knowledge of the objects stored in them.
 insert into segments_new
-select segmentid, segment, path, checksum, mtime, size
+select segmentid, segment, path, checksum, mtime, size, null as expire_time
 from
     (select segmentid, segment, path, checksum from segments)
 left join

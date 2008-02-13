@@ -483,6 +483,13 @@ class LocalDatabase:
 
         cur = self.cursor()
 
+        # Find the id of the last snapshot to be created.  This is used for
+        # measuring time in a way: we record this value in each segment we
+        # expire on this run, and then on a future run can tell if there have
+        # been intervening backups made.
+        cur.execute("select max(snapshotid) from snapshots")
+        last_snapshotid = cur.fetchone()[0]
+
         # Get the list of old snapshots for this scheme.  Delete all the old
         # ones.  Rules for what to keep:
         #   - Always keep the most recent snapshot.
@@ -523,12 +530,16 @@ class LocalDatabase:
         cur.execute("""delete from segments where segmentid not in
                            (select segmentid from segments_used)""")
 
-        # Finally, delete objects contained in non-existent segments.  We can't
-        # simply delete unused objects, since we use the set of unused objects
-        # to determine the used/free ratio of segments.
+        # Delete unused objects in the block_index table.  By "unused", we mean
+        # any object which was stored in a segment which has been deleted, and
+        # any object in a segment which was marked for cleaning and has had
+        # cleaning performed already (the expired time is less than the current
+        # largest snapshot id).
         cur.execute("""delete from block_index
-                       where segmentid not in
-                           (select segmentid from segments)""")
+                       where segmentid not in (select segmentid from segments)
+                          or segmentid in (select segmentid from segments
+                                           where expire_time < ?)""",
+                    (last_snapshotid,))
 
     # Segment cleaning.
     class SegmentInfo(Struct): pass
@@ -604,7 +615,11 @@ class LocalDatabase:
             raise TypeError("Invalid segment: %s, must be of type int or SegmentInfo, not %s" % (segment, type(segment)))
 
         cur = self.cursor()
-        cur.execute("update block_index set expired = 1 where segmentid = ?",
+        cur.execute("select max(snapshotid) from snapshots")
+        last_snapshotid = cur.fetchone()[0]
+        cur.execute("update segments set expire_time = ? where segmentid = ?",
+                    (last_snapshotid, id))
+        cur.execute("update block_index set expired = 0 where segmentid = ?",
                     (id,))
 
     def balance_expired_objects(self):
