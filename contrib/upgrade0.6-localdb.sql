@@ -68,8 +68,8 @@ drop view cleaning_order;
 drop view segment_info;
 
 create view segment_info as
-select segmentid, mtime, size, cast(size * utilization as integer) as used,
-       utilization
+select segmentid, mtime, size, expire_time,
+       cast(size * utilization as integer) as used, utilization
 from segments join
      (select segmentid, max(utilization) as utilization
       from segments_used group by segmentid)

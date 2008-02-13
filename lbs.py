@@ -564,7 +564,8 @@ class LocalDatabase:
         cur = self.cursor()
         segments = []
         cur.execute("""select segmentid, used, size, mtime,
-                       julianday('now') - mtime as age from segment_info""")
+                       julianday('now') - mtime as age from segment_info
+                       where expire_time is null""")
         for row in cur:
             info = self.SegmentInfo()
             info.id = row[0]
