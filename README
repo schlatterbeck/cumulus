@@ -4,7 +4,7 @@ How to Build
 ------------
 
 Dependencies:
-  - libuuid
+  - libuuid (sometimes part of e2fsprogs)
   - sqlite3
 
 Building should be a simple matter of running "make".  This will produce
@@ -91,19 +91,25 @@ that are mostly unused, but are storing a small amount of useful data.
 Data in these segments will be rewritten into new segments in future
 backups to eliminate the dependence on the almost-empty old segments.
 
-Segment cleaning is currently a mostly manual process.  An automatic
-tool for performing segment cleaning will be available in the future.
+The provided lbs-util tool can perform the necessary cleaning.  Run it
+with
+    $ lbs-util --localdb=/lbs.db clean
+Cleaning is still under development, and so may be improved in the
+future, but this version is intended to be functional.
 
 Old backup snapshots can be pruned from the snapshot directory (/lbs) to
-recover space.  Deleting an old backup snapshot is a simple matter of
-deleting the appropriate snapshot descriptor file (snapshot-*.lbs) and
-any associated checksums (snapshot-*.sha1sums).  Segments used by that
-snapshot, but not any other snapshots, can be identified by running the
-clean-segments.pl script from the /lbs directory--this will perform a
-scan of the current directory to identify unreferenced segments, and
-will print a list to stdout.  Assuming the list looks reasonable, the
-segments can be quickly deleted with
+recover space.  A snapshot which is still referenced by the local
+database should not be deleted, however.  Deleting an old backup
+snapshot is a simple matter of deleting the appropriate snapshot
+descriptor file (snapshot-*.lbs) and any associated checksums
+(snapshot-*.sha1sums).  Segments used by that snapshot, but not any
+other snapshots, can be identified by running the clean-segments.pl
+script from the /lbs directory--this will perform a scan of the current
+directory to identify unreferenced segments, and will print a list to
+stdout.  Assuming the list looks reasonable, the segments can be quickly
+deleted with
     $ rm `./clean-segments.pl`
+A tool to make this easier will be implemented later.
 
 The clean-segments.pl script will also print out a warning message if
 any snapshots appear to depend upon segments which are not present; this
