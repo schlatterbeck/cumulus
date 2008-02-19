@@ -1,4 +1,4 @@
-0.6 [???]
+0.6 [2008-02-19]
     - SNAPSHOT FORMAT CHANGE: A few minor tweaks have been made to the
       snapshot format.  There is nothing substantial--this is primarily
       a cleaning up of the format before use becomes more widespread.

@@ -286,3 +286,6 @@ like the metadata listing).  The fields which are defined are:
         the snapshot descriptor file, but with extension .sha1sums
         instead of .lbs) containing SHA-1 checksums of all segments.
         This field contains a checksum of that file.
+    Intent: Informational; records the value of the --intent flag when
+        the snapshot was created, and can be used when determining which
+        snapshots to later delete.
