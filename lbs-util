@@ -178,6 +178,17 @@ def cmd_restore_snapshot(args):
     destdir = args[1]
     paths = args[2:]
 
+    def matchpath(path):
+        "Return true if the specified path should be included in the restore."
+
+        # No specification of what to restore => restore everything
+        if len(paths) == 0: return True
+
+        for p in paths:
+            if path == p: return True
+            if path.startswith(p + "/"): return True
+        return False
+
     def warn(m, msg):
         print "Warning: %s: %s" % (m.items.name, msg)
 
@@ -185,6 +196,7 @@ def cmd_restore_snapshot(args):
         pathname = os.path.normpath(m.items.name)
         while os.path.isabs(pathname):
             pathname = pathname[1:]
+        if not matchpath(pathname): continue
         print pathname
         destpath = os.path.join(destdir, pathname)
         (path, filename) = os.path.split(destpath)
