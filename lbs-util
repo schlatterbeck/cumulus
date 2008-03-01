@@ -192,12 +192,77 @@ def cmd_restore_snapshot(args):
     def warn(m, msg):
         print "Warning: %s: %s" % (m.items.name, msg)
 
+    # Phase 1: Read the complete metadata log and create directory structure.
+    metadata_items = []
+    metadata_paths = {}
+    metadata_segments = {}
     for m in lbs.iterate_metadata(store, snapshot['Root']):
         pathname = os.path.normpath(m.items.name)
         while os.path.isabs(pathname):
             pathname = pathname[1:]
         if not matchpath(pathname): continue
-        print pathname
+
+        destpath = os.path.join(destdir, pathname)
+        if m.items.type == 'd':
+            path = destpath
+        else:
+            (path, filename) = os.path.split(destpath)
+
+        metadata_items.append((pathname, m))
+        if m.items.type in ('-', 'f'):
+            metadata_paths[pathname] = m
+            for block in m.data():
+                (segment, object, checksum, slice) \
+                    = lbs.ObjectStore.parse_ref(block)
+                if segment not in metadata_segments:
+                    metadata_segments[segment] = set()
+                metadata_segments[segment].add(pathname)
+
+        try:
+            if not os.path.isdir(path):
+                print "mkdir:", path
+                os.makedirs(path)
+        except Exception, e:
+            warn(m, "Error creating directory structure: %s" % (e,))
+            continue
+
+    # Phase 2: Restore files, ordered by how data is stored in segments.
+    def restore_file(pathname, m):
+        assert m.items.type in ('-', 'f')
+        print "extract:", pathname
+        destpath = os.path.join(destdir, pathname)
+
+        file = open(destpath, 'wb')
+        verifier = lbs.ChecksumVerifier(m.items.checksum)
+        size = 0
+        for block in m.data():
+            data = store.get(block)
+            verifier.update(data)
+            size += len(data)
+            file.write(data)
+        file.close()
+        if int(m.fields['size']) != size:
+            raise ValueError("File size does not match!")
+        if not verifier.valid():
+            raise ValueError("Bad checksum found")
+
+    while metadata_segments:
+        (segment, items) = metadata_segments.popitem()
+        print "+ Segment", segment
+        for pathname in sorted(items):
+            if pathname in metadata_paths:
+                restore_file(pathname, metadata_paths[pathname])
+                del metadata_paths[pathname]
+
+    print "+ Remaining files"
+    while metadata_paths:
+        (pathname, m) = metadata_paths.popitem()
+        restore_file(pathname, m)
+
+    # Phase 3: Restore special files (symlinks, devices).
+    # Phase 4: Restore directory permissions and modification times.
+    for (pathname, m) in reversed(metadata_items):
+        print "permissions:", pathname
         destpath = os.path.join(destdir, pathname)
         (path, filename) = os.path.split(destpath)
 
@@ -206,26 +271,8 @@ def cmd_restore_snapshot(args):
         # symlinks pointing outside?
 
         try:
-            if not os.path.isdir(path):
-                os.makedirs(path)
-
-            if m.items.type in ('-', 'f'):
-                file = open(destpath, 'wb')
-                verifier = lbs.ChecksumVerifier(m.items.checksum)
-                size = 0
-                for block in m.data():
-                    data = store.get(block)
-                    verifier.update(data)
-                    size += len(data)
-                    file.write(data)
-                file.close()
-                if int(m.fields['size']) != size:
-                    raise ValueError("File size does not match!")
-                if not verifier.valid():
-                    raise ValueError("Bad checksum found")
-            elif m.items.type == 'd':
-                if filename != '.':
-                    os.mkdir(destpath)
+            if m.items.type in ('-', 'f', 'd'):
+                pass
             elif m.items.type == 'l':
                 try:
                     target = m.items.target
