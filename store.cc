@@ -46,16 +46,14 @@ static void cloexec(int fd)
     fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
 }
 
-Tarfile::Tarfile(const string &path, const string &segment)
+Tarfile::Tarfile(RemoteFile *file, const string &segment)
     : size(0),
       segment_name(segment)
 {
     assert(sizeof(struct tar_header) == TAR_BLOCK_SIZE);
 
-    real_fd = open(path.c_str(), O_WRONLY | O_CREAT, 0666);
-    if (real_fd < 0)
-        throw IOException("Error opening output file");
-
+    this->file = file;
+    real_fd = file->get_fd();
     filter_fd = spawn_filter(real_fd, filter_program, &filter_pid);
 }
 
@@ -229,10 +227,10 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
         segment->name = generate_uuid();
         segment->basename = segment->name + ".tar";
         segment->basename += filter_extension;
-        segment->fullname = path + "/" + segment->basename;
-        segment->file = new Tarfile(segment->fullname, segment->name);
         segment->count = 0;
         segment->size = 0;
+        segment->rf = remote->alloc_file(segment->basename);
+        segment->file = new Tarfile(segment->rf, segment->name);
 
         segments[group] = segment;
     } else {
@@ -282,12 +280,14 @@ void TarSegmentStore::close_segment(const string &group)
 
     if (db != NULL) {
         SHA1Checksum segment_checksum;
-        if (segment_checksum.process_file(segment->fullname.c_str())) {
+        if (segment_checksum.process_file(segment->rf->get_local_path().c_str())) {
             string checksum = segment_checksum.checksum_str();
             db->SetSegmentChecksum(segment->name, segment->basename, checksum,
                                    segment->size);
         }
     }
+
+    segment->rf->send();
 
     segments.erase(segments.find(group));
     delete segment;

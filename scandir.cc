@@ -26,6 +26,7 @@
 
 #include "localdb.h"
 #include "metadata.h"
+#include "remote.h"
 #include "store.h"
 #include "sha1.h"
 #include "util.h"
@@ -43,6 +44,7 @@ using std::ostream;
 #define LBS_STRINGIFY2(s) #s
 static const char lbs_version[] = LBS_STRINGIFY(LBS_VERSION);
 
+static RemoteStore *remote = NULL;
 static TarSegmentStore *tss = NULL;
 static MetadataWriter *metawriter = NULL;
 
@@ -687,6 +689,9 @@ int main(int argc, char *argv[])
 
     block_buf = new char[LBS_BLOCK_SIZE];
 
+    /* Initialize the remote storage layer. */
+    remote = new RemoteStore(backup_dest);
+
     /* Store the time when the backup started, so it can be included in the
      * snapshot name. */
     time_t now;
@@ -705,7 +710,7 @@ int main(int argc, char *argv[])
              backup_scheme.size() ? backup_scheme.c_str() : NULL,
              snapshot_intent);
 
-    tss = new TarSegmentStore(backup_dest, db);
+    tss = new TarSegmentStore(remote, db);
 
     /* Initialize the stat cache, for skipping over unchanged files. */
     metawriter = new MetadataWriter(tss, localdb_dir.c_str(), desc_buf,
@@ -729,48 +734,54 @@ int main(int argc, char *argv[])
      * segments included in this snapshot.  The format is designed so that it
      * may be easily verified using the sha1sums command. */
     const char csum_type[] = "sha1";
-    string checksum_filename = backup_dest + "/snapshot-";
+    string checksum_filename = "snapshot-";
     if (backup_scheme.size() > 0)
         checksum_filename += backup_scheme + "-";
     checksum_filename = checksum_filename + desc_buf + "." + csum_type + "sums";
-    FILE *checksums = fopen(checksum_filename.c_str(), "w");
-    if (checksums != NULL) {
-        for (std::set<string>::iterator i = segment_list.begin();
-             i != segment_list.end(); ++i) {
-            string seg_path, seg_csum;
-            if (db->GetSegmentChecksum(*i, &seg_path, &seg_csum)) {
-                const char *raw_checksum = NULL;
-                if (strncmp(seg_csum.c_str(), csum_type,
-                            strlen(csum_type)) == 0) {
-                    raw_checksum = seg_csum.c_str() + strlen(csum_type);
-                    if (*raw_checksum == '=')
-                        raw_checksum++;
-                    else
-                        raw_checksum = NULL;
-                }
+    RemoteFile *checksum_file = remote->alloc_file(checksum_filename);
+    FILE *checksums = fdopen(checksum_file->get_fd(), "w");
 
-                if (raw_checksum != NULL)
-                    fprintf(checksums, "%s *%s\n",
-                            raw_checksum, seg_path.c_str());
+    for (std::set<string>::iterator i = segment_list.begin();
+         i != segment_list.end(); ++i) {
+        string seg_path, seg_csum;
+        if (db->GetSegmentChecksum(*i, &seg_path, &seg_csum)) {
+            const char *raw_checksum = NULL;
+            if (strncmp(seg_csum.c_str(), csum_type,
+                        strlen(csum_type)) == 0) {
+                raw_checksum = seg_csum.c_str() + strlen(csum_type);
+                if (*raw_checksum == '=')
+                    raw_checksum++;
+                else
+                    raw_checksum = NULL;
             }
+
+            if (raw_checksum != NULL)
+                fprintf(checksums, "%s *%s\n",
+                        raw_checksum, seg_path.c_str());
         }
-        fclose(checksums);
-    } else {
-        fprintf(stderr, "ERROR: Unable to write checksums file: %m\n");
     }
+    fclose(checksums);
+    checksum_file->send();
 
     db->Close();
+
+    /* All other files should be flushed to remote storage before writing the
+     * backup descriptor below, so that it is not possible to have a backup
+     * descriptor written out depending on non-existent (not yet written)
+     * files. */
+    remote->sync();
 
     /* Write a backup descriptor file, which says which segments are needed and
      * where to start to restore this snapshot.  The filename is based on the
      * current time.  If a signature filter program was specified, filter the
      * data through that to give a chance to sign the descriptor contents. */
-    string desc_filename = backup_dest + "/snapshot-";
+    string desc_filename = "snapshot-";
     if (backup_scheme.size() > 0)
         desc_filename += backup_scheme + "-";
     desc_filename = desc_filename + desc_buf + ".lbs";
 
-    int descriptor_fd = open(desc_filename.c_str(), O_WRONLY | O_CREAT, 0666);
+    RemoteFile *descriptor_file = remote->alloc_file(desc_filename);
+    int descriptor_fd = descriptor_file->get_fd();
     if (descriptor_fd < 0) {
         fprintf(stderr, "Unable to open descriptor output file: %m\n");
         return 1;
@@ -815,6 +826,11 @@ int main(int argc, char *argv[])
             throw IOException("Signature filter process error");
         }
     }
+
+    descriptor_file->send();
+
+    remote->sync();
+    delete remote;
 
     return 0;
 }

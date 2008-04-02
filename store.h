@@ -18,6 +18,7 @@
 #include <sstream>
 
 #include "localdb.h"
+#include "remote.h"
 #include "sha1.h"
 #include "ref.h"
 
@@ -69,7 +70,7 @@ struct tar_header
  * first; incremental writing is not supported. */
 class Tarfile {
 public:
-    Tarfile(const std::string &path, const std::string &segment);
+    Tarfile(RemoteFile *file, const std::string &segment);
     ~Tarfile();
 
     void write_object(int id, const char *data, size_t len);
@@ -80,6 +81,8 @@ public:
 private:
     size_t size;
     std::string segment_name;
+
+    RemoteFile *file;
 
     /* Filter support. */
     int real_fd, filter_fd;
@@ -92,9 +95,9 @@ private:
 class TarSegmentStore {
 public:
     // New segments will be stored in the given directory.
-    TarSegmentStore(const std::string &path,
+    TarSegmentStore(RemoteStore *remote,
                     LocalDb *db = NULL)
-        { this->path = path; this->db = db; }
+        { this->remote = remote; this->db = db; }
     ~TarSegmentStore() { sync(); }
 
     // Writes an object to segment in the store, and returns the name
@@ -117,10 +120,10 @@ private:
         int count;                  // Objects written to this segment
         int size;                   // Combined size of objects written
         std::string basename;       // Name of segment without directory
-        std::string fullname;       // Full path to stored segment
+        RemoteFile *rf;
     };
 
-    std::string path;
+    RemoteStore *remote;
     std::map<std::string, struct segment_info *> segments;
     LocalDb *db;
 
