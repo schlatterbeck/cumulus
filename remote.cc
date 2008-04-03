@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include <list>
 #include <string>
@@ -144,7 +145,31 @@ void RemoteStore::transfer_thread()
 
         // Transfer the file
         fprintf(stderr, "Start transfer: %s\n", file->remote_path.c_str());
-        // TODO
+        if (backup_script != "") {
+            pid_t pid = fork();
+            if (pid < 0) {
+                fprintf(stderr, "Unable to fork for upload script: %m\n");
+                throw IOException("fork: upload script");
+            }
+            if (pid == 0) {
+                string cmd = backup_script;
+                cmd += " " + file->local_path + " " + file->remote_path;
+                execlp("/bin/sh", "/bin/sh", "-c", cmd.c_str(), NULL);
+                throw IOException("exec failed");
+            }
+
+            int status = 0;
+            waitpid(pid, &status, 0);
+            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+                fprintf(stderr, "Warning: error code from upload script: %d\n",
+                        status);
+            }
+
+            if (unlink(file->local_path.c_str()) < 0) {
+                fprintf(stderr, "Warning: Deleting temporary file %s: %m\n",
+                        file->local_path.c_str());
+            }
+        }
         fprintf(stderr, "Finish transfer: %s\n", file->remote_path.c_str());
 
         delete file;

@@ -24,6 +24,8 @@ public:
 
     RemoteStore(const std::string &stagedir);
     ~RemoteStore();
+    void set_script(const std::string &script)
+        { backup_script = script; }
     RemoteFile *alloc_file(const std::string &name);
     void enqueue(RemoteFile *file);
     void sync();
@@ -33,7 +35,7 @@ private:
     pthread_mutex_t lock;
     pthread_cond_t cond;
 
-    std::string staging_dir;
+    std::string staging_dir, backup_script;
     bool terminate;             // Set when thread should shut down
     bool busy;                  // True while there are pending transfers
     std::list<RemoteFile *> transfer_queue;

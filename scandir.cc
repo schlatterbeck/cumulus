@@ -555,9 +555,13 @@ void usage(const char *program)
         "Produce backup snapshot of files in SOURCE and store to DEST.\n"
         "\n"
         "Options:\n"
-        "  --dest=PATH          path where backup is to be written [REQUIRED]\n"
+        "  --dest=PATH          path where backup is to be written\n"
+        "  --upload-script=COMMAND\n"
+        "                       program to invoke for each backup file generated\n"
         "  --exclude=PATH       exclude files in PATH from snapshot\n"
         "  --localdb=PATH       local backup metadata is stored in PATH\n"
+        "  --tmpdir=PATH        path for temporarily storing backup files\n"
+        "                           (defaults to TMPDIR environment variable or /tmp)\n"
         "  --filter=COMMAND     program through which to filter segment data\n"
         "                           (defaults to \"bzip2 -c\")\n"
         "  --filter-extension=EXT\n"
@@ -568,17 +572,23 @@ void usage(const char *program)
         "  --scheme=NAME        optional name for this snapshot\n"
         "  --intent=FLOAT       intended backup type: 1=daily, 7=weekly, ...\n"
         "                           (defaults to \"1\")\n"
-        "  --full-metadata      do not re-use metadata from previous backups\n",
+        "  --full-metadata      do not re-use metadata from previous backups\n"
+        "\n"
+        "Exactly one of --dest or --upload-script must be specified.\n",
         lbs_version, program
     );
 }
 
 int main(int argc, char *argv[])
 {
-    string backup_dest = "";
+    string backup_dest = "", backup_script = "";
     string localdb_dir = "";
     string backup_scheme = "";
     string signature_filter = "";
+
+    string tmp_dir = "/tmp";
+    if (getenv("TMPDIR") != NULL)
+        tmp_dir = getenv("TMPDIR");
 
     while (1) {
         static struct option long_options[] = {
@@ -591,6 +601,8 @@ int main(int argc, char *argv[])
             {"signature-filter", 1, 0, 0},  // 6
             {"intent", 1, 0, 0},            // 7
             {"full-metadata", 0, 0, 0},     // 8
+            {"tmpdir", 1, 0, 0},            // 9
+            {"upload-script", 1, 0, 0},     // 10
             {NULL, 0, 0, 0},
         };
 
@@ -634,6 +646,12 @@ int main(int argc, char *argv[])
             case 8:     // --full-metadata
                 flag_full_metadata = true;
                 break;
+            case 9:     // --tmpdir
+                tmp_dir = optarg;
+                break;
+            case 10:    // --upload-script
+                backup_script = optarg;
+                break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");
                 return 1;
@@ -653,9 +671,16 @@ int main(int argc, char *argv[])
     for (int i = optind; i < argc; i++)
         add_include(argv[i]);
 
-    if (backup_dest == "") {
+    if (backup_dest == "" && backup_script == "") {
         fprintf(stderr,
-                "Error: Backup destination must be specified with --dest=\n");
+                "Error: Backup destination must be specified using --dest= or --upload-script=\n");
+        usage(argv[0]);
+        return 1;
+    }
+
+    if (backup_dest != "" && backup_script != "") {
+        fprintf(stderr,
+                "Error: Cannot specify both --dest= and --upload-script=\n");
         usage(argv[0]);
         return 1;
     }
@@ -664,6 +689,12 @@ int main(int argc, char *argv[])
     if (localdb_dir == "") {
         localdb_dir = backup_dest;
     }
+    if (localdb_dir == "") {
+        fprintf(stderr,
+                "Error: Must specify local database path with --localdb=\n");
+        usage(argv[0]);
+        return 1;
+    }
 
     // Dump paths for debugging/informational purposes
     {
@@ -671,8 +702,8 @@ int main(int argc, char *argv[])
 
         printf("LBS Version: %s\n", lbs_version);
 
-        printf("--dest=%s\n--localdb=%s\n\n",
-               backup_dest.c_str(), localdb_dir.c_str());
+        printf("--dest=%s\n--localdb=%s\n--upload-script=%s\n",
+               backup_dest.c_str(), localdb_dir.c_str(), backup_script.c_str());
 
         printf("Includes:\n");
         for (i = includes.begin(); i != includes.end(); ++i)
@@ -689,8 +720,21 @@ int main(int argc, char *argv[])
 
     block_buf = new char[LBS_BLOCK_SIZE];
 
-    /* Initialize the remote storage layer. */
-    remote = new RemoteStore(backup_dest);
+    /* Initialize the remote storage layer.  If using an upload script, create
+     * a temporary directory for staging files.  Otherwise, write backups
+     * directly to the destination directory. */
+    if (backup_script != "") {
+        tmp_dir = tmp_dir + "/lbs." + generate_uuid();
+        if (mkdir(tmp_dir.c_str(), 0700) < 0) {
+            fprintf(stderr, "Cannot create temporary directory %s: %m\n",
+                    tmp_dir.c_str());
+            return 1;
+        }
+        remote = new RemoteStore(tmp_dir);
+        remote->set_script(backup_script);
+    } else {
+        remote = new RemoteStore(backup_dest);
+    }
 
     /* Store the time when the backup started, so it can be included in the
      * snapshot name. */
@@ -831,6 +875,14 @@ int main(int argc, char *argv[])
 
     remote->sync();
     delete remote;
+
+    if (backup_script != "") {
+        if (rmdir(tmp_dir.c_str()) < 0) {
+            fprintf(stderr,
+                    "Warning: Cannot delete temporary directory %s: %m\n",
+                    tmp_dir.c_str());
+        }
+    }
 
     return 0;
 }
