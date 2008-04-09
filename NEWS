@@ -1,3 +1,12 @@
+0.7 [??]
+    - Initial support for direct backups to remote storage.  A sample
+      script is provided for backing up to Amazon S3.  Other scripts
+      should be simple to write.
+    - Allow selected files/directories to be restored, not simply an
+      entire snapshot.  Additionally, restore files in an order that
+      should optimize performance (restore files based on how they are
+      grouped into segments, instead of lexicographic order).
+
 0.6 [2008-02-19]
     - SNAPSHOT FORMAT CHANGE: A few minor tweaks have been made to the
       snapshot format.  There is nothing substantial--this is primarily
