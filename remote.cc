@@ -67,13 +67,13 @@ RemoteStore::~RemoteStore()
  * will initially be created in a temporary directory.  When the file is
  * written out, the RemoteFile object should be passed to RemoteStore::enqueue,
  * which will upload it to the remote server. */
-RemoteFile *RemoteStore::alloc_file(const string &name)
+RemoteFile *RemoteStore::alloc_file(const string &name, const string &type)
 {
     fprintf(stderr, "Allocate file: %s\n", name.c_str());
     pthread_mutex_lock(&lock);
     files_outstanding++;
     pthread_mutex_unlock(&lock);
-    return new RemoteFile(this, name, staging_dir + "/" + name);
+    return new RemoteFile(this, name, type, staging_dir + "/" + name);
 }
 
 /* Request that a file be transferred to the remote server.  The actual
@@ -153,7 +153,8 @@ void RemoteStore::transfer_thread()
             }
             if (pid == 0) {
                 string cmd = backup_script;
-                cmd += " " + file->local_path + " " + file->remote_path;
+                cmd += " " + file->local_path + " " + file->type + " "
+                        + file->remote_path;
                 execlp("/bin/sh", "/bin/sh", "-c", cmd.c_str(), NULL);
                 throw IOException("exec failed");
             }
@@ -177,9 +178,11 @@ void RemoteStore::transfer_thread()
 }
 
 RemoteFile::RemoteFile(RemoteStore *remote,
-                       const string &name, const string &local_path)
+                       const string &name, const string &type,
+                       const string &local_path)
 {
     remote_store = remote;
+    this->type = type;
     this->local_path = local_path;
     this->remote_path = name;
 

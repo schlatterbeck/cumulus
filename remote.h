@@ -26,7 +26,7 @@ public:
     ~RemoteStore();
     void set_script(const std::string &script)
         { backup_script = script; }
-    RemoteFile *alloc_file(const std::string &name);
+    RemoteFile *alloc_file(const std::string &name, const std::string &type);
     void enqueue(RemoteFile *file);
     void sync();
 
@@ -65,12 +65,13 @@ private:
     friend class RemoteStore;
 
     RemoteFile(RemoteStore *remote,
-               const std::string &name, const std::string &local_path);
+               const std::string &name, const std::string &type,
+               const std::string &local_path);
 
     RemoteStore *remote_store;
 
     int fd;
-    std::string local_path;
+    std::string type, local_path;
     std::string remote_path;
 };
 

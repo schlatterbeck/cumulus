@@ -229,7 +229,7 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
         segment->basename += filter_extension;
         segment->count = 0;
         segment->size = 0;
-        segment->rf = remote->alloc_file(segment->basename);
+        segment->rf = remote->alloc_file(segment->basename, "segments");
         segment->file = new Tarfile(segment->rf, segment->name);
 
         segments[group] = segment;

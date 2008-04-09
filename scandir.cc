@@ -782,7 +782,8 @@ int main(int argc, char *argv[])
     if (backup_scheme.size() > 0)
         checksum_filename += backup_scheme + "-";
     checksum_filename = checksum_filename + desc_buf + "." + csum_type + "sums";
-    RemoteFile *checksum_file = remote->alloc_file(checksum_filename);
+    RemoteFile *checksum_file = remote->alloc_file(checksum_filename,
+                                                   "checksums");
     FILE *checksums = fdopen(checksum_file->get_fd(), "w");
 
     for (std::set<string>::iterator i = segment_list.begin();
@@ -824,7 +825,8 @@ int main(int argc, char *argv[])
         desc_filename += backup_scheme + "-";
     desc_filename = desc_filename + desc_buf + ".lbs";
 
-    RemoteFile *descriptor_file = remote->alloc_file(desc_filename);
+    RemoteFile *descriptor_file = remote->alloc_file(desc_filename,
+                                                     "snapshots");
     int descriptor_fd = descriptor_file->get_fd();
     if (descriptor_fd < 0) {
         fprintf(stderr, "Unable to open descriptor output file: %m\n");
