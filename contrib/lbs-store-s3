@@ -1,0 +1,31 @@
+#!/usr/bin/python
+#
+# Storage hook for writing LBS backups directly to Amazon's Simple Storage
+# Service (S3).
+#
+# Command-line arguments:
+#   <local_file> <type> <remote_name>
+# Most options are controlled by environment variables:
+#   AWS_ACCESS_KEY_ID       Amazon Web Services credentials
+#   AWS_SECRET_ACCESS_KEY         "               "
+#   LBS_S3_BUCKET           S3 bucket in which data should be stored
+#   LBS_S3_PREFIX           Path prefix to add to pathnames (include trailing
+#                               slash)
+#
+# This script depends upon the boto Python library for interacting with Amazon
+# S3.
+
+import os, sys
+import boto
+from boto.s3.bucket import Bucket
+from boto.s3.key import Key
+
+prefix = os.environ.get('LBS_S3_PREFIX', "")
+bucket_name = os.environ['LBS_S3_BUCKET']
+(local_path, file_type, remote_path) = sys.argv[1:4]
+
+conn = boto.connect_s3()
+bucket = Bucket(conn, bucket_name)
+k = Key(bucket)
+k.key = prefix + file_type + "/" + remote_path
+k.set_contents_from_filename(local_path)
