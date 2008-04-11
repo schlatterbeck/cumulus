@@ -2,7 +2,7 @@
    according to the NIST specification FIPS-180-1.
 
    Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
-   Copyright (C) 2006 Michael Vrable
+   Copyright (C) 2006-2007 Michael Vrable
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the

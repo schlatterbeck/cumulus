@@ -1,5 +1,5 @@
 /* LBS: An LFS-inspired filesystem backup system
- * Copyright (C) 2006  Michael Vrable
+ * Copyright (C) 2007  Michael Vrable
  *
  * Utility functions for converting various datatypes to text format (and
  * later, for parsing them back, perhaps).

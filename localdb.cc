@@ -1,5 +1,5 @@
 /* LBS: An LFS-inspired filesystem backup system
- * Copyright (C) 2007  Michael Vrable
+ * Copyright (C) 2007-2008  Michael Vrable
  *
  * When creating backup snapshots, maintain a local database of data blocks and
  * checksums, in addition to the data contents (which may be stored remotely).

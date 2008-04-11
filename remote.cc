@@ -1,5 +1,5 @@
 /* LBS: An LFS-inspired filesystem backup system
- * Copyright (C) 2006  Michael Vrable
+ * Copyright (C) 2008  Michael Vrable
  *
  * Backup data (segments and backup descriptors) may be stored on a remote
  * fileserver instead of locally.  The only local storage needed is for the

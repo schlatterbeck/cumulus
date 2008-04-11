@@ -1,4 +1,9 @@
-/* Recursively descend the filesystem and visit each file. */
+/* LBS: An LFS-inspired filesystem backup system
+ * Copyright (C) 2006-2008  Michael Vrable
+ *
+ * Main entry point for LBS.  Contains logic for traversing the filesystem and
+ * constructing a backup.
+ */
 
 #include <dirent.h>
 #include <errno.h>

@@ -1,5 +1,5 @@
 /* LBS: An LFS-inspired filesystem backup system
- * Copyright (C) 2007  Michael Vrable
+ * Copyright (C) 2007-2008  Michael Vrable
  *
  * Handling of metadata written to backup snapshots.  This manages the writing
  * of file metadata into new backup snapshots, including breaking the metadata
