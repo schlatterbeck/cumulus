@@ -126,7 +126,13 @@ def cmd_read_metadata(snapshot):
     d = lbs.parse_full(store.load_snapshot(snapshot))
     check_version(d['Format'])
     metadata = lbs.read_metadata(store, d['Root'])
+    blank = True
     for l in metadata:
+        if l == '\n':
+            if blank: continue
+            blank = True
+        else:
+            blank = False
         sys.stdout.write(l)
     store.cleanup()
 
