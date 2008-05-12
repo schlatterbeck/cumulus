@@ -29,6 +29,7 @@
 using std::max;
 using std::list;
 using std::map;
+using std::pair;
 using std::set;
 using std::string;
 
@@ -212,7 +213,8 @@ size_t Tarfile::size_estimate()
 
 static const size_t SEGMENT_SIZE = 4 * 1024 * 1024;
 
-static map<string, int64_t> group_sizes;
+/* Backup size summary: segment type -> (uncompressed size, compressed size) */
+static map<string, pair<int64_t, int64_t> > group_sizes;
 
 ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
                                               const std::string &group)
@@ -225,6 +227,7 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
         segment = new segment_info;
 
         segment->name = generate_uuid();
+        segment->group = group;
         segment->basename = segment->name + ".tar";
         segment->basename += filter_extension;
         segment->count = 0;
@@ -245,7 +248,7 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
     segment->count++;
     segment->size += len;
 
-    group_sizes[group] += len;
+    group_sizes[group].first += len;
 
     ObjectReference ref(segment->name, id_buf);
 
@@ -266,9 +269,10 @@ void TarSegmentStore::sync()
 void TarSegmentStore::dump_stats()
 {
     printf("Data written:\n");
-    for (map<string, int64_t>::iterator i = group_sizes.begin();
+    for (map<string, pair<int64_t, int64_t> >::iterator i = group_sizes.begin();
          i != group_sizes.end(); ++i) {
-        printf("    %s: %lld\n", i->first.c_str(), i->second);
+        printf("    %s: %lld (%lld compressed)\n", i->first.c_str(),
+               i->second.first, i->second.second);
     }
 }
 
@@ -284,6 +288,11 @@ void TarSegmentStore::close_segment(const string &group)
             string checksum = segment_checksum.checksum_str();
             db->SetSegmentChecksum(segment->name, segment->basename, checksum,
                                    segment->size);
+        }
+
+        struct stat stat_buf;
+        if (stat(segment->rf->get_local_path().c_str(), &stat_buf) == 0) {
+            group_sizes[segment->group].second += stat_buf.st_size;
         }
     }
 

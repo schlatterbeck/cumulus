@@ -116,6 +116,7 @@ public:
 private:
     struct segment_info {
         Tarfile *file;
+        std::string group;
         std::string name;           // UUID
         int count;                  // Objects written to this segment
         int size;                   // Combined size of objects written
