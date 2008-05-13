@@ -1,21 +1,28 @@
-/* Declarations of functions and data types used for SHA1 sum
-   library functions.
-   Copyright (C) 2000, 2001, 2003, 2005 Free Software Foundation, Inc.
-   Copyright (C) 2006-2007 Michael Vrable
-
-   This program is free software; you can redistribute it and/or modify it
-   under the terms of the GNU General Public License as published by the
-   Free Software Foundation; either version 2, or (at your option) any
-   later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation,
-   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+/* Declarations of functions and data types used for SHA1 sum library
+ * functions.
+ * part of Cumulus: Smart Filesystem Backup to Dumb Servers
+ *
+ * Copyright (C) 2000, 2001, 2003, 2005 Free Software Foundation, Inc.
+ * Copyright (C) 2006-2007  The Regents of the University of California
+ *
+ * Original code (in C) is taken from GNU coreutils (Debian package 5.97-5).
+ * Modifications by Michael Vrable <mvrable@cs.ucsd.edu> to integrate into
+ * Cumulus.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
 
 #ifndef SHA1_H
 # define SHA1_H 1

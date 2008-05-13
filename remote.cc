@@ -1,7 +1,24 @@
-/* LBS: An LFS-inspired filesystem backup system
- * Copyright (C) 2008  Michael Vrable
+/* Cumulus: Smart Filesystem Backup to Dumb Servers
  *
- * Backup data (segments and backup descriptors) may be stored on a remote
+ * Copyright (C) 2008  The Regents of the University of California
+ * Written by Michael Vrable <mvrable@cs.ucsd.edu>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+/* Backup data (segments and backup descriptors) may be stored on a remote
  * fileserver instead of locally.  The only local storage needed is for the
  * local database and some temporary space for staging files before they are
  * transferred to the remote server.

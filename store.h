@@ -1,7 +1,24 @@
-/* LBS: An LFS-inspired filesystem backup system
- * Copyright (C) 2006-2008  Michael Vrable
+/* Cumulus: Smart Filesystem Backup to Dumb Servers
  *
- * Backup data is stored in a collection of objects, which are grouped together
+ * Copyright (C) 2006-2008  The Regents of the University of California
+ * Written by Michael Vrable <mvrable@cs.ucsd.edu>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+/* Backup data is stored in a collection of objects, which are grouped together
  * into segments for storage purposes.  This implementation of the object store
  * represents segments as TAR files and objects as files within them. */
 
