@@ -32,11 +32,13 @@
 #include <string.h>
 #include <sqlite3.h>
 
+#include <algorithm>
 #include <string>
 
 #include "localdb.h"
 #include "store.h"
 
+using std::min;
 using std::string;
 
 /* Helper function to prepare a statement for execution in the current
@@ -376,20 +378,61 @@ void LocalDb::UseObject(const ObjectReference& ref)
     if (!ref.is_normal())
         return;
 
-    stmt = Prepare("insert or ignore into snapshot_refs "
-                   "select segmentid, object, size from block_index "
+    int64_t old_size = 0;
+    stmt = Prepare("select size from snapshot_refs "
                    "where segmentid = ? and object = ?");
     sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
     string obj = ref.get_sequence();
     sqlite3_bind_text(stmt, 2, obj.c_str(), obj.size(), SQLITE_TRANSIENT);
-
     rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
-        fprintf(stderr, "Could not execute INSERT statement!\n");
-        ReportError(rc);
+    if (rc == SQLITE_ROW) {
+        old_size = sqlite3_column_int64(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+
+    int64_t block_size = 0;
+    stmt = Prepare("select size from block_index "
+                   "where segmentid = ? and object = ?");
+    sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
+    obj = ref.get_sequence();
+    sqlite3_bind_text(stmt, 2, obj.c_str(), obj.size(), SQLITE_TRANSIENT);
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        block_size = sqlite3_column_int64(stmt, 0);
+    } else {
+        string refstr = ref.to_string();
+        fprintf(stderr, "No block found in block_index for %s\n",
+                refstr.c_str());
+        sqlite3_finalize(stmt);
+        return;
+    }
+    sqlite3_finalize(stmt);
+
+    int64_t new_size = old_size;
+    if (ref.has_range()) {
+        new_size += ref.get_range_length();
+        new_size = min(new_size, block_size);
+    } else {
+        new_size = block_size;
     }
 
-    sqlite3_finalize(stmt);
+    if (new_size != old_size) {
+        stmt = Prepare("insert or replace "
+                       "into snapshot_refs(segmentid, object, size) "
+                       "values (?, ?, ?)");
+        sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
+        obj = ref.get_sequence();
+        sqlite3_bind_text(stmt, 2, obj.c_str(), obj.size(), SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 3, new_size);
+
+        rc = sqlite3_step(stmt);
+        if (rc != SQLITE_DONE) {
+            fprintf(stderr, "Could not execute INSERT statement!\n");
+            ReportError(rc);
+        }
+
+        sqlite3_finalize(stmt);
+    }
 }
 
 void LocalDb::UseSegment(const std::string &segment, double utilization)
