@@ -97,6 +97,7 @@ public:
     std::string get_segment() const { return segment; }
     std::string get_sequence() const { return object; }
     std::string get_basename() const { return segment + "/" + object; }
+    ObjectReference base() const { return ObjectReference(segment, object); }
 
     bool has_checksum() const { return checksum_valid; }
     std::string get_checksum() const { return checksum; }
@@ -112,6 +113,12 @@ public:
         { range_start = start; range_length = length; range_valid = true; }
 
     bool merge(ObjectReference ref);
+
+    // Maybe provide non-string implementations?
+    bool operator==(const ObjectReference &x) const
+        { return to_string() == x.to_string(); }
+    bool operator<(const ObjectReference &x) const
+        { return to_string() < x.to_string(); }
 
 private:
     RefType type;

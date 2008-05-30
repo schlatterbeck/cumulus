@@ -479,3 +479,88 @@ bool LocalDb::GetSegmentChecksum(const string &segment,
 
     return found;
 }
+
+/* Look up and return the packed representation of the subblock chunk
+ * signatures.  Returns true if signatures were found for the specified object,
+ * and if so sets *buf to point at a buffer of memory (allocated with malloc;
+ * the caller should free it), and *len to the length of the buffer. */
+bool LocalDb::LoadChunkSignatures(ObjectReference ref,
+                                  void **buf, size_t *len,
+                                  string *algorithm)
+{
+    int rc;
+    sqlite3_stmt *stmt;
+    int found = false;
+
+    stmt = Prepare("select algorithm, signatures from subblock_signatures "
+                   "where blockid = (select blockid from block_index "
+                   "                 where segmentid = ? and object = ?)");
+    sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
+    string obj = ref.get_sequence();
+    sqlite3_bind_text(stmt, 2, obj.c_str(), obj.size(), SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_DONE) {
+    } else if (rc == SQLITE_ROW) {
+        const void *data = sqlite3_column_blob(stmt, 0);
+        *len = sqlite3_column_bytes(stmt, 0);
+
+        if (*len > 0) {
+            *buf = malloc(*len);
+            if (*buf != NULL) {
+                memcpy(*buf, data, *len);
+                *algorithm = (const char *)sqlite3_column_text(stmt, 1);
+                found = true;
+            }
+        }
+    } else {
+        fprintf(stderr, "Could not execute SELECT statement!\n");
+        ReportError(rc);
+    }
+
+    sqlite3_finalize(stmt);
+
+    return found;
+}
+
+/* Store the subblock chunk signatures for a specified object.  The object
+ * itself must have already been indexed in the database. */
+void LocalDb::StoreChunkSignatures(ObjectReference ref,
+                                   const void *buf, size_t len,
+                                   const string& algorithm)
+{
+    int rc;
+    sqlite3_stmt *stmt;
+
+    stmt = Prepare("select blockid from block_index "
+                   "where segmentid = ? and object = ?");
+    sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
+    string obj = ref.get_sequence();
+    sqlite3_bind_text(stmt, 2, obj.c_str(), obj.size(), SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+        fprintf(stderr,
+                "Could not determine blockid in StoreChunkSignatures!\n");
+        ReportError(rc);
+        throw IOException("Error getting blockid");
+    }
+    int64_t blockid = sqlite3_column_int64(stmt, 0);
+    sqlite3_finalize(stmt);
+
+    stmt = Prepare("insert or replace "
+                   "into subblock_signatures(blockid, algorithm, signatures) "
+                   "values (?, ?, ?)");
+    sqlite3_bind_int64(stmt, 1, blockid);
+    sqlite3_bind_text(stmt, 2, algorithm.c_str(), algorithm.size(),
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_blob(stmt, 3, buf, len, SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        fprintf(stderr, "Could not insert sub-block checksums!\n");
+        ReportError(rc);
+    }
+
+    sqlite3_finalize(stmt);
+}

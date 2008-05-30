@@ -50,6 +50,7 @@
 #include "remote.h"
 #include "store.h"
 #include "sha1.h"
+#include "subfile.h"
 #include "util.h"
 
 using std::list;
@@ -139,17 +140,23 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
 
     /* Look up this file in the old stat cache, if we can.  If the stat
      * information indicates that the file has not changed, do not bother
-     * re-reading the entire contents. */
+     * re-reading the entire contents.  Even if the information has been
+     * changed, we can use the list of old blocks in the search for a sub-block
+     * incremental representation. */
     bool cached = false;
+    list<ObjectReference> old_blocks;
 
-    if (metawriter->find(path) && metawriter->is_unchanged(&stat_buf)) {
+    bool found = metawriter->find(path);
+    if (found)
+        old_blocks = metawriter->get_blocks();
+
+    if (found && metawriter->is_unchanged(&stat_buf)) {
         cached = true;
-        list<ObjectReference> blocks = metawriter->get_blocks();
 
         /* If any of the blocks in the object have been expired, then we should
          * fall back to fully reading in the file. */
-        for (list<ObjectReference>::const_iterator i = blocks.begin();
-             i != blocks.end(); ++i) {
+        for (list<ObjectReference>::const_iterator i = old_blocks.begin();
+             i != old_blocks.end(); ++i) {
             const ObjectReference &ref = *i;
             if (!db->IsAvailable(ref)) {
                 cached = false;
@@ -161,8 +168,8 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
         /* If everything looks okay, use the cached information */
         if (cached) {
             file_info["checksum"] = metawriter->get_checksum();
-            for (list<ObjectReference>::const_iterator i = blocks.begin();
-                 i != blocks.end(); ++i) {
+            for (list<ObjectReference>::const_iterator i = old_blocks.begin();
+                 i != old_blocks.end(); ++i) {
                 const ObjectReference &ref = *i;
                 object_list.push_back(ref.to_string());
                 if (ref.is_normal())
@@ -177,6 +184,9 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
      * time. */
     if (!cached) {
         SHA1Checksum hash;
+        Subfile subfile(db);
+        subfile.load_old_blocks(old_blocks);
+
         while (true) {
             ssize_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
             if (bytes == 0)
@@ -215,6 +225,8 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                 ref = db->FindObject(block_csum, bytes);
             }
 
+            list<ObjectReference> refs;
+
             // Store a copy of the object if one does not yet exist
             if (ref.is_null()) {
                 LbsObject *o = new LbsObject;
@@ -247,18 +259,19 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                     status = "new";
                 }
 
-                o->set_data(block_buf, bytes);
-                o->write(tss);
-                ref = o->get_ref();
-                db->StoreObject(ref, block_csum, bytes, block_age);
-                ref.set_range(0, bytes);
-                delete o;
+                subfile.analyze_new_block(block_buf, bytes);
+                refs = subfile.create_incremental(tss, o, block_age);
+            } else {
+                refs.push_back(ref);
             }
 
-            object_list.push_back(ref.to_string());
-            if (ref.is_normal())
-                add_segment(ref.get_segment());
-            db->UseObject(ref);
+            while (!refs.empty()) {
+                ref = refs.front(); refs.pop_front();
+                object_list.push_back(ref.to_string());
+                if (ref.is_normal())
+                    add_segment(ref.get_segment());
+                db->UseObject(ref);
+            }
             size += bytes;
 
             if (status == NULL)

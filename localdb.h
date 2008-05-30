@@ -54,6 +54,13 @@ public:
                             const std::string &checksum, int size);
     bool GetSegmentChecksum(const std::string &segment,
                             std::string *seg_path, std::string *seg_checksum);
+
+    bool LoadChunkSignatures(ObjectReference ref,
+                             void **buf, size_t *len,
+                             std::string *algorithm);
+    void StoreChunkSignatures(ObjectReference ref,
+                              const void *buf, size_t len,
+                              const std::string &algorithm);
 private:
     sqlite3 *db;
     int64_t snapshotid;
