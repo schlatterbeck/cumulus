@@ -415,7 +415,6 @@ void scanfile(const string& path, bool include)
     for (list<string>::iterator i = includes.begin();
          i != includes.end(); ++i) {
         if (path == *i) {
-            printf("Including %s\n", path.c_str());
             include = true;
         }
     }
@@ -423,7 +422,6 @@ void scanfile(const string& path, bool include)
     for (list<string>::iterator i = excludes.begin();
          i != excludes.end(); ++i) {
         if (path == *i) {
-            printf("Excluding %s\n", path.c_str());
             include = false;
         }
     }
@@ -431,7 +429,6 @@ void scanfile(const string& path, bool include)
     for (list<string>::iterator i = searches.begin();
          i != searches.end(); ++i) {
         if (path == *i) {
-            printf("Scanning %s\n", path.c_str());
             scan_only = true;
         }
     }
@@ -532,7 +529,6 @@ void scanfile(const string& path, bool include)
  * themselves are excluded from being backed up. */
 void add_include(const char *path)
 {
-    printf("Add: %s\n", path);
     /* Was an absolute path specified?  If so, we'll need to start scanning
      * from the root directory.  Make sure that the user was consistent in
      * providing either all relative paths or all absolute paths. */
@@ -715,28 +711,6 @@ int main(int argc, char *argv[])
                 "Error: Must specify local database path with --localdb=\n");
         usage(argv[0]);
         return 1;
-    }
-
-    // Dump paths for debugging/informational purposes
-    {
-        list<string>::const_iterator i;
-
-        printf("LBS Version: %s\n", lbs_version);
-
-        printf("--dest=%s\n--localdb=%s\n--upload-script=%s\n",
-               backup_dest.c_str(), localdb_dir.c_str(), backup_script.c_str());
-
-        printf("Includes:\n");
-        for (i = includes.begin(); i != includes.end(); ++i)
-            printf("    %s\n", i->c_str());
-
-        printf("Excludes:\n");
-        for (i = excludes.begin(); i != excludes.end(); ++i)
-            printf("    %s\n", i->c_str());
-
-        printf("Searching:\n");
-        for (i = searches.begin(); i != searches.end(); ++i)
-            printf("    %s\n", i->c_str());
     }
 
     block_buf = new char[LBS_BLOCK_SIZE];

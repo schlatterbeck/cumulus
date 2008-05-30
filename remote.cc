@@ -86,7 +86,6 @@ RemoteStore::~RemoteStore()
  * which will upload it to the remote server. */
 RemoteFile *RemoteStore::alloc_file(const string &name, const string &type)
 {
-    fprintf(stderr, "Allocate file: %s\n", name.c_str());
     pthread_mutex_lock(&lock);
     files_outstanding++;
     pthread_mutex_unlock(&lock);
@@ -100,8 +99,6 @@ RemoteFile *RemoteStore::alloc_file(const string &name, const string &type)
  * responsible for its destruction. */
 void RemoteStore::enqueue(RemoteFile *file)
 {
-    fprintf(stderr, "Enqueue: %s\n", file->remote_path.c_str());
-
     pthread_mutex_lock(&lock);
 
     while (transfer_queue.size() >= MAX_QUEUE_SIZE)
@@ -118,14 +115,12 @@ void RemoteStore::enqueue(RemoteFile *file)
 /* Wait for all transfers to finish. */
 void RemoteStore::sync()
 {
-    fprintf(stderr, "RemoteStore::sync() start\n");
     pthread_mutex_lock(&lock);
 
     while (busy)
         pthread_cond_wait(&cond, &lock);
 
     pthread_mutex_unlock(&lock);
-    fprintf(stderr, "RemoteStore::sync() end\n");
 }
 
 void *RemoteStore::start_transfer_thread(void *arg)
@@ -161,7 +156,6 @@ void RemoteStore::transfer_thread()
         pthread_mutex_unlock(&lock);
 
         // Transfer the file
-        fprintf(stderr, "Start transfer: %s\n", file->remote_path.c_str());
         if (backup_script != "") {
             pid_t pid = fork();
             if (pid < 0) {
@@ -188,7 +182,6 @@ void RemoteStore::transfer_thread()
                         file->local_path.c_str());
             }
         }
-        fprintf(stderr, "Finish transfer: %s\n", file->remote_path.c_str());
 
         delete file;
     }
