@@ -535,7 +535,7 @@ bool LocalDb::LoadChunkSignatures(ObjectReference ref,
     sqlite3_stmt *stmt;
     int found = false;
 
-    stmt = Prepare("select algorithm, signatures from subblock_signatures "
+    stmt = Prepare("select signatures, algorithm from subblock_signatures "
                    "where blockid = (select blockid from block_index "
                    "                 where segmentid = ? and object = ?)");
     sqlite3_bind_int64(stmt, 1, SegmentToId(ref.get_segment()));
