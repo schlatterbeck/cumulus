@@ -541,6 +541,11 @@ class LocalDatabase:
                                            where expire_time < ?)""",
                     (last_snapshotid,))
 
+        # Remove sub-block signatures for deleted objects.
+        cur.execute("""delete from subblock_signatures
+                       where blockid not in
+                           (select blockid from block_index)""")
+
     # Segment cleaning.
     class SegmentInfo(Struct): pass
 
