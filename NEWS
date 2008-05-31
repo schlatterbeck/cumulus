@@ -1,7 +1,15 @@
 0.7 [??]
+    - LOCAL DATABASE CHANGE: The addition of subfile incrementals has
+      requires an extension to the local database.  The upgrade script
+      contrib/upgrade0.7-localdb.sql should be run prior to running
+      backups with this version.
     - Initial support for direct backups to remote storage.  A sample
       script is provided for backing up to Amazon S3.  Other scripts
       should be simple to write.
+    - Support for efficient subfile incremental backups.  Changes to a
+      small portion of a file do not require re-uploading substantially
+      all of the file, even in cases where there is an insertion or
+      deletion that shifts most of the file contents.
     - Allow selected files/directories to be restored, not simply an
       entire snapshot.  Additionally, restore files in an order that
       should optimize performance (restore files based on how they are
