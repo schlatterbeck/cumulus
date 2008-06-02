@@ -263,7 +263,7 @@ def parse(lines, terminate=None):
             last_key = None
             continue
 
-        m = re.match(r"^(\w+):\s*(.*)$", l)
+        m = re.match(r"^([-\w]+):\s*(.*)$", l)
         if m:
             dict[m.group(1)] = m.group(2)
             last_key = m.group(1)

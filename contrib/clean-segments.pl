@@ -31,7 +31,7 @@ foreach (glob "*.lbs") {
     while (defined($line = <DESCRIPTOR>)) {
         chomp $line;
 
-        if ($line =~ m/^(\w+):\s*(.*)$/) {
+        if ($line =~ m/^([-\w]+):\s*(.*)$/) {
             $descriptor{$1} = $2;
             $last_key = $1;
         } elsif ($line =~/^\s/ && defined $last_key) {
