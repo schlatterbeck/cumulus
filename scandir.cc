@@ -758,17 +758,14 @@ int main(int argc, char *argv[])
      * snapshot. */
     string database_path = localdb_dir + "/localdb.sqlite";
     db = new LocalDb;
-    db->Open(database_path.c_str(), desc_buf,
-             backup_scheme.size() ? backup_scheme.c_str() : NULL,
+    db->Open(database_path.c_str(), desc_buf, backup_scheme.c_str(),
              snapshot_intent);
 
     tss = new TarSegmentStore(remote, db);
 
     /* Initialize the stat cache, for skipping over unchanged files. */
     metawriter = new MetadataWriter(tss, localdb_dir.c_str(), desc_buf,
-                                    backup_scheme.size()
-                                        ? backup_scheme.c_str()
-                                        : NULL);
+                                    backup_scheme.c_str());
 
     scanfile(".", false);
 

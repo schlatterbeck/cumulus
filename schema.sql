@@ -7,7 +7,7 @@
 create table snapshots (
     snapshotid integer primary key,
     name text not null,
-    scheme text,
+    scheme text not null,
     timestamp real,
     intent real
 );

@@ -116,7 +116,7 @@ MetadataWriter::MetadataWriter(TarSegmentStore *store,
 {
     statcache_path = path;
     statcache_path += "/statcache2";
-    if (snapshot_scheme != NULL)
+    if (snapshot_scheme != NULL && strlen(snapshot_scheme) > 0)
         statcache_path = statcache_path + "-" + snapshot_scheme;
     statcache_tmp_path = statcache_path + "." + snapshot_name;
 

@@ -4,6 +4,10 @@
 -- This script should be loaded after connecting to the database to be
 -- upgraded.
 
+-- An unspecified bacukp scheme name is now stored in the database as an empty
+-- string rather than as NULL.
+update snapshots set scheme = '' where scheme is null;
+
 -- The subblock_signatures table was added to store a signature for old blocks
 -- for performing subfile incremental backups.
 create table subblock_signatures (
