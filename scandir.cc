@@ -59,12 +59,12 @@ using std::vector;
 using std::ostream;
 
 /* Version information.  This will be filled in by the Makefile. */
-#ifndef LBS_VERSION
-#define LBS_VERSION Unknown
+#ifndef CUMULUS_VERSION
+#define CUMULUS_VERSION Unknown
 #endif
-#define LBS_STRINGIFY(s) LBS_STRINGIFY2(s)
-#define LBS_STRINGIFY2(s) #s
-static const char lbs_version[] = LBS_STRINGIFY(LBS_VERSION);
+#define CUMULUS_STRINGIFY(s) CUMULUS_STRINGIFY2(s)
+#define CUMULUS_STRINGIFY2(s) #s
+static const char cumulus_version[] = CUMULUS_STRINGIFY(CUMULUS_VERSION);
 
 static RemoteStore *remote = NULL;
 static TarSegmentStore *tss = NULL;
@@ -580,7 +580,7 @@ void usage(const char *program)
 {
     fprintf(
         stderr,
-        "LBS %s\n\n"
+        "Cumulus %s\n\n"
         "Usage: %s [OPTION]... --dest=DEST PATHS...\n"
         "Produce backup snapshot of files in SOURCE and store to DEST.\n"
         "\n"
@@ -605,7 +605,7 @@ void usage(const char *program)
         "  --full-metadata      do not re-use metadata from previous backups\n"
         "\n"
         "Exactly one of --dest or --upload-script must be specified.\n",
-        lbs_version, program
+        cumulus_version, program
     );
 }
 
@@ -847,7 +847,7 @@ int main(int argc, char *argv[])
     FILE *descriptor = fdopen(descriptor_fd, "w");
 
     fprintf(descriptor, "Format: LBS Snapshot v0.6\n");
-    fprintf(descriptor, "Producer: LBS %s\n", lbs_version);
+    fprintf(descriptor, "Producer: Cumulus %s\n", cumulus_version);
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     fprintf(descriptor, "Date: %s\n", desc_buf);
     if (backup_scheme.size() > 0)
