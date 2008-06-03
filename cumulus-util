@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Utility for managing LBS archives.
+# Utility for managing Cumulus archives.
 
 import getpass, os, stat, sys, time
 from optparse import OptionParser
