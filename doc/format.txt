@@ -1,14 +1,22 @@
                        Backup Format Description
-                  for an LFS-Inspired Backup Solution
+         for Cumulus: Efficient Filesystem Backup to the Cloud
                       Version: "LBS Snapshot v0.6"
 
-NOTE: This format specification is not yet complete.  Right now the code
-provides the best documentation of the format.
+NOTE: This format specification is intended to be mostly stable, but is
+still subject to change before the 1.0 release.  The code may provide
+additional useful documentation on the format.
+
+NOTE2: The name of this project has changed from LBS to Cumulus.
+However, to avoid introducing gratuitous changes into the format, in
+most cases any references to "LBS" in the format description have been
+left as-is.  The name may be changed in the future if the format is
+updated.
 
 This document simply describes the snapshot format.  It is described
 from the point of view of a decompressor which wishes to restore the
 files from a snapshot.  It does not specify the exact behavior required
-of the backup program writing the snapshot.
+of the backup program writing the snapshot.  For details of the current
+backup program, see implementation.txt.
 
 This document does not explain the rationale behind the format; for
 that, see design.txt.
@@ -17,7 +25,7 @@ that, see design.txt.
 DATA CHECKSUMS
 ==============
 
-In several places in the LBS format, a cryptographic checksum may be
+In several places in the Cumulus format, a cryptographic checksum may be
 used to allow data integrity to be verified.  At the moment, only the
 SHA-1 checksum is supported, but it is expected that other algorithms
 will be supported in the future.
@@ -41,7 +49,7 @@ A sample checksum string is
 SEGMENTS & OBJECTS: STORAGE AND NAMING
 ======================================
 
-An LBS snapshot consists, at its base, of a collection of /objects/:
+A Cumulus snapshot consists, at its base, of a collection of /objects/:
 binary blobs of data, much like a file.  Higher layers interpret the
 contents of objects in various ways, but the lowest layer is simply
 concerned with storing and naming these objects.
@@ -50,9 +58,9 @@ An object is a sequence of bytes (octets) of arbitrary length.  An
 object may contain as few as zero bytes (though such objects are not
 very useful).  Object sizes are potentially unbounded, but it is
 recommended that the maximum size of objects produced be on the order of
-megabytes.  Files of essentially unlimited size can be stored in an LBS
-snapshot using objects of modest size, so this should not cause any real
-restrictions.
+megabytes.  Files of essentially unlimited size can be stored in a
+Cumulus snapshot using objects of modest size, so this should not cause
+any real restrictions.
 
 For storage purposes, objects are grouped together into /segments/.
 Segments use the TAR format; each object within a segment is stored as a
@@ -265,7 +273,7 @@ is %Y%m%dT%H%M%S (20070806T092239 means 2007-08-06 09:22:39).
 The contents of the descriptor are a set of RFC 822-style headers (much
 like the metadata listing).  The fields which are defined are:
     Format: The string "LBS Snapshot v0.6" which identifies this file as
-        an LBS backup descriptor.  The version number (v0.6) might
+        a Cumulus backup descriptor.  The version number (v0.6) might
         change if there are changes to the format.  It is expected that
         at some point, once the format is stabilized, the version
         identifier will be changed to v1.0.

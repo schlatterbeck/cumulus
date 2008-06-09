@@ -1,4 +1,4 @@
-This document aims to describe the goals and constraints of the LBS
+This document aims to describe the goals and constraints of the Cumulus
 design.
 
 ========================================================================

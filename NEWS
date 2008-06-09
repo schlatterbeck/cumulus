@@ -3,6 +3,8 @@
       requires an extension to the local database.  The upgrade script
       contrib/upgrade0.7-localdb.sql should be run prior to running
       backups with this version.
+    - Name change: the system is now known as Cumulus (replacing the old
+      name of "LBS").  Some traces of the old name still remain.
     - Initial support for direct backups to remote storage.  A sample
       script is provided for backing up to Amazon S3.  Other scripts
       should be simple to write.
@@ -14,6 +16,12 @@
       entire snapshot.  Additionally, restore files in an order that
       should optimize performance (restore files based on how they are
       grouped into segments, instead of lexicographic order).
+      Currently, the implementation of these changes requires that all
+      metadata be loaded into memory when the restore tool runs, so it
+      is more memory-intensive than the old version.  This may be fixed
+      in a future version; in the meantime, if the current restore tool
+      requires too much memory, try the old restore tool or the
+      restore.pl script.
 
 0.6 [2008-02-19]
     - SNAPSHOT FORMAT CHANGE: A few minor tweaks have been made to the

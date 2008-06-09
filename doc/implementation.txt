@@ -1,4 +1,4 @@
-                  LBS: An LFS-Inspired Backup Solution
+           Cumulus: Efficient Filesystem Backup to the Cloud
                         Implementation Overview
 
 HIGH-LEVEL OVERVIEW
@@ -62,7 +62,7 @@ after doing so will progress much more slowly).
 
 localdb.sqlite is an SQLite database file, which is used for indexing
 objects stored in the snapshot directory and various other purposes.
-The database schema is contained in the file schema.sql in the LBS
+The database schema is contained in the file schema.sql in the Cumulus
 source.  Among the data tracked by localdb.sqlite:
 
   - A list of segments stored in the snapshot directory.  This might not
