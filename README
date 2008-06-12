@@ -71,7 +71,7 @@ only used when creating new snapshots, and is not needed when restoring.
         export LBS_GPG_HOME=/cumulus.db/gpg
         export LBS_GPG_ENC_KEY=<encryption key>
         export LBS_GPG_SIGN_KEY=<signing key>
-        cumulus --dest=/cumulus --localdb=/cumulus.db
+        cumulus --dest=/cumulus --localdb=/cumulus.db \
             --filter="cumulus-filter-gpg --encrypt" --filter-extension=.gpg \
             --signature-filter="cumulus-filter-gpg --clearsign" \
             /etc /home /other/paths/to/store
