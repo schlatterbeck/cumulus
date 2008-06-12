@@ -811,6 +811,14 @@ int main(int argc, char *argv[])
         }
     }
     fclose(checksums);
+
+    SHA1Checksum checksum_csum;
+    string csum;
+    checksum_filename = checksum_file->get_local_path();
+    if (checksum_csum.process_file(checksum_filename.c_str())) {
+        csum = checksum_csum.checksum_str();
+    }
+
     checksum_file->send();
 
     db->Close();
@@ -855,9 +863,7 @@ int main(int argc, char *argv[])
     fprintf(descriptor, "Backup-Intent: %g\n", snapshot_intent);
     fprintf(descriptor, "Root: %s\n", backup_root.c_str());
 
-    SHA1Checksum checksum_csum;
-    if (checksum_csum.process_file(checksum_filename.c_str())) {
-        string csum = checksum_csum.checksum_str();
+    if (csum.size() > 0) {
         fprintf(descriptor, "Checksums: %s\n", csum.c_str());
     }
 
