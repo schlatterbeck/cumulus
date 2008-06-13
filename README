@@ -64,23 +64,24 @@ only used when creating new snapshots, and is not needed when restoring.
     Copy the provided encryption filter program, cumulus-filter-gpg,
     somewhere it may be run from.
 
-  4. Create a script for launching the LBS backup process.  A simple
+  4. Create a script for launching the Cumulus backup process.  A simple
      version is:
 
         #!/bin/sh
         export LBS_GPG_HOME=/cumulus.db/gpg
         export LBS_GPG_ENC_KEY=<encryption key>
         export LBS_GPG_SIGN_KEY=<signing key>
-        cumulus --dest=/cumulus --localdb=/cumulus.db \
+        cumulus --dest=/cumulus --localdb=/cumulus.db --scheme=test \
             --filter="cumulus-filter-gpg --encrypt" --filter-extension=.gpg \
             --signature-filter="cumulus-filter-gpg --clearsign" \
             /etc /home /other/paths/to/store
 
     Make appropriate substitutions for the key IDs and any relevant
-    paths.  If desired, insert an option "--scheme=<name>" to specify a
-    name for this backup scheme which will be included in the snapshot
-    file names (for example, use a name based on the hostname or
-    descriptive of the files backed up).
+    paths.  Here "--scheme=test" gives a descriptive name ("test") to
+    this collection of snapshots.  It is possible to store multiple sets
+    of backups in the same directory, using different scheme names to
+    distinguish them.  The --scheme option can also be left out
+    entirely.
 
 
 Backup Maintenance
@@ -117,13 +118,32 @@ is a serious error which indicates that some of the data needed to
 recover a snapshot appears to be lost.
 
 
-Restoring a Snapshot
+Listing and Restoring Snapshots
+-------------------------------
+
+A listing of all currently-stored snapshots (and their sizes) can be
+produced with
+    $ cumulus-util --store=/cumulus list-snapshot-sizes
+
+If data from a snapshot needs to be restored, this can be done with
+    $ cumulus-util --store=/cumulus restore-snapshot \
+        test-20080101T121500 /dest/dir <files...>
+Here, "test-20080101T121500" is the name of the snapshot (consisting of
+the scheme name and a timestamp; this can be found from the output of
+list-snapshot-sizes) and "/dest/dir" is the path under which files
+should be restored (this directory should initially be empty).
+"<files...>" is a list of files or directories to restore.  If none are
+specified, the entire snapshot is restored.
+
+
+Alternate Restore Tool
 --------------------
 
-The contrib/restore.pl script is a simple (proof-of-concept, really)
-program for restoring the contents of an LBS snapshot.  Ideally, it
-should be stored with the backup files so it is available if it is
-needed.
+The contrib/restore.pl script is a simple program for restoring the
+contents of a Cumulus snapshot.  It is not as full-features as the
+restore functionality in cumulus-util, but it is far more compact.  It
+could be stored with the backup files so a tool for restores is
+available even if all other data is lost.
 
 The restore.pl script does not know how to decompress segments, so this
 step must be performed manually.  Create a temporary directory for
@@ -139,6 +159,3 @@ filled with one directory for each segment decompressed.
 Run restore.pl giving two arguments: the snapshot descriptor file
 (*.lbs) in the temporary directory, and a directory where the restored
 files should be written.
-
-The cumulus-util program also now has some support for restoring
-snapsots (documentation coming soon).
