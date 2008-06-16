@@ -95,6 +95,9 @@ std::list<string> searches;         // Directories we don't want to save, but
 
 bool relative_paths = true;
 
+/* Whether verbose output is enabled. */
+bool verbose = false;
+
 /* Ensure that the given segment is listed as a dependency of the current
  * snapshot. */
 void add_segment(const string& segment)
@@ -281,7 +284,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
         file_info["checksum"] = hash.checksum_str();
     }
 
-    if (status != NULL)
+    if (verbose && status != NULL)
         printf("    [%s]\n", status);
 
     string blocklist = "";
@@ -309,7 +312,8 @@ void dump_inode(const string& path,         // Path within snapshot
     int64_t file_size;
     ssize_t len;
 
-    printf("%s\n", path.c_str());
+    if (verbose)
+        printf("%s\n", path.c_str());
     metawriter->find(path);
 
     file_info["name"] = uri_encode(path);
@@ -633,11 +637,13 @@ int main(int argc, char *argv[])
             {"full-metadata", 0, 0, 0},     // 8
             {"tmpdir", 1, 0, 0},            // 9
             {"upload-script", 1, 0, 0},     // 10
+            // Aliases for short options
+            {"verbose", 0, 0, 'v'},
             {NULL, 0, 0, 0},
         };
 
         int long_index;
-        int c = getopt_long(argc, argv, "", long_options, &long_index);
+        int c = getopt_long(argc, argv, "v", long_options, &long_index);
 
         if (c == -1)
             break;
@@ -687,8 +693,14 @@ int main(int argc, char *argv[])
                 return 1;
             }
         } else {
-            usage(argv[0]);
-            return 1;
+            switch (c) {
+            case 'v':
+                verbose = true;
+                break;
+            default:
+                usage(argv[0]);
+                return 1;
+            }
         }
     }
 
