@@ -1,4 +1,4 @@
-0.7 [??]
+0.7 [2008-06-23]
     - LOCAL DATABASE CHANGE: The addition of subfile incrementals has
       requires an extension to the local database.  The upgrade script
       contrib/upgrade0.7-localdb.sql should be run prior to running
@@ -7,7 +7,8 @@
       name of "LBS").  Some traces of the old name still remain.
     - Initial support for direct backups to remote storage.  A sample
       script is provided for backing up to Amazon S3.  Other scripts
-      should be simple to write.
+      should be simple to write.  The interface should not yet be
+      considered stable, and may change in a future release.
     - Support for efficient subfile incremental backups.  Changes to a
       small portion of a file do not require re-uploading substantially
       all of the file, even in cases where there is an insertion or
@@ -22,6 +23,9 @@
       in a future version; in the meantime, if the current restore tool
       requires too much memory, try the old restore tool or the
       restore.pl script.
+    - Add a verbose ("-v") flag.  By default, files will not be listed
+      as they are backed up.  The old behavior can be turned back on
+      with -v.
 
 0.6 [2008-02-19]
     - SNAPSHOT FORMAT CHANGE: A few minor tweaks have been made to the
