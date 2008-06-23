@@ -607,6 +607,7 @@ void usage(const char *program)
         "  --intent=FLOAT       intended backup type: 1=daily, 7=weekly, ...\n"
         "                           (defaults to \"1\")\n"
         "  --full-metadata      do not re-use metadata from previous backups\n"
+        "  -v --verbose         list files as they are backed up\n"
         "\n"
         "Exactly one of --dest or --upload-script must be specified.\n",
         cumulus_version, program
