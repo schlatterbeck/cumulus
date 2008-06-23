@@ -137,10 +137,10 @@ specified, the entire snapshot is restored.
 
 
 Alternate Restore Tool
---------------------
+----------------------
 
 The contrib/restore.pl script is a simple program for restoring the
-contents of a Cumulus snapshot.  It is not as full-features as the
+contents of a Cumulus snapshot.  It is not as full-featured as the
 restore functionality in cumulus-util, but it is far more compact.  It
 could be stored with the backup files so a tool for restores is
 available even if all other data is lost.
