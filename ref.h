@@ -55,9 +55,12 @@
  * a substring rather than the entire string using a range specifier.  If no
  * range specifier is given, then by default the entire object is used.
  *    <range> ::= <start> "+" <length>
+ *                | <length>
+ *                | "=" <length>
  * Both <start> and <length> are decimal values.  If included, the range is
  * enclosed in brackets.  As an abbreviation, if <start> is 0 then the range
- * can be given as just <length> (no "+" needed).
+ * can be given as just <length> (no "+" needed).  The "=<length>" form asserts
+ * that the underlying object is exactly <length> bytes in size.
  *
  * When both a checksum and a range are included, note that the checksum is
  * taken over the entire original object, before the range is taken into
@@ -108,9 +111,13 @@ public:
     bool has_range() const { return range_valid; }
     size_t get_range_start() const { return range_start; }
     size_t get_range_length() const { return range_length; }
-    void clear_range() { range_start = range_length = 0; range_valid = false; }
-    void set_range(size_t start, size_t length)
-        { range_start = start; range_length = length; range_valid = true; }
+    size_t get_range_exact() const { return range_exact; }
+    void clear_range()
+        { range_start = range_length = 0;
+          range_valid = false; range_exact = false; }
+    void set_range(size_t start, size_t length, bool exact = false)
+        { range_start = start; range_length = length;
+          range_valid = true; range_exact = exact; }
 
     bool merge(ObjectReference ref);
 
@@ -124,7 +131,7 @@ private:
     RefType type;
     std::string segment, object, checksum;
     size_t range_start, range_length;
-    bool checksum_valid, range_valid;
+    bool checksum_valid, range_valid, range_exact;
 };
 
 #endif // _LBS_REF_H

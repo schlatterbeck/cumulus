@@ -13,7 +13,7 @@ import os, re, sha, tarfile, tempfile, thread
 from pysqlite2 import dbapi2 as sqlite3
 
 # The largest supported snapshot format that can be understood.
-FORMAT_VERSION = (0, 6)         # LBS Snapshot v0.6
+FORMAT_VERSION = (0, 8)         # LBS Snapshot v0.8
 
 # Maximum number of nested indirect references allowed in a snapshot.
 MAX_RECURSION_DEPTH = 3
@@ -143,7 +143,7 @@ class ObjectStore:
         if m:
             return ("zero", None, None, (0, int(m.group(1))))
 
-        m = re.match(r"^([-0-9a-f]+)\/([0-9a-f]+)(\(\S+\))?(\[((\d+)\+)?(\d+)\])?$", refstr)
+        m = re.match(r"^([-0-9a-f]+)\/([0-9a-f]+)(\(\S+\))?(\[(((\d+)\+)?(\d+)|=(\d+))\])?$", refstr)
         if not m: return
 
         segment = m.group(1)
@@ -155,11 +155,14 @@ class ObjectStore:
             checksum = checksum.lstrip("(").rstrip(")")
 
         if slice is not None:
-            if m.group(5) is None:
+            if m.group(9) is not None:
+                # Size-assertion slice
+                slice = (0, int(m.group(9)), True)
+            elif m.group(6) is None:
                 # Abbreviated slice
-                slice = (0, int(m.group(7)))
+                slice = (0, int(m.group(8)), False)
             else:
-                slice = (int(m.group(6)), int(m.group(7)))
+                slice = (int(m.group(7)), int(m.group(8)), False)
 
         return (segment, object, checksum, slice)
 
@@ -231,7 +234,8 @@ class ObjectStore:
                 raise ValueError
 
         if slice is not None:
-            (start, length) = slice
+            (start, length, exact) = slice
+            if exact and len(data) != length: raise ValueError
             data = data[start:start+length]
             if len(data) != length: raise IndexError
 

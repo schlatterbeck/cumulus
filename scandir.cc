@@ -868,7 +868,7 @@ int main(int argc, char *argv[])
     }
     FILE *descriptor = fdopen(descriptor_fd, "w");
 
-    fprintf(descriptor, "Format: LBS Snapshot v0.6\n");
+    fprintf(descriptor, "Format: LBS Snapshot v0.8\n");
     fprintf(descriptor, "Producer: Cumulus %s\n", cumulus_version);
     strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
     fprintf(descriptor, "Date: %s\n", desc_buf);

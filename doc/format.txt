@@ -1,6 +1,6 @@
                        Backup Format Description
          for Cumulus: Efficient Filesystem Backup to the Cloud
-                      Version: "LBS Snapshot v0.6"
+                      Version: "LBS Snapshot v0.8"
 
 NOTE: This format specification is intended to be mostly stable, but is
 still subject to change before the 1.0 release.  The code may provide
@@ -129,6 +129,13 @@ abbreviation, the slice syntax
     [<length>]
 is shorthand for
     [0+<length>]
+In place of a traditional slice, the annotation
+    [=<length>]
+may be used.  This is somewhat similar to specifying [<length>], but
+additionally asserts that the referenced object is exactly <length>
+bytes long--that is, this slice syntax does not change the bytes
+returned at all, but can be used to provide information about the
+underlying object store.
 
 Both a checksum and a slice can be used.  In this case, the checksum is
 given first, followed by the slice.  The checksum is computed over the

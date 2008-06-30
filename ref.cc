@@ -97,7 +97,9 @@ string ObjectReference::to_string() const
 
     if (range_valid) {
         char buf[64];
-        if (range_start == 0) {
+        if (range_exact) {
+            sprintf(buf, "[=%zu]", range_length);
+        } else if (range_start == 0) {
             sprintf(buf, "[%zu]", range_length);
         } else {
             sprintf(buf, "[%zu+%zu]", range_start, range_length);
@@ -159,10 +161,16 @@ ObjectReference ObjectReference::parse(const std::string& str)
     }
 
     // Range
-    bool have_range = false;
+    bool have_range = false, range_exact = false;
     int64_t range1 = 0, range2 = 0;
     if (*t == '[') {
         t++;
+
+        if (*t == '=') {
+            range_exact = true;
+            t++;
+        }
+
         s = t;
         while (*t >= '0' && *t <= '9')
             t++;
@@ -173,6 +181,8 @@ ObjectReference ObjectReference::parse(const std::string& str)
             range2 = atoll(val.c_str());
         } else {
             if (*t != '+')
+                return ObjectReference();
+            if (range_exact)
                 return ObjectReference();
 
             string val(s, t - s);
@@ -208,7 +218,7 @@ ObjectReference ObjectReference::parse(const std::string& str)
         ref.set_checksum(checksum);
 
     if (have_range)
-        ref.set_range(range1, range2);
+        ref.set_range(range1, range2, range_exact);
 
     return ref;
 }
@@ -236,6 +246,9 @@ bool ObjectReference::merge(ObjectReference ref)
         return false;
 
     if (!range_valid || !ref.range_valid)
+        return false;
+
+    if (range_exact || ref.range_exact)
         return false;
 
     if (range_start + range_length == ref.range_start) {
