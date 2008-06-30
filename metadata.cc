@@ -24,6 +24,8 @@
  * handling of the statcache, and re-use of metadata between snapshots.
  */
 
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <iostream>
 #include <map>

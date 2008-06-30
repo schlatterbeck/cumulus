@@ -22,6 +22,7 @@
  * later, for parsing them back, perhaps). */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <uuid/uuid.h>
 
 #include <iostream>

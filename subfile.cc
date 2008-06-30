@@ -23,6 +23,7 @@
  * referenced from the new metadata log. */
 
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #include <arpa/inet.h>
 
