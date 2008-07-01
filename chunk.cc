@@ -123,13 +123,13 @@ polymod (uint64_t nh, uint64_t nl, uint64_t d)
       nh ^= d;
     for (int i = 62; i >= 0; i--)
       if (nh & INT64 (1) << i) {
-        nh ^= d >> 63 - i;
-        nl ^= d << i + 1;
+        nh ^= d >> (63 - i);
+        nl ^= d << (i + 1);
       }
   }
   for (int i = 63; i >= k; i--)
     if (nl & INT64 (1) << i)
-      nl ^= d >> 63 - i;
+      nl ^= d >> (63 - i);
   return nl;
 }
 
