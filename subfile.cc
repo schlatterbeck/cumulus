@@ -267,6 +267,7 @@ list<ObjectReference> Subfile::create_incremental(TarSegmentStore *tss,
         db->StoreObject(ref, block_csum, analyzed_len, block_age);
         if (analyzed_len >= 16384)
             store_block_signatures(ref, new_block_summary);
+        ref.set_range(0, analyzed_len, true);
         refs.push_back(ref);
         delete o;
         return refs;

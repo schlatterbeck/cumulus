@@ -99,7 +99,7 @@ string ObjectReference::to_string() const
         char buf[64];
         if (range_exact) {
             sprintf(buf, "[=%zu]", range_length);
-        } else if (range_start == 0) {
+        } else if (type == REF_ZERO) {
             sprintf(buf, "[%zu]", range_length);
         } else {
             sprintf(buf, "[%zu+%zu]", range_start, range_length);

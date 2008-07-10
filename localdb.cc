@@ -295,7 +295,7 @@ ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
     } else if (rc == SQLITE_ROW) {
         ref = ObjectReference(IdToSegment(sqlite3_column_int64(stmt, 0)),
                               (const char *)sqlite3_column_text(stmt, 1));
-        ref.set_range(0, size);
+        ref.set_range(0, size, true);
     } else {
         fprintf(stderr, "Could not execute SELECT statement!\n");
         ReportError(rc);
