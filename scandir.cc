@@ -294,7 +294,9 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
     // the checksum in the statcache.  If not, we have possible disk corruption
     // and report a warning.
     if (flag_rebuild_statcache) {
-        if (found && file_info["checksum"] != metawriter->get_checksum()) {
+        if (found
+            && metawriter->is_unchanged(&stat_buf)
+            && file_info["checksum"] != metawriter->get_checksum()) {
             fprintf(stderr,
                     "Warning: Checksum for %s does not match expected value\n"
                     "    expected: %s\n"
