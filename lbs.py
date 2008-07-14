@@ -583,9 +583,11 @@ class LocalDatabase:
             info.mtime = row[3]
             info.age_days = row[4]
 
-            # If age is not available for whatever reason, treat it as 0.0.
+            # If data is not available for whatever reason, treat it as 0.0.
             if info.age_days is None:
                 info.age_days = 0.0
+            if info.used_bytes is None:
+                info.used_bytes = 0.0
 
             # Benefit calculation: u is the estimated fraction of each segment
             # which is utilized (bytes belonging to objects still in use
