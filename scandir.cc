@@ -96,6 +96,8 @@ std::list<string> searches;         // Directories we don't want to save, but
 
 bool relative_paths = true;
 
+bool flag_rebuild_statcache = false;
+
 /* Whether verbose output is enabled. */
 bool verbose = false;
 
@@ -154,7 +156,9 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
     if (found)
         old_blocks = metawriter->get_blocks();
 
-    if (found && metawriter->is_unchanged(&stat_buf)) {
+    if (found
+        && !flag_rebuild_statcache
+        && metawriter->is_unchanged(&stat_buf)) {
         cached = true;
 
         /* If any of the blocks in the object have been expired, then we should
@@ -283,6 +287,22 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
         }
 
         file_info["checksum"] = hash.checksum_str();
+    }
+
+    // Sanity check: if we are rebuilding the statcache, but the file looks
+    // like it hasn't changed, then the newly-computed checksum should match
+    // the checksum in the statcache.  If not, we have possible disk corruption
+    // and report a warning.
+    if (flag_rebuild_statcache) {
+        if (found && file_info["checksum"] != metawriter->get_checksum()) {
+            fprintf(stderr,
+                    "Warning: Checksum for %s does not match expected value\n"
+                    "    expected: %s\n"
+                    "    actual:   %s\n",
+                    path.c_str(),
+                    metawriter->get_checksum().c_str(),
+                    file_info["checksum"].c_str());
+        }
     }
 
     if (verbose && status != NULL)
@@ -639,6 +659,7 @@ int main(int argc, char *argv[])
             {"full-metadata", 0, 0, 0},     // 8
             {"tmpdir", 1, 0, 0},            // 9
             {"upload-script", 1, 0, 0},     // 10
+            {"rebuild-statcache", 0, 0, 0}, // 11
             // Aliases for short options
             {"verbose", 0, 0, 'v'},
             {NULL, 0, 0, 0},
@@ -689,6 +710,9 @@ int main(int argc, char *argv[])
                 break;
             case 10:    // --upload-script
                 backup_script = optarg;
+                break;
+            case 11:    // --rebuild-statcache
+                flag_rebuild_statcache = true;
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");
