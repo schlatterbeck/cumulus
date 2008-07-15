@@ -1,3 +1,10 @@
+0.8 [???]
+    - SNAPSHOT FORMAT CHANGE: The snapshot format has been extended to
+      allow the local database to be partially rebuilt from the contents
+      of the metadata log.  This may be useful for disaster recovery and
+      other scenarios.  The changes are small, but old tools will not
+      read the new backups.
+
 0.7 [2008-06-23]
     - LOCAL DATABASE CHANGE: The addition of subfile incrementals has
       requires an extension to the local database.  The upgrade script

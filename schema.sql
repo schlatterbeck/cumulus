@@ -37,14 +37,20 @@ create index block_content_index on block_index(checksum);
 create unique index block_name_index on block_index(segmentid, object);
 
 -- Checksums for the decomposition of blocks into even smaller chunks
--- (variable-sized, but generally ~8 kB, and maximum 64 kB).  Chunk boundaries
+-- (variable-sized, but generally ~4 kB, and maximum 64 kB).  Chunk boundaries
 -- are determined based on the contents using Rabin fingerprints.  These
 -- checksums can be used for computing sub-file incrementals.
 --
 -- Each block stored in block_index may have an entry in the
--- subblock_signatures table.  The hash_data field is a binary blob consisting
+-- subblock_signatures table.  The signatures field is a binary blob consisting
 -- of a packed sequence of (chunk length [16-bit unsigned, big-endian],
--- checksum [20 bytes for SHA-1]) tuples that should cover the entire block.
+-- checksum [20 bytes if SHA-1]) tuples that should cover the entire block.
+--
+-- algorithm specifies the method used for computing break points as well as
+-- the hash function used, so that signatures can be discarded if the algorithm
+-- changes.  The current algorithm used is 'lbfs-4096/sha1', which specifies a
+-- target 4 kB block size with parameters set to match LBFS, and SHA-1 as the
+-- hash algorithm.
 create table subblock_signatures (
     blockid integer primary key,
     algorithm text not null,
