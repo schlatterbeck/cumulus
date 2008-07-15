@@ -51,6 +51,11 @@ public:
     // buffer until all operations referring to it are finished.
     void analyze_new_block(const char *buf, size_t len);
 
+    // Store the signatures for the most recently-analyzed block in the local
+    // database (linked to the specified object), if the block is sufficiently
+    // large.  If signatures already exist, they will be overwritten.
+    void store_analyzed_signatures(ObjectReference ref);
+
     std::list<ObjectReference> create_incremental(TarSegmentStore *tss,
                                                   LbsObject *o,
                                                   double block_age);

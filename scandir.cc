@@ -270,6 +270,10 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                 subfile.analyze_new_block(block_buf, bytes);
                 refs = subfile.create_incremental(tss, o, block_age);
             } else {
+                if (flag_rebuild_statcache && ref.is_normal()) {
+                    subfile.analyze_new_block(block_buf, bytes);
+                    subfile.store_analyzed_signatures(ref);
+                }
                 refs.push_back(ref);
             }
 

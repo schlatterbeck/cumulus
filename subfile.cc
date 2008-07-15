@@ -195,6 +195,12 @@ void Subfile::store_block_signatures(ObjectReference ref, block_summary summary)
     free(packed);
 }
 
+void Subfile::store_analyzed_signatures(ObjectReference ref)
+{
+    if (analyzed_len >= 16384)
+        store_block_signatures(ref, new_block_summary);
+}
+
 /* Compute an incremental representation of the most recent block analyzed. */
 enum subfile_item_type { SUBFILE_COPY, SUBFILE_NEW };
 
@@ -265,8 +271,7 @@ list<ObjectReference> Subfile::create_incremental(TarSegmentStore *tss,
         o->write(tss);
         ObjectReference ref = o->get_ref();
         db->StoreObject(ref, block_csum, analyzed_len, block_age);
-        if (analyzed_len >= 16384)
-            store_block_signatures(ref, new_block_summary);
+        store_analyzed_signatures(ref);
         ref.set_range(0, analyzed_len, true);
         refs.push_back(ref);
         delete o;
