@@ -130,7 +130,7 @@ sub load_ref {
                 if $object_size != $1;
             ($start, $length) = (0, $1 + 0);
         } elsif ($range =~ m/^\[(\d+)\]$/) {
-            ($start, $length) = (0, $3 + 0);
+            ($start, $length) = (0, $1 + 0);
         } elsif ($range =~ m/^\[(\d+)\+(\d+)\]$/) {
             ($start, $length) = ($1 + 0, $2 + 0);
         } else {
