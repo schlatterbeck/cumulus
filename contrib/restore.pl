@@ -122,17 +122,21 @@ sub load_ref {
     # If a range was specified, then only a subset of the bytes of the object
     # are desired.  Extract just the desired bytes.
     if ($range) {
-        if ($range !~ m/^\[((\d+)\+)?(\d+)\]$/) {
+        my $object_size = length $contents;
+        my ($start, $length);
+
+        if ($range =~ m/^\[=(\d+)\]$/) {
+            die "Object size incorrect (ref $ref_str, actual size $object_size"
+                if $object_size != $1;
+            ($start, $length) = (0, $1 + 0);
+        } elsif ($range =~ m/^\[(\d+)\]$/) {
+            ($start, $length) = (0, $3 + 0);
+        } elsif ($range =~ m/^\[(\d+)\+(\d+)\]$/) {
+            ($start, $length) = ($1 + 0, $2 + 0);
+        } else {
             die "Malformed object range: $range";
         }
 
-        my $object_size = length $contents;
-        my ($start, $length);
-        if (defined($1)) {
-            ($start, $length) = ($2 + 0, $3 + 0);
-        } else {
-            ($start, $length) = (0, $3 + 0);
-        }
         if ($start >= $object_size || $start + $length > $object_size) {
             die "Object range $range falls outside object bounds "
                 . "(actual size $object_size)";
