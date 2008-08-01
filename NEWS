@@ -1,9 +1,15 @@
-0.8 [???]
+0.8 [2008-08-01]
     - SNAPSHOT FORMAT CHANGE: The snapshot format has been extended to
       allow the local database to be partially rebuilt from the contents
       of the metadata log.  This may be useful for disaster recovery and
       other scenarios.  The changes are small, but old tools will not
       read the new backups.
+    - Add the --rebuild-statcache option which will re-read all files
+      instead of depending on the statcache file to be correct.  This
+      will additionally print warnings if a file has changed but would
+      not have been detected as changed based on the statcache, and will
+      add subfile incremental signatures for existing files that do not
+      have them.
 
 0.7 [2008-06-23]
     - LOCAL DATABASE CHANGE: The addition of subfile incrementals has
