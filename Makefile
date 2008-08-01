@@ -1,8 +1,9 @@
 PACKAGES=sqlite3 uuid
-DEBUG=-g #-pg
+DEBUG=-g
 CXXFLAGS=-O -Wall -D_FILE_OFFSET_BITS=64 $(DEBUG) \
-	 `pkg-config --cflags $(PACKAGES)` -DCUMULUS_VERSION=`cat version`
-LDFLAGS=$(DEBUG) `pkg-config --libs $(PACKAGES)`
+	 $(shell pkg-config --cflags $(PACKAGES)) \
+	 -DCUMULUS_VERSION=$(shell cat version)
+LDFLAGS=$(DEBUG) $(shell pkg-config --libs $(PACKAGES))
 
 SRCS=chunk.cc localdb.cc metadata.cc ref.cc remote.cc scandir.cc sha1.cc \
      store.cc subfile.cc util.cc
