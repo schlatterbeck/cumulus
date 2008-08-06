@@ -12,6 +12,8 @@ from __future__ import division
 import os, re, sha, tarfile, tempfile, thread
 from pysqlite2 import dbapi2 as sqlite3
 
+import cumulus.store, cumulus.store.file
+
 # The largest supported snapshot format that can be understood.
 FORMAT_VERSION = (0, 8)         # LBS Snapshot v0.8
 
@@ -82,19 +84,19 @@ class LowlevelDataStore:
     """
 
     def __init__(self, path):
-        self.path = path
+        self.store = cumulus.store.file.FileStore(path)
 
-    # Low-level filesystem access.  These methods could be overwritten to
-    # provide access to remote data stores.
-    def lowlevel_list(self):
-        """Get a listing of files stored."""
-
-        return os.listdir(self.path)
+    def _classify(self, filename):
+        for (t, r) in cumulus.store.type_patterns.items():
+            if r.match(filename):
+                return (t, filename)
+        return (None, filename)
 
     def lowlevel_open(self, filename):
         """Return a file-like object for reading data from the given file."""
 
-        return open(os.path.join(self.path, filename), 'rb')
+        (type, filename) = self._classify(filename)
+        return self.store.get(type, filename)
 
     def lowlevel_stat(self, filename):
         """Return a dictionary of information about the given file.
@@ -103,21 +105,19 @@ class LowlevelDataStore:
         file in bytes.
         """
 
-        stat = os.stat(os.path.join(self.path, filename))
-        return {'size': stat.st_size}
+        (type, filename) = self._classify(filename)
+        return self.store.stat(type, filename)
 
     # Slightly higher-level list methods.
     def list_snapshots(self):
-        for f in self.lowlevel_list():
-            m = re.match(r"^snapshot-(.*)\.lbs$", f)
-            if m:
-                yield m.group(1)
+        for f in self.store.list('snapshots'):
+            m = cumulus.store.type_patterns['snapshots'].match(f)
+            if m: yield m.group(1)
 
     def list_segments(self):
-        for f in self.lowlevel_list():
-            m = re.match(r"^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\.\S+)?$", f)
-            if m:
-                yield m.group(1)
+        for f in self.store.list('segments'):
+            m = cumulus.store.type_patterns['segments'].match(f)
+            if m: yield m.group(1)
 
 class ObjectStore:
     def __init__(self, data_store):

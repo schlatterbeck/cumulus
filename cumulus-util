@@ -4,7 +4,10 @@
 
 import getpass, os, stat, sys, time
 from optparse import OptionParser
-import lbs
+import cumulus
+
+# Compatibility
+lbs = cumulus
 
 # We support up to "LBS Snapshot v0.8" formats, but are also limited by the lbs
 # module.
