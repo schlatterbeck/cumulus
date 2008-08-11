@@ -36,3 +36,7 @@ class S3Store(cumulus.store.Store):
 
     def delete(self, type, name):
         self.bucket.delete_key("%s/%s/%s" % (self.prefix, type, name))
+
+    def stat(self, type, name):
+        k = self.bucket.get_key("%s/%s/%s" % (self.prefix, type, name))
+        return {'size': int(k.size)}

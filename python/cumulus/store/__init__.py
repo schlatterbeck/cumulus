@@ -1,4 +1,4 @@
-import re
+import re, urlparse
 
 type_patterns = {
     'checksums': re.compile(r"^snapshot-(.*)\.(\w+)sums$"),
@@ -19,4 +19,19 @@ class Store:
         raise NotImplementedException
 
     def delete(self, type, name):
+        raise NotImplementedException
+
+def open(url):
+    (scheme, netloc, path, params, query, fragment) \
+        = urlparse.urlparse(url)
+
+    if scheme == "file":
+        import cumulus.store.file
+        return cumulus.store.file.FileStore(path)
+    elif scheme == "s3":
+        import cumulus.store.s3
+        while path.startswith("/"): path = path[1:]
+        (bucket, path) = path.split("/", 1)
+        return cumulus.store.s3.S3Store(bucket, path)
+    else:
         raise NotImplementedException

@@ -84,7 +84,10 @@ class LowlevelDataStore:
     """
 
     def __init__(self, path):
-        self.store = cumulus.store.file.FileStore(path)
+        if path.find(":") >= 0:
+            self.store = cumulus.store.open(path)
+        else:
+            self.store = cumulus.store.file.FileStore(path)
 
     def _classify(self, filename):
         for (t, r) in cumulus.store.type_patterns.items():
