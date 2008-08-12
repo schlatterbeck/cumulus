@@ -1,5 +1,5 @@
 *.o
 *.pyc
-cumulus
-Makefile.dep
-version
+/cumulus
+/Makefile.dep
+/version
