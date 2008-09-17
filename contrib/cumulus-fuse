@@ -19,7 +19,7 @@ import cumulus.metadata
 fuse.fuse_python_api = (0, 2)
 
 # TODO: Figure out FUSE option parsing
-lowlevel = cumulus.LowlevelDataStore('/backups/lbs/turin')
+lowlevel = cumulus.LowlevelDataStore('/backups/lbs/corinth')
 store = cumulus.ObjectStore(lowlevel)
 
 def _printable(ptr):
@@ -35,6 +35,7 @@ def parse_path(path):
     else:
         return path[1:].split('/')
 
+lookup_cache = {}
 def load_metadata(path):
     if type(path) != type([]):
         path = parse_path(path)
@@ -42,13 +43,19 @@ def load_metadata(path):
     if path is None or len(path) < 2:
         return None
 
+    path = tuple(path)
+    if path in lookup_cache:
+        return lookup_cache[path]
+
     snapshot = cumulus.parse_full(store.load_snapshot(path[0]))
     metadata = cumulus.metadata.Metadata(store, snapshot['Root'])
     ptr = metadata.search(lambda x: cmp(x, path[1:]))
     item = metadata._read(ptr)
     if metadata._get_path(item) != path[1:]:
+        lookup_cache[path] = None
         return None
-    return cumulus.MetadataItem(item, store)
+    lookup_cache[path] = cumulus.MetadataItem(item, store)
+    return lookup_cache[path]
 
 class MyStat(fuse.Stat):
     def __init__(self):
@@ -103,7 +110,7 @@ class CumulusFS(Fuse):
 
         return st
 
-    def _cumulus_readdir(self, metadata, path):
+    def _cumulus_readdir(self, metadata, snapshot, path):
         # Find pointer to base directory in metadata
         ptr1 = metadata.search(lambda x: cmp(x, path))
 
@@ -138,6 +145,7 @@ class CumulusFS(Fuse):
                                        ptr1, ptr2)
                 continue
 
+            lookup_cache[(snapshot,) + tuple(itempath)] = m
             yield itempath[len(path)]
             ptr1 = metadata._advance(ptr1)
 
@@ -152,7 +160,9 @@ class CumulusFS(Fuse):
             snapshot = cumulus.parse_full(store.load_snapshot(path[0]))
             metadata = cumulus.metadata.Metadata(store, snapshot['Root'])
             for r in itertools.chain(('.', '..'),
-                                     self._cumulus_readdir(metadata, path[1:])):
+                                     self._cumulus_readdir(metadata,
+                                                           path[0],
+                                                           path[1:])):
                 yield fuse.Direntry(r)
 
     def readlink(self, path):
@@ -175,7 +185,35 @@ class CumulusFS(Fuse):
         if m is None:
             return -errno.ENOENT
 
-        return '\0' * size
+        buf = ''
+        for b in m.data():
+            if size == 0: break
+
+            # Skip over this data block if we can, based on remaining data
+            # offset and block size.
+            (bseg, boff, bcsum, bslice) = store.parse_ref(b)
+            if bslice is not None:
+                bsize = bslice[1]
+                if offset >= bsize:
+                    offset -= bsize
+                    continue
+
+            # Otherwise, load the data block and read any data out of it we
+            # can.
+            data = store.get(b)
+            if offset >= len(data):
+                offset -= len(data)
+                continue
+            if offset > 0:
+                data = data[offset:]
+                offset = 0
+            if size < len(data):
+                data = data[0:size]
+
+            buf += data
+            size -= len(data)
+
+        return buf
 
 def main():
     usage="""
