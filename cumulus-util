@@ -4,6 +4,12 @@
 
 import getpass, os, stat, sys, time
 from optparse import OptionParser
+
+# Automatically set Python path, based on script directory.  This should be
+# removed if the tools are properly installed somewhere.
+script_directory = os.path.dirname(sys.argv[0])
+sys.path.append(os.path.join(script_directory, 'python'))
+
 import cumulus
 
 # Compatibility
