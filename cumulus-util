@@ -83,6 +83,12 @@ def cmd_list_snapshot_sizes():
     for s in sorted(lowlevel.list_snapshots()):
         d = lbs.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
+
+        try:
+            intent = float(d['Backup-Intent'])
+        except:
+            intent = 1.0
+
         segments = d['Segments'].split()
         (size, added, removed) = (0, 0, 0)
         for seg in segments:
@@ -93,7 +99,7 @@ def cmd_list_snapshot_sizes():
             if seg not in segments:
                 removed += lowlevel.lowlevel_stat(seg + ".tar.gpg")['size']
         previous = set(segments)
-        print "%s: %.3f +%.3f -%.3f" % (s, size / 1024.0**2, added / 1024.0**2, removed / 1024.0**2)
+        print "%s [%s]: %.3f +%.3f -%.3f" % (s, intent, size / 1024.0**2, added / 1024.0**2, removed / 1024.0**2)
 
 # Build checksum list for objects in the given segments, or all segments if
 # none are specified.
