@@ -17,7 +17,7 @@ version : NEWS
 $(OBJS) : version
 
 clean :
-	rm -f $(OBJS) lbs version
+	rm -f $(OBJS) cumulus version
 
 dep :
 	touch Makefile.dep
