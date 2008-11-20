@@ -37,6 +37,7 @@
 
 #include "localdb.h"
 #include "store.h"
+#include "util.h"
 
 using std::min;
 using std::string;
@@ -52,7 +53,7 @@ sqlite3_stmt *LocalDb::Prepare(const char *sql)
     rc = sqlite3_prepare_v2(db, sql, strlen(sql), &stmt, &tail);
     if (rc != SQLITE_OK) {
         ReportError(rc);
-        throw IOException(string("Error preparing statement: ") + sql);
+        fatal(string("Error preparing statement: ") + sql);
     }
 
     return stmt;
@@ -73,14 +74,14 @@ void LocalDb::Open(const char *path, const char *snapshot_name,
     if (rc) {
         fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
         sqlite3_close(db);
-        throw IOException("Error opening local database");
+        fatal("Error opening local database");
     }
 
     rc = sqlite3_exec(db, "begin", NULL, NULL, NULL);
     if (rc) {
         fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
         sqlite3_close(db);
-        throw IOException("Error starting transaction");
+        fatal("Error starting transaction");
     }
 
     sqlite3_extended_result_codes(db, 1);
@@ -103,7 +104,7 @@ void LocalDb::Open(const char *path, const char *snapshot_name,
     if (rc != SQLITE_DONE) {
         ReportError(rc);
         sqlite3_close(db);
-        throw IOException("Database execution error!");
+        fatal("Database execution error!");
     }
 
     snapshotid = sqlite3_last_insert_rowid(db);
@@ -111,7 +112,7 @@ void LocalDb::Open(const char *path, const char *snapshot_name,
     if (snapshotid == 0) {
         ReportError(rc);
         sqlite3_close(db);
-        throw IOException("Find snapshot id");
+        fatal("Find snapshot id");
     }
 
     /* Create a temporary table which will be used to keep track of the objects
@@ -126,7 +127,7 @@ void LocalDb::Open(const char *path, const char *snapshot_name,
     if (rc != SQLITE_OK) {
         ReportError(rc);
         sqlite3_close(db);
-        throw IOException("Database initialization");
+        fatal("Database initialization");
     }
     rc = sqlite3_exec(db,
                       "create unique index snapshot_refs_index "
@@ -135,7 +136,7 @@ void LocalDb::Open(const char *path, const char *snapshot_name,
     if (rc != SQLITE_OK) {
         ReportError(rc);
         sqlite3_close(db);
-        throw IOException("Database initialization");
+        fatal("Database initialization");
     }
 }
 
@@ -187,7 +188,7 @@ int64_t LocalDb::SegmentToId(const string &segment)
                       SQLITE_TRANSIENT);
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        throw IOException("Could not execute INSERT statement!");
+        fatal("Could not execute INSERT statement!");
     }
     sqlite3_finalize(stmt);
 
@@ -197,11 +198,11 @@ int64_t LocalDb::SegmentToId(const string &segment)
 
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_DONE) {
-        throw IOException("No segment found by id");
+        fatal("No segment found by id");
     } else if (rc == SQLITE_ROW) {
         result = sqlite3_column_int64(stmt, 0);
     } else {
-        throw IOException("Error executing find segment by id query");
+        fatal("Error executing find segment by id query");
     }
 
     sqlite3_finalize(stmt);
@@ -220,11 +221,11 @@ string LocalDb::IdToSegment(int64_t segmentid)
 
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_DONE) {
-        throw IOException("No segment found by id");
+        fatal("No segment found by id");
     } else if (rc == SQLITE_ROW) {
         result = (const char *)sqlite3_column_text(stmt, 0);
     } else {
-        throw IOException("Error executing find segment by id query");
+        fatal("Error executing find segment by id query");
     }
 
     sqlite3_finalize(stmt);
@@ -586,7 +587,7 @@ void LocalDb::StoreChunkSignatures(ObjectReference ref,
         fprintf(stderr,
                 "Could not determine blockid in StoreChunkSignatures!\n");
         ReportError(rc);
-        throw IOException("Error getting blockid");
+        fatal("Error getting blockid");
     }
     int64_t blockid = sqlite3_column_int64(stmt, 0);
     sqlite3_finalize(stmt);

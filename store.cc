@@ -77,14 +77,14 @@ Tarfile::~Tarfile()
     tar_write(buf, TAR_BLOCK_SIZE);
 
     if (close(filter_fd) != 0)
-        throw IOException("Error closing Tarfile");
+        fatal("Error closing Tarfile");
 
     /* ...and wait for filter process to finish. */
     int status;
     waitpid(filter_pid, &status, 0);
 
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-        throw IOException("Filter process error");
+        fatal("Filter process error");
     }
 
     close(real_fd);
@@ -101,13 +101,13 @@ int spawn_filter(int fd_out, const char *program, pid_t *filter_pid)
 
     /* Create a pipe for communicating with the filter process. */
     if (pipe(fds) < 0) {
-        throw IOException("Unable to create pipe for filter");
+        fatal("Unable to create pipe for filter");
     }
 
     /* Create a child process which can exec() the filter program. */
     pid = fork();
     if (pid < 0)
-        throw IOException("Unable to fork filter process");
+        fatal("Unable to fork filter process");
 
     if (pid > 0) {
         /* Parent process */
@@ -150,7 +150,7 @@ void Tarfile::tar_write(const char *data, size_t len)
             if (errno == EINTR)
                 continue;
             fprintf(stderr, "Write error: %m\n");
-            throw IOException("Write error");
+            fatal("Write error");
         }
 
         len -= res;

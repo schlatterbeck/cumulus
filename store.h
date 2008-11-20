@@ -45,19 +45,6 @@ class LbsObject;
  * metadata.  Currently implemented as map<string, string>. */
 typedef std::map<std::string, std::string> dictionary;
 
-/* IOException will be thrown if an error occurs while reading or writing in
- * one of the I/O wrappers.  Depending upon the context; this may be fatal or
- * not--typically, errors reading/writing the store will be serious, but errors
- * reading an individual file are less so. */
-class IOException : public std::exception {
-private:
-    std::string error;
-public:
-    explicit IOException(const std::string &err) { error = err; }
-    virtual ~IOException() throw () { }
-    std::string getError() const { return error; }
-};
-
 /* Simplified TAR header--we only need to store regular files, don't need to
  * handle long filenames, etc. */
 static const int TAR_BLOCK_SIZE = 512;

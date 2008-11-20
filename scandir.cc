@@ -925,7 +925,7 @@ int main(int argc, char *argv[])
         waitpid(signature_pid, &status, 0);
 
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-            throw IOException("Signature filter process error");
+            fatal("Signature filter process error");
         }
     }
 

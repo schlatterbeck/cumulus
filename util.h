@@ -35,6 +35,6 @@ std::string encode_int(long long n, int base=10);
 long long parse_int(const std::string &s);
 void cloexec(int fd);
 
-void fatal(std::string msg);
+void fatal(std::string msg) __attribute__((noreturn));
 
 #endif // _LBS_TARSTORE_H

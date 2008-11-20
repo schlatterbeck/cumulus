@@ -128,7 +128,7 @@ MetadataWriter::MetadataWriter(TarSegmentStore *store,
     if (statcache_out == NULL) {
         fprintf(stderr, "Error opening statcache %s: %m\n",
                 statcache_tmp_path.c_str());
-        throw IOException("Error opening statcache");
+        fatal("Error opening statcache");
     }
 
     old_metadata_eof = false;
