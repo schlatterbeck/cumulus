@@ -39,4 +39,6 @@ class S3Store(cumulus.store.Store):
 
     def stat(self, type, name):
         k = self.bucket.get_key("%s/%s/%s" % (self.prefix, type, name))
+        if k is None:
+            raise cumulus.store.NotFoundError
         return {'size': int(k.size)}

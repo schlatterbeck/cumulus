@@ -33,5 +33,8 @@ class FileStore(cumulus.store.Store):
         os.unlink(k)
 
     def stat(self, type, name):
-        stat = os.stat(self._get_path(type, name))
-        return {'size': stat.st_size}
+        try:
+            stat = os.stat(self._get_path(type, name))
+            return {'size': stat.st_size}
+        except OSError:
+            raise cumulus.store.NotFoundError
