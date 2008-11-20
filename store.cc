@@ -43,6 +43,7 @@
 
 #include "store.h"
 #include "ref.h"
+#include "util.h"
 
 using std::max;
 using std::list;
@@ -54,16 +55,6 @@ using std::string;
 /* Default filter program is bzip2 */
 const char *filter_program = "bzip2 -c";
 const char *filter_extension = ".bz2";
-
-static void cloexec(int fd)
-{
-    long flags = fcntl(fd, F_GETFD);
-
-    if (flags < 0)
-        return;
-
-    fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
-}
 
 Tarfile::Tarfile(RemoteFile *file, const string &segment)
     : size(0),

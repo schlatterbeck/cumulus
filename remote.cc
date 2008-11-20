@@ -28,6 +28,9 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -38,6 +41,7 @@
 
 #include "remote.h"
 #include "store.h"
+#include "util.h"
 
 using std::string;
 
@@ -57,7 +61,7 @@ RemoteStore::RemoteStore(const string &stagedir)
     if (pthread_create(&thread, NULL, RemoteStore::start_transfer_thread,
                        (void *)this) != 0) {
         fprintf(stderr, "Cannot create remote storage thread: %m\n");
-        throw IOException("pthread_create");
+        fatal("pthread_create");
     }
 }
 
@@ -133,6 +137,48 @@ void *RemoteStore::start_transfer_thread(void *arg)
 /* Background thread for transferring backups to a remote server. */
 void RemoteStore::transfer_thread()
 {
+    /* If a transfer script was specified, launch it and connect to both stdin
+     * and stdout.  fd_in is stdin of the child, and fd_out is stdout for the
+     * child. */
+    pid_t pid = 0;
+    FILE *fd_in = NULL, *fd_out = NULL;
+
+    if (backup_script != "") {
+        int fds[4];
+
+        if (pipe(&fds[0]) < 0) {
+            fatal("Unable to create pipe for upload script");
+        }
+        if (pipe(&fds[2]) < 0) {
+            fatal("Unable to create pipe for upload script");
+        }
+
+        pid = fork();
+        if (pid < 0) {
+            fprintf(stderr, "Unable to fork for upload script: %m\n");
+            fatal("fork: upload script");
+        }
+
+        if (pid > 0) {
+            /* Parent */
+            close(fds[0]);
+            close(fds[3]);
+            cloexec(fds[1]); fd_in = fdopen(fds[1], "w");
+            cloexec(fds[2]); fd_out = fdopen(fds[2], "r");
+        } else if (pid == 0) {
+            /* Child */
+            if (dup2(fds[0], 0) < 0)
+                exit(1);
+            if (dup2(fds[3], 1) < 0)
+                exit(1);
+            for (int i = 0; i < 3; i++)
+                close(fds[i]);
+
+            execlp("/bin/sh", "/bin/sh", "-c", backup_script.c_str(), NULL);
+            fatal("exec failed");
+        }
+    }
+
     while (true) {
         RemoteFile *file = NULL;
 
@@ -157,25 +203,22 @@ void RemoteStore::transfer_thread()
 
         // Transfer the file
         if (backup_script != "") {
-            pid_t pid = fork();
-            if (pid < 0) {
-                fprintf(stderr, "Unable to fork for upload script: %m\n");
-                throw IOException("fork: upload script");
-            }
-            if (pid == 0) {
-                string cmd = backup_script;
-                cmd += " " + file->local_path + " " + file->type + " "
-                        + file->remote_path;
-                execlp("/bin/sh", "/bin/sh", "-c", cmd.c_str(), NULL);
-                throw IOException("exec failed");
-            }
+            string cmd = "PUT ";
+            cmd += uri_encode(file->type) + " ";
+            cmd += uri_encode(file->remote_path) + " ";
+            cmd += uri_encode(file->local_path) + "\n";
 
-            int status = 0;
-            waitpid(pid, &status, 0);
-            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                fprintf(stderr, "Warning: error code from upload script: %d\n",
-                        status);
-            }
+            fputs(cmd.c_str(), fd_in);
+            fflush(fd_in);
+
+            char *resp = NULL;
+            size_t n;
+            if (getline(&resp, &n, fd_out) < 0 || resp == NULL)
+                fatal("error reading response from upload script");
+            if (strchr(resp, '\n'))
+                *strchr(resp, '\n') = '\0';
+            if (strcmp(resp, "OK") != 0)
+                fatal("error response from upload script");
 
             if (unlink(file->local_path.c_str()) < 0) {
                 fprintf(stderr, "Warning: Deleting temporary file %s: %m\n",
@@ -185,6 +228,19 @@ void RemoteStore::transfer_thread()
 
         delete file;
     }
+
+    if (fd_in) fclose(fd_in);
+
+    if (pid) {
+        int status = 0;
+        waitpid(pid, &status, 0);
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+            fprintf(stderr, "Warning: error code from upload script: %d\n",
+                    status);
+        }
+    }
+
+    if (fd_out) fclose(fd_out);
 }
 
 RemoteFile::RemoteFile(RemoteStore *remote,
@@ -198,5 +254,5 @@ RemoteFile::RemoteFile(RemoteStore *remote,
 
     fd = open(local_path.c_str(), O_WRONLY | O_CREAT, 0666);
     if (fd < 0)
-        throw IOException("Error opening output file");
+        fatal("Error opening output file");
 }

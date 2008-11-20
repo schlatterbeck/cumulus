@@ -23,6 +23,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <uuid/uuid.h>
 
 #include <iostream>
@@ -114,4 +116,22 @@ string encode_int(long long n, int base)
 long long parse_int(const string &s)
 {
     return strtoll(s.c_str(), NULL, 0);
+}
+
+/* Mark a file descriptor as close-on-exec. */
+void cloexec(int fd)
+{
+    long flags = fcntl(fd, F_GETFD);
+
+    if (flags < 0)
+        return;
+
+    fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+}
+
+/* Report a fatal error and exit. */
+void fatal(string msg)
+{
+    fprintf(stderr, "FATAL: %s\n", msg.c_str());
+    exit(1);
 }
