@@ -23,6 +23,19 @@ MAX_RECURSION_DEPTH = 3
 # All segments which have been accessed this session.
 accessed_segments = set()
 
+def uri_decode(s):
+    """Decode a URI-encoded (%xx escapes) string."""
+    def hex_decode(m): return chr(int(m.group(1), 16))
+    return re.sub(r"%([0-9a-f]{2})", hex_decode, s)
+def uri_encode(s):
+    """Encode a string to URI-encoded (%xx escapes) form."""
+    def hex_encode(c):
+        if c > '+' and c < '\x7f' and c != '@':
+            return c
+        else:
+            return "%%%02x" % (ord(c),)
+    return ''.join(hex_encode(c) for c in s)
+
 class Struct:
     """A class which merely acts as a data container.
 
@@ -347,8 +360,7 @@ class MetadataItem:
     @staticmethod
     def decode_str(s):
         """Decode a URI-encoded (%xx escapes) string."""
-        def hex_decode(m): return chr(int(m.group(1), 16))
-        return re.sub(r"%([0-9a-f]{2})", hex_decode, s)
+        return uri_decode(s)
 
     @staticmethod
     def raw_str(s):

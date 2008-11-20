@@ -32,7 +32,7 @@ class S3Store(cumulus.store.Store):
 
     def put(self, type, name, fp):
         k = self._get_key(type, name)
-        k.send_file(fp)
+        k.set_contents_from_file(fp)
 
     def delete(self, type, name):
         self.bucket.delete_key("%s/%s/%s" % (self.prefix, type, name))

@@ -1,0 +1,46 @@
+#!/usr/bin/python
+#
+# Generic storage hook for writing LBS backups directly to Amazon's Simple
+# Storage Service (S3), or any other service supported by the Python storage
+# implementation.
+#
+# Storage protocol: After launching this script (with the remote location
+# specified on the command-line), send any number of commands as lines to
+# stdin.  Available commands are:
+#     PUT <type> <name> <local file>
+#     LIST <type>
+# Tokens are whitespace-separated, but may contain any characters by
+# URI-encoding them.  After completing each operation, a response line is
+# written to stdout, which is either "OK" (for success) or "ERR" (if an error
+# occurred).
+
+import os, sys, traceback
+
+# Automatically set Python path, based on script directory.  This should be
+# removed if the tools are properly installed somewhere.
+script_directory = os.path.dirname(sys.argv[0])
+sys.path.append(os.path.join(script_directory, 'python'))
+
+import cumulus
+from cumulus import store
+
+remote = store.open(sys.argv[1])
+while True:
+    cmd = sys.stdin.readline()
+    if cmd == "": break
+    cmd = [cumulus.uri_decode(s) for s in cmd.strip().split()]
+
+    try:
+        if cmd[0] == 'PUT':
+            remote.put(cmd[1], cmd[2], open(cmd[3], 'r'))
+            sys.stdout.write('OK\n')
+        elif cmd[0] == 'LIST':
+            files = remote.list(cmd[1])
+            for f in files:
+                sys.stdout.write("* " + cumulus.uri_encode(f) + "\n")
+            sys.stdout.write('OK\n')
+    except Exception:
+        traceback.print_exc()
+        sys.stdout.write('ERR\n')
+
+    sys.stdout.flush()
