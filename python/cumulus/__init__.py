@@ -97,7 +97,9 @@ class LowlevelDataStore:
     """
 
     def __init__(self, path):
-        if path.find(":") >= 0:
+        if isinstance(path, cumulus.store.Store):
+            self.store = path
+        elif path.find(":") >= 0:
             self.store = cumulus.store.open(path)
         else:
             self.store = cumulus.store.file.FileStore(path)

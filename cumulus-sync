@@ -1,0 +1,38 @@
+#!/usr/bin/python
+#
+# Tool for copying cumulus archives from one source to another.
+
+import os, sys
+
+# Automatically set Python path, based on script directory.  This should be
+# removed if the tools are properly installed somewhere.
+script_directory = os.path.dirname(sys.argv[0])
+sys.path.append(os.path.join(script_directory, 'python'))
+
+import cumulus
+import cumulus.store
+
+store1 = cumulus.store.open(sys.argv[1])
+store2 = cumulus.store.open(sys.argv[2])
+
+source = cumulus.ObjectStore(cumulus.LowlevelDataStore(store1))
+
+filter = set()
+for s in sys.argv[3:]:
+    filter.add(s)
+    d = cumulus.parse_full(source.load_snapshot(s))
+    filter.update(d['Segments'].split())
+
+for ty in ('segments', 'checksums', 'snapshots'):
+    for f in sorted(store1.list(ty)):
+        m = cumulus.store.type_patterns[ty].match(f)
+        if not m: continue
+        if filter and m.group(1) not in filter:
+            continue
+
+        print ty, f
+        try:
+            store2.stat(ty, f)
+        except cumulus.store.NotFoundError:
+            store2.put(ty, f, store1.get(ty, f))
+            print "    [sent]"
