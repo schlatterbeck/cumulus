@@ -23,6 +23,15 @@ MAX_RECURSION_DEPTH = 3
 # All segments which have been accessed this session.
 accessed_segments = set()
 
+# Table of methods used to filter segments before storage, and corresponding
+# filename extensions.  These are listed in priority order (methods earlier in
+# the list are tried first).
+SEGMENT_FILTERS = [
+    (".gpg", "lbs-filter-gpg --decrypt"),
+    (".gz", "gzip -dc"),
+    (".bz2", "bzip2 -dc"),
+]
+
 def uri_decode(s):
     """Decode a URI-encoded (%xx escapes) string."""
     def hex_decode(m): return chr(int(m.group(1), 16))
@@ -186,19 +195,26 @@ class ObjectStore:
 
     def get_segment(self, segment):
         accessed_segments.add(segment)
-        raw = self.store.lowlevel_open(segment + ".tar.gpg")
 
-        (input, output) = os.popen2("lbs-filter-gpg --decrypt")
-        def copy_thread(src, dst):
-            BLOCK_SIZE = 4096
-            while True:
-                block = src.read(BLOCK_SIZE)
-                if len(block) == 0: break
-                dst.write(block)
-            dst.close()
+        for (extension, filter) in SEGMENT_FILTERS:
+            try:
+                raw = self.store.lowlevel_open(segment + ".tar" + extension)
 
-        thread.start_new_thread(copy_thread, (raw, input))
-        return output
+                (input, output) = os.popen2(filter)
+                def copy_thread(src, dst):
+                    BLOCK_SIZE = 4096
+                    while True:
+                        block = src.read(BLOCK_SIZE)
+                        if len(block) == 0: break
+                        dst.write(block)
+                    dst.close()
+
+                thread.start_new_thread(copy_thread, (raw, input))
+                return output
+            except:
+                pass
+
+        raise cumulus.store.NotFoundError
 
     def load_segment(self, segment):
         seg = tarfile.open(segment, 'r|', self.get_segment(segment))
