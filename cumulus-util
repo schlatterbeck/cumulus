@@ -96,16 +96,19 @@ def cmd_list_snapshot_sizes():
             intent = 1.0
 
         segments = d['Segments'].split()
-        (size, added, removed) = (0, 0, 0)
+        (size, added, removed, addcount, remcount) = (0, 0, 0, 0, 0)
         for seg in segments:
             segsize = lowlevel.lowlevel_stat(seg + ".tar.gpg")['size']
             size += segsize
-            if seg not in previous: added += segsize
+            if seg not in previous:
+                added += segsize
+                addcount += 1
         for seg in previous:
             if seg not in segments:
                 removed += lowlevel.lowlevel_stat(seg + ".tar.gpg")['size']
+                remcount += 1
         previous = set(segments)
-        print "%s [%s]: %.3f +%.3f -%.3f" % (s, intent, size / 1024.0**2, added / 1024.0**2, removed / 1024.0**2)
+        print "%s [%s]: %.3f +%.3f -%.3f (+%d/-%d segments)" % (s, intent, size / 1024.0**2, added / 1024.0**2, removed / 1024.0**2, addcount, remcount)
 
 # Build checksum list for objects in the given segments, or all segments if
 # none are specified.
