@@ -27,7 +27,7 @@ accessed_segments = set()
 # filename extensions.  These are listed in priority order (methods earlier in
 # the list are tried first).
 SEGMENT_FILTERS = [
-    (".gpg", "lbs-filter-gpg --decrypt"),
+    (".gpg", "cumulus-filter-gpg --decrypt"),
     (".gz", "gzip -dc"),
     (".bz2", "bzip2 -dc"),
 ]
