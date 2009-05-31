@@ -11,11 +11,18 @@ class S3Store(cumulus.store.Store):
         self.bucket = self.conn.create_bucket(bucket)
         while prefix.endswith("/"): prefix = prefix[:-1]
         self.prefix = prefix
+        self.scan_cache = {}
 
     def _get_key(self, type, name):
         k = Key(self.bucket)
         k.key = "%s/%s/%s" % (self.prefix, type, name)
         return k
+
+    def scan(self):
+        prefix = "%s/" % (self.prefix,)
+        for i in self.bucket.list(prefix):
+            assert i.key.startswith(prefix)
+            self.scan_cache[i.key] = i
 
     def list(self, type):
         prefix = "%s/%s/" % (self.prefix, type)
@@ -38,7 +45,12 @@ class S3Store(cumulus.store.Store):
         self.bucket.delete_key("%s/%s/%s" % (self.prefix, type, name))
 
     def stat(self, type, name):
-        k = self.bucket.get_key("%s/%s/%s" % (self.prefix, type, name))
+        path = "%s/%s/%s" % (self.prefix, type, name)
+        if path in self.scan_cache:
+            k = self.scan_cache[path]
+        else:
+            k = self.bucket.get_key(path)
         if k is None:
             raise cumulus.store.NotFoundError
+
         return {'size': int(k.size)}

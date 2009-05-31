@@ -119,6 +119,9 @@ class LowlevelDataStore:
                 return (t, filename)
         return (None, filename)
 
+    def scan(self):
+        self.store.scan()
+
     def lowlevel_open(self, filename):
         """Return a file-like object for reading data from the given file."""
 

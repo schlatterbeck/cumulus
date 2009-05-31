@@ -26,6 +26,17 @@ class Store:
     def delete(self, type, name):
         raise NotImplementedException
 
+    def stat(self, type, name):
+        raise NotImplementedException
+
+    def scan(self):
+        """Cache file information stored in this backend.
+
+        This might make subsequent list or stat calls more efficient, but this
+        function is intended purely as a performance optimization."""
+
+        pass
+
 def open(url):
     (scheme, netloc, path, params, query, fragment) \
         = urlparse.urlparse(url)
