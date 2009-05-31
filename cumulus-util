@@ -27,6 +27,8 @@ def check_version(format):
 parser = OptionParser(usage="%prog [option]... command [arg]...")
 parser.add_option("-v", action="store_true", dest="verbose", default=False,
                   help="increase verbosity")
+parser.add_option("-n", action="store_true", dest="dry_run", default=False,
+                  help="dry run")
 parser.add_option("--store", dest="store",
                   help="specify path to backup data store")
 parser.add_option("--localdb", dest="localdb",
@@ -84,6 +86,7 @@ def cmd_list_snapshots():
 # Syntax: $0 --data=DATADIR list-snapshot-sizes
 def cmd_list_snapshot_sizes():
     lowlevel = lbs.LowlevelDataStore(options.store)
+    lowlevel.scan()
     store = lbs.ObjectStore(lowlevel)
     previous = set()
     for s in sorted(lowlevel.list_snapshots()):
@@ -109,6 +112,32 @@ def cmd_list_snapshot_sizes():
                 remcount += 1
         previous = set(segments)
         print "%s [%s]: %.3f +%.3f -%.3f (+%d/-%d segments)" % (s, intent, size / 1024.0**2, added / 1024.0**2, removed / 1024.0**2, addcount, remcount)
+
+# Search for any files which are not needed by any current snapshots and offer
+# to delete them.
+# Syntax: $0 --store=DATADIR gc
+def cmd_garbage_collect():
+    lowlevel = lbs.LowlevelDataStore(options.store)
+    lowlevel.scan()
+    store = lbs.ObjectStore(lowlevel)
+    snapshots = set(lowlevel.list_snapshots())
+    segments = set()
+    for s in snapshots:
+        d = lbs.parse_full(store.load_snapshot(s))
+        check_version(d['Format'])
+        segments.update(d['Segments'].split())
+
+    referenced = snapshots.union(segments)
+    reclaimed = 0
+    for (t, r) in cumulus.store.type_patterns.items():
+        for f in lowlevel.store.list(t):
+            m = r.match(f)
+            if m is None or m.group(1) not in referenced:
+                print "Garbage:", (t, f)
+                reclaimed += lowlevel.store.stat(t, f)['size']
+                if not options.dry_run:
+                    lowlevel.store.delete(t, f)
+    print "Reclaimed space:", reclaimed
 
 # Build checksum list for objects in the given segments, or all segments if
 # none are specified.
@@ -363,6 +392,8 @@ elif cmd == 'read-metadata':
     cmd_read_metadata(args[0])
 elif cmd == 'list-snapshot-sizes':
     cmd_list_snapshot_sizes()
+elif cmd == 'gc':
+    cmd_garbage_collect()
 elif cmd == 'verify-snapshots':
     cmd_verify_snapshots(args)
 elif cmd == 'restore-snapshot':
