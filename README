@@ -136,6 +136,29 @@ should be restored (this directory should initially be empty).
 specified, the entire snapshot is restored.
 
 
+Remote Backups
+--------------
+
+The cumulus-util command can operate directly on remote backups.  The
+--store parameter accepts, in addition to a raw disk path, a URL.
+Supported URL forms are
+    file:///path        Equivalent to /path
+    s3://bucket/path    Storage in Amazon S3
+        (Expects the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+        environment variables to be set appropriately)
+
+To copy backup snapshots from one storage area to another, the
+cumulus-sync command can be used, as in
+    $ cumulus-sync file:///cumulus s3://my-bucket/cumulus
+
+Support for directly writing backups to a remote location (without using
+a local staging directory and cumulus-sync) is slightly more
+experimental, but can be achieved by replacing
+    --dest=/cumulus
+with
+    --upload-script="cumulus-store s3://my-bucket/cumulus"
+
+
 Alternate Restore Tool
 ----------------------
 
