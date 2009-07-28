@@ -13,7 +13,7 @@ cumulus : $(OBJS)
 	$(CXX) $(LDFLAGS) -o $@ $^
 
 version : NEWS
-	(git-describe || (head -n1 NEWS | cut -d" " -f1)) >version 2>/dev/null
+	(git describe || (head -n1 NEWS | cut -d" " -f1)) >version 2>/dev/null
 $(OBJS) : version
 
 clean :
