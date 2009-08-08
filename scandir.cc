@@ -90,6 +90,7 @@ double snapshot_intent = 1.0;
 /* Selection of files to include/exclude in the snapshot. */
 std::list<string> includes;         // Paths in which files should be saved
 std::list<string> excludes;         // Paths which will not be saved
+std::list<string> excluded_names;   // Directories which will not be saved
 std::list<string> searches;         // Directories we don't want to save, but
                                     //   do want to descend searching for data
                                     //   in included paths
@@ -470,6 +471,21 @@ void scanfile(const string& path, bool include)
         }
     }
 
+    if (excluded_names.size() > 0) {
+        std::string name = path;
+        std::string::size_type last_slash = name.rfind('/');
+        if (last_slash != std::string::npos) {
+            name.replace(0, last_slash + 1, "");
+        }
+
+        for (list<string>::iterator i = excluded_names.begin();
+             i != excluded_names.end(); ++i) {
+            if (name == *i) {
+                include = false;
+            }
+        }
+    }
+
     for (list<string>::iterator i = searches.begin();
          i != searches.end(); ++i) {
         if (path == *i) {
@@ -620,6 +636,7 @@ void usage(const char *program)
         "  --upload-script=COMMAND\n"
         "                       program to invoke for each backup file generated\n"
         "  --exclude=PATH       exclude files in PATH from snapshot\n"
+        "  --exclude-name=NAME  exclude files called NAME from snapshot\n"
         "  --localdb=PATH       local backup metadata is stored in PATH\n"
         "  --tmpdir=PATH        path for temporarily storing backup files\n"
         "                           (defaults to TMPDIR environment variable or /tmp)\n"
@@ -667,6 +684,7 @@ int main(int argc, char *argv[])
             {"tmpdir", 1, 0, 0},            // 9
             {"upload-script", 1, 0, 0},     // 10
             {"rebuild-statcache", 0, 0, 0}, // 11
+            {"exclude-name", 1, 0, 0},      // 12
             // Aliases for short options
             {"verbose", 0, 0, 'v'},
             {NULL, 0, 0, 0},
@@ -720,6 +738,9 @@ int main(int argc, char *argv[])
                 break;
             case 11:    // --rebuild-statcache
                 flag_rebuild_statcache = true;
+                break;
+            case 12:     // --exclude-name
+                excluded_names.push_back(optarg);
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");
