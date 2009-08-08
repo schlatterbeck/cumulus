@@ -357,12 +357,12 @@ void dump_inode(const string& path,         // Path within snapshot
             file_info["volatile"] = "1";
 
     struct passwd *pwd = getpwuid(stat_buf.st_uid);
-    if (pwd != NULL) {
+    if (pwd != NULL && pwd->pw_name != NULL) {
         file_info["user"] += " (" + uri_encode(pwd->pw_name) + ")";
     }
 
     struct group *grp = getgrgid(stat_buf.st_gid);
-    if (pwd != NULL) {
+    if (grp != NULL && grp->gr_name != NULL) {
         file_info["group"] += " (" + uri_encode(grp->gr_name) + ")";
     }
 
