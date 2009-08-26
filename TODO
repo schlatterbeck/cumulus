@@ -9,3 +9,10 @@ interface is preliminary and is subject to change.
 
 * Continue to investigate schemes for adding parity blocks for error
 recovery.
+
+* Switch over to a new hash algorithm beyond SHA-1, probably SHA-256.
+(The system is designed to allow this, but see how it works in
+practice.)
+
+* Add snapshot deletion to cumulus-util, with some simple way to specify
+what snapshots to keep so that automatic snapshot pruning can be done.
