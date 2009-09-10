@@ -11,23 +11,46 @@ class NotFoundError(exceptions.KeyError):
 
     pass
 
-class Store:
+class Store (object):
     """Base class for all cumulus storage backends."""
 
+    def __new__ (cls, url, **kw):
+        """ Return the correct sub-class depending on url,
+        pass parsed url parameters to object
+        """
+        if cls != Store:
+            return super(Store, cls).__new__(cls, url, **kw)
+        (scheme, netloc, path, params, query, fragment) \
+            = urlparse.urlparse(url)
+
+        try:
+            cumulus = __import__('cumulus.store.%s' % scheme, globals())
+            subcls = getattr (cumulus.store, scheme).Store
+            obj = super(Store, cls).__new__(subcls, url, **kw)
+            obj.scheme = scheme
+            obj.netloc = netloc
+            obj.path = path
+            obj.params = params
+            obj.query = query
+            obj.fragment = fragment
+            return obj
+        except ImportError:
+            raise NotImplementedError, "Scheme %s not implemented" % scheme
+
     def list(self, type):
-        raise NotImplementedException
+        raise NotImplementedError
 
     def get(self, type, name):
-        raise NotImplementedException
+        raise NotImplementedError
 
     def put(self, type, name, fp):
-        raise NotImplementedException
+        raise NotImplementedError
 
     def delete(self, type, name):
-        raise NotImplementedException
+        raise NotImplementedError
 
     def stat(self, type, name):
-        raise NotImplementedException
+        raise NotImplementedError
 
     def scan(self):
         """Cache file information stored in this backend.
@@ -38,16 +61,4 @@ class Store:
         pass
 
 def open(url):
-    (scheme, netloc, path, params, query, fragment) \
-        = urlparse.urlparse(url)
-
-    if scheme == "file":
-        import cumulus.store.file
-        return cumulus.store.file.FileStore(path)
-    elif scheme == "s3":
-        import cumulus.store.s3
-        while path.startswith("/"): path = path[1:]
-        (bucket, path) = path.split("/", 1)
-        return cumulus.store.s3.S3Store(bucket, path)
-    else:
-        raise NotImplementedException
+    return Store(url)

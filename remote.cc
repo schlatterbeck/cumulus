@@ -45,9 +45,10 @@
 
 using std::string;
 
-RemoteStore::RemoteStore(const string &stagedir)
+RemoteStore::RemoteStore(const string &stagedir, const string &script)
 {
     staging_dir = stagedir;
+    backup_script = script;
 
     /* A background thread is created for each RemoteStore to manage the actual
      * transfers to a remote server.  The main program thread can enqueue

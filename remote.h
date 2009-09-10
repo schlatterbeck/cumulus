@@ -39,10 +39,8 @@ class RemoteStore {
 public:
     static const size_t MAX_QUEUE_SIZE = 4;
 
-    RemoteStore(const std::string &stagedir);
+    RemoteStore(const std::string &stagedir, const std::string &script = "");
     ~RemoteStore();
-    void set_script(const std::string &script)
-        { backup_script = script; }
     RemoteFile *alloc_file(const std::string &name, const std::string &type);
     void enqueue(RemoteFile *file);
     void sync();

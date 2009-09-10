@@ -24,19 +24,6 @@ def check_version(format):
     if ver > FORMAT_VERSION:
         raise RuntimeError("Unsupported LBS format: " + format)
 
-parser = OptionParser(usage="%prog [option]... command [arg]...")
-parser.add_option("-v", action="store_true", dest="verbose", default=False,
-                  help="increase verbosity")
-parser.add_option("-n", action="store_true", dest="dry_run", default=False,
-                  help="dry run")
-parser.add_option("--store", dest="store",
-                  help="specify path to backup data store")
-parser.add_option("--localdb", dest="localdb",
-                  help="specify path to local database")
-parser.add_option("--intent", dest="intent", default=1.0,
-                  help="give expected next snapshot type when cleaning")
-(options, args) = parser.parse_args(sys.argv[1:])
-
 # Read a passphrase from the user and store it in the LBS_GPG_PASSPHRASE
 # environment variable.
 def get_passphrase():
@@ -44,19 +31,21 @@ def get_passphrase():
     if not os.environ.has_key(ENV_KEY):
         os.environ[ENV_KEY] = getpass.getpass()
 
-# Delete old snapshots from the local database, though do not actually schedule
-# any segment cleaning.
-# Syntax: $0 --localdb=LOCALDB prune-db
-def cmd_prune_db():
+def cmd_prune_db(args):
+    """ Delete old snapshots from the local database, though do not
+        actually schedule any segment cleaning.
+        Syntax: $0 --localdb=LOCALDB prune-db
+    """
     db = lbs.LocalDatabase(options.localdb)
 
     # Delete old snapshots from the local database.
     #db.garbage_collect()
     #db.commit()
 
-# Run the segment cleaner.
-# Syntax: $0 --localdb=LOCALDB clean
-def cmd_clean(clean_threshold=7.0):
+def cmd_clean(args, clean_threshold=7.0):
+    """ Run the segment cleaner.
+        Syntax: $0 --localdb=LOCALDB clean
+    """
     db = lbs.LocalDatabase(options.localdb)
 
     # Delete old snapshots from the local database.
@@ -75,20 +64,25 @@ def cmd_clean(clean_threshold=7.0):
     db.balance_expired_objects()
     db.commit()
 
-# List snapshots stored.
-# Syntax: $0 --data=DATADIR list-snapshots
-def cmd_list_snapshots():
+def cmd_list_snapshots(args):
+    """ List snapshots stored.
+        Syntax: $0 --data=DATADIR list-snapshots
+    """
     store = lbs.LowlevelDataStore(options.store)
     for s in sorted(store.list_snapshots()):
         print s
 
-# List size of data needed for each snapshot.
-# Syntax: $0 --data=DATADIR list-snapshot-sizes
-def cmd_list_snapshot_sizes():
+def cmd_list_snapshot_sizes(args):
+    """ List size of data needed for each snapshot.
+        Syntax: $0 --data=DATADIR list-snapshot-sizes
+    """
     lowlevel = lbs.LowlevelDataStore(options.store)
     lowlevel.scan()
     store = lbs.ObjectStore(lowlevel)
     previous = set()
+    exts = {}
+    for seg in lowlevel.store.list('segments'):
+        exts.update ([seg.split ('.', 1)])
     for s in sorted(lowlevel.list_snapshots()):
         d = lbs.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
@@ -100,23 +94,25 @@ def cmd_list_snapshot_sizes():
 
         segments = d['Segments'].split()
         (size, added, removed, addcount, remcount) = (0, 0, 0, 0, 0)
+        lo_stat = lowlevel.lowlevel_stat
         for seg in segments:
-            segsize = lowlevel.lowlevel_stat(seg + ".tar.gpg")['size']
+            segsize = lo_stat('.'.join ((seg, exts[seg])))['size']
             size += segsize
             if seg not in previous:
                 added += segsize
                 addcount += 1
         for seg in previous:
             if seg not in segments:
-                removed += lowlevel.lowlevel_stat(seg + ".tar.gpg")['size']
+                removed += lo_stat('.'.join((seg, exts[seg])))['size']
                 remcount += 1
         previous = set(segments)
         print "%s [%s]: %.3f +%.3f -%.3f (+%d/-%d segments)" % (s, intent, size / 1024.0**2, added / 1024.0**2, removed / 1024.0**2, addcount, remcount)
 
-# Search for any files which are not needed by any current snapshots and offer
-# to delete them.
-# Syntax: $0 --store=DATADIR gc
-def cmd_garbage_collect():
+def cmd_garbage_collect(args):
+    """ Search for any files which are not needed by any current
+        snapshots and offer to delete them.
+        Syntax: $0 --store=DATADIR gc
+    """
     lowlevel = lbs.LowlevelDataStore(options.store)
     lowlevel.scan()
     store = lbs.ObjectStore(lowlevel)
@@ -139,9 +135,12 @@ def cmd_garbage_collect():
                     lowlevel.store.delete(t, f)
     print "Reclaimed space:", reclaimed
 
-# Build checksum list for objects in the given segments, or all segments if
-# none are specified.
+cmd_gc = cmd_garbage_collect
+
 def cmd_object_checksums(segments):
+    """ Build checksum list for objects in the given segments, or all
+        segments if none are specified.
+    """
     get_passphrase()
     lowlevel = lbs.LowlevelDataStore(options.store)
     store = lbs.ObjectStore(lowlevel)
@@ -152,9 +151,11 @@ def cmd_object_checksums(segments):
             csum = lbs.ChecksumCreator().update(data).compute()
             print "%s/%s:%d:%s" % (s, o, len(data), csum)
     store.cleanup()
+object_sums = cmd_object_checksums
 
-# Read a snapshot file
 def cmd_read_snapshots(snapshots):
+    """ Read a snapshot file
+    """
     get_passphrase()
     lowlevel = lbs.LowlevelDataStore(options.store)
     store = lbs.ObjectStore(lowlevel)
@@ -165,8 +166,10 @@ def cmd_read_snapshots(snapshots):
         print d['Segments'].split()
     store.cleanup()
 
-# Produce a flattened metadata dump from a snapshot
-def cmd_read_metadata(snapshot):
+def cmd_read_metadata(args):
+    """ Produce a flattened metadata dump from a snapshot
+    """
+    snapshot = args [0]
     get_passphrase()
     lowlevel = lbs.LowlevelDataStore(options.store)
     store = lbs.ObjectStore(lowlevel)
@@ -183,8 +186,9 @@ def cmd_read_metadata(snapshot):
         sys.stdout.write(l)
     store.cleanup()
 
-# Verify snapshot integrity
 def cmd_verify_snapshots(snapshots):
+    """ Verify snapshot integrity
+    """
     get_passphrase()
     lowlevel = lbs.LowlevelDataStore(options.store)
     store = lbs.ObjectStore(lowlevel)
@@ -221,8 +225,9 @@ def cmd_verify_snapshots(snapshots):
             print sorted(list(listed_segments - lbs.accessed_segments))
     store.cleanup()
 
-# Restore a snapshot, or some subset of files from it
 def cmd_restore_snapshot(args):
+    """ Restore a snapshot, or some subset of files from it
+    """
     get_passphrase()
     lowlevel = lbs.LowlevelDataStore(options.store)
     store = lbs.ObjectStore(lowlevel)
@@ -373,31 +378,32 @@ def cmd_restore_snapshot(args):
 
     store.cleanup()
 
+usage = ["%prog [option]... command [arg]...", "", "Commands:"]
+cmd = method = None
+for cmd, method in locals().iteritems():
+    if cmd.startswith ('cmd_'):
+        usage.append(cmd[4:].replace('_', '-') + ':' + method.__doc__)
+parser = OptionParser(usage="\n".join(usage))
+parser.add_option("-v", action="store_true", dest="verbose", default=False,
+                  help="increase verbosity")
+parser.add_option("-n", action="store_true", dest="dry_run", default=False,
+                  help="dry run")
+parser.add_option("--store", dest="store",
+                  help="specify path to backup data store")
+parser.add_option("--localdb", dest="localdb",
+                  help="specify path to local database")
+parser.add_option("--intent", dest="intent", default=1.0,
+                  help="give expected next snapshot type when cleaning")
+(options, args) = parser.parse_args(sys.argv[1:])
+
 if len(args) == 0:
     parser.print_usage()
     sys.exit(1)
 cmd = args[0]
 args = args[1:]
-if cmd == 'clean':
-    cmd_clean()
-elif cmd == 'prune-db':
-    cmd_prune_db()
-elif cmd == 'list-snapshots':
-    cmd_list_snapshots()
-elif cmd == 'object-sums':
-    cmd_object_checksums(args)
-elif cmd == 'read-snapshots':
-    cmd_read_snapshots(args)
-elif cmd == 'read-metadata':
-    cmd_read_metadata(args[0])
-elif cmd == 'list-snapshot-sizes':
-    cmd_list_snapshot_sizes()
-elif cmd == 'gc':
-    cmd_garbage_collect()
-elif cmd == 'verify-snapshots':
-    cmd_verify_snapshots(args)
-elif cmd == 'restore-snapshot':
-    cmd_restore_snapshot(args)
+method = locals().get('cmd_' + cmd.replace('-', '_'))
+if method:
+    method (args)
 else:
     print "Unknown command:", cmd
     parser.print_usage()

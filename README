@@ -6,6 +6,8 @@ How to Build
 Dependencies:
   - libuuid (sometimes part of e2fsprogs)
   - sqlite3
+  - boto, the python interface to Amazon's Web Services (for S3 storage)
+    http://code.google.com/p/boto
 
 Building should be a simple matter of running "make".  This will produce
 an executable called "cumulus".

@@ -804,8 +804,7 @@ int main(int argc, char *argv[])
                     tmp_dir.c_str());
             return 1;
         }
-        remote = new RemoteStore(tmp_dir);
-        remote->set_script(backup_script);
+        remote = new RemoteStore(tmp_dir, backup_script=backup_script);
     } else {
         remote = new RemoteStore(backup_dest);
     }

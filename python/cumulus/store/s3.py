@@ -6,11 +6,11 @@ from boto.s3.key import Key
 import cumulus.store
 
 class S3Store(cumulus.store.Store):
-    def __init__(self, bucket, prefix):
+    def __init__(self, url, **kw):
+        (bucket, prefix) = self.path.lstrip("/").split("/", 1)
         self.conn = boto.connect_s3(is_secure=False)
         self.bucket = self.conn.create_bucket(bucket)
-        while prefix.endswith("/"): prefix = prefix[:-1]
-        self.prefix = prefix
+        self.prefix = prefix.rstrip ("/")
         self.scan_cache = {}
 
     def _get_key(self, type, name):
@@ -54,3 +54,5 @@ class S3Store(cumulus.store.Store):
             raise cumulus.store.NotFoundError
 
         return {'size': int(k.size)}
+
+Store = S3Store
