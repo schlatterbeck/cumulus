@@ -172,7 +172,7 @@ void Tarfile::write_object(int id, const char *data, size_t len)
     sprintf(header.mode, "%07o", 0600);
     sprintf(header.uid, "%07o", 0);
     sprintf(header.gid, "%07o", 0);
-    sprintf(header.size, "%011o", len);
+    sprintf(header.size, "%011o", (int)len);
     sprintf(header.mtime, "%011o", (int)time(NULL));
     header.typeflag = '0';
     strcpy(header.magic, "ustar  ");
@@ -281,7 +281,7 @@ void TarSegmentStore::dump_stats()
     for (map<string, pair<int64_t, int64_t> >::iterator i = group_sizes.begin();
          i != group_sizes.end(); ++i) {
         printf("    %s: %lld (%lld compressed)\n", i->first.c_str(),
-               i->second.first, i->second.second);
+               (long long)i->second.first, (long long)i->second.second);
     }
 }
 
