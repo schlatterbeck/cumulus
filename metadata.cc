@@ -98,7 +98,7 @@ static string encode_dict(const map<string, string>& dict)
     string result;
 
     if (dict.find("name") != dict.end()) {
-        result += "name: " + dict.at("name") + "\n";
+        result += "name: " + dict.find("name")->second + "\n";
     }
 
     for (map<string, string>::const_iterator i = dict.begin();
