@@ -1,5 +1,5 @@
 
-from ftplib        import FTP, all_errors
+from ftplib        import FTP, all_errors, error_temp
 from netrc         import netrc, NetrcParseError
 from cumulus.store import Store, type_patterns, NotFoundError
 
@@ -30,15 +30,23 @@ class FtpStore (Store):
                     pass
             except (IOError, NetrcParseError):
                 pass
-        self.ftp = FTP ()
-        self.ftp.connect (host, port)
-        self.ftp.login (user, passwd)
+        self.host   = host
+        self.port   = port
+        self.user   = user
+        self.passwd = passwd
         self.prefix = self.path [1:] # skip *only* first '/'
-        self.ftp.cwd (self.prefix)
+        self.ftp    = FTP ()
+        self.connect ()
 
     def _get_path (self, type, name):
         # we are in right directory
         return name
+
+    def connect (self) :
+        self.ftp.connect (self.host, self.port)
+        self.ftp.login (self.user, self.passwd)
+        self.ftp.cwd (self.prefix)
+    # end def connect
 
     def list (self, type):
         self.sync ()
@@ -47,6 +55,7 @@ class FtpStore (Store):
 
     def get (self, type, name):
         self.sync ()
+        self.ftp.sendcmd ('TYPE I')
         sock = self.ftp.transfercmd ('RETR %s' % self._get_path (type, name))
         self.synced = False
         return sock.makefile ()
@@ -85,10 +94,19 @@ class FtpStore (Store):
 
     def sync (self):
         """ After a get command at end of transfer a 2XX reply is still
-        in the input-queue, we have to get rid of that
+        in the input-queue, we have to get rid of that.
+        We also test here that the connection is still alive. If we get
+        a temporary error 421 ("error_temp") we reconnect: It was
+        probably a timeout.
         """
-        if not self.synced:
-            self.ftp.voidresp()
+        try :
+            if not self.synced:
+                self.ftp.voidresp()
+            self.ftp.sendcmd ('TYPE A')
+        except error_temp, err :
+            if not err.message.startswith ('421') :
+                raise
+            self.connect ()
         self.synced = True
 
 Store = FtpStore
