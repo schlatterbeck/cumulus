@@ -8,6 +8,8 @@ Dependencies:
   - sqlite3
   - boto, the python interface to Amazon's Web Services (for S3 storage)
     http://code.google.com/p/boto
+  - paramiko, SSH2 protocol for python (for sftp storage)
+    http://www.lag.net/paramiko/
 
 Building should be a simple matter of running "make".  This will produce
 an executable called "cumulus".
@@ -148,6 +150,7 @@ Supported URL forms are
     s3://bucket/path    Storage in Amazon S3
         (Expects the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
         environment variables to be set appropriately)
+    sftp://server/path  Storage on sftp server
 
 To copy backup snapshots from one storage area to another, the
 cumulus-sync command can be used, as in
