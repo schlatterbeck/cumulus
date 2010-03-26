@@ -1,4 +1,7 @@
 # vim: ai ts=4 sts=4 et sw=4
+#needed for python 2.5
+from __future__ import with_statement
+
 from paramiko import Transport, SFTPClient, RSAKey, DSSKey
 from paramiko.config import SSHConfig
 import paramiko.util
@@ -7,32 +10,34 @@ import os, os.path
 import getpass
 import re
 import sys
-#needed for python 2.5
-try:
-    from __future__ import with_statement
-except ImportError, e:
-    raise ImportError('We need the "with" statement, avalible with python >=2.5')
 
 
 class SSHHostConfig(dict):
     def __init__(self, hostname, user = None, filename = None):
-        dict.__init__()
         #set defaults
         if filename == None:
             filename = os.path.expanduser('~/.ssh/config')
-        self['port'] = 22
-        self['user'] = getpass.getuser()
-        self['hostname'] = hostname
-        self['hostkeyalias'] = hostname
 
         #read config file
         ssh_config = SSHConfig()
         with open(filename) as config_file:
             ssh_config.parse(config_file)
+
         self.update(ssh_config.lookup(hostname))
+
+        self.defaults={'port': 22, 'user': getpass.getuser(), 'hostname': hostname, 'hostkeyalias': hostname}
 
         if user != None:
             self['user'] = user
+
+    def __getitem__(self, key):
+        if key in self:
+            return dict.__getitem__(self,key)
+        elif key == 'hostkeyalias' and 'hostname' in self:
+            return dict.__getitem__(self,'hostname')
+        else:
+            return self.defaults[key]
+
 
 class SFTPStore(Store):
     """implements the sftp:// storage backend
@@ -44,23 +49,27 @@ class SFTPStore(Store):
         protected authentication keys"""
     def __init__(self, url, **kw):
         if self.path.find('@') != -1:
-            user, self.path = self.path.split('@')
+            user, self.netloc = self.netloc.split('@')
         else:
             user = None
 
-        if self.path.find(':') != -1:
-            host, self.path = selfpath.split(':')
-        else:
-            host, self.path = self.path.split('/', 1)
+#        if self.netloc.find(':') != -1:
+#            host, self.path = self.netloc.split(':')
+#        else:
+#            host, self.path = self.netloc.split('/', 1)
 
-        self.config = SSHHostConfig(host, user)
-
+        self.config = SSHHostConfig(self.netloc, user)
 
         host_keys = paramiko.util.load_host_keys(os.path.expanduser('~/.ssh/known_hosts'))
-        self.hostkey = host_keys[config['hostkeyalias']].values()[0]
+        try:
+            self.hostkey = host_keys[self.config['hostkeyalias']].values()[0]
+        except:
+            print str(self.config)
+            raise
 
-        if(config.has_key('identityfile')):
-            key_file = os.path.expanduser(host_config['identityfile'])
+
+        if(self.config.has_key('identityfile')):
+            key_file = os.path.expanduser(self.config['identityfile'])
             #not really nice but i don't see a cleaner way atm...
             try:
                 self.auth_key = RSAKey (filename = key_file)
