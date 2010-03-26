@@ -7,6 +7,12 @@ import os, os.path
 import getpass
 import re
 import sys
+#needed for python 2.5
+try:
+    from __future__ import with_statement
+except ImportError, e:
+    raise ImportError('We need the "with" statement, avalible with python >=2.5')
+
 
 class SSHHostConfig(dict):
     def __init__(self, hostname, user = None, filename = None):
