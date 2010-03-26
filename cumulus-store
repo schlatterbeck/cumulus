@@ -44,3 +44,5 @@ while True:
         sys.stdout.write('ERR\n')
 
     sys.stdout.flush()
+
+remote.close()

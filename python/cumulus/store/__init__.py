@@ -60,5 +60,12 @@ class Store (object):
 
         pass
 
+    def close(self):
+       """Tier down the connection explicitly if needed
+
+       Currently needed for sftp to be able to end the program."""
+
+       pass
+
 def open(url):
     return Store(url)
