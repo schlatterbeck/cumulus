@@ -72,20 +72,20 @@ class SFTPStore(Store):
             key_file = os.path.expanduser(self.config['identityfile'])
             #not really nice but i don't see a cleaner way atm...
             try:
-                self.auth_key = RSAKey (filename = key_file)
+                self.auth_key = RSAKey (key_file)
             except SSHException, e:
                 if e.message == 'Unable to parse file':
-                    self.auth_key = DSAKey (filename = key_file)
+                    self.auth_key = DSAKey (key_file)
                 else:
                     raise
         else:
             filename = os.path.expanduser('~/.ssh/id_rsa')
             if os.path.exists(filename):
-                self.auth_key = RSAKey(filename = filename)
+                self.auth_key = RSAKey(filename)
             else:
                 filename = os.path.expanduser('~/.ssh/id_dsa')
                 if (os.path.exists(filename)):
-                    self.auth_key = DSSKey (filename = filename)
+                    self.auth_key = DSSKey (filename)
 
         self.__connect()
 
@@ -102,10 +102,10 @@ class SFTPStore(Store):
         return filter(type_patterns[type].match, self.client.listdir(self.path))
 
     def get(self, type, name):
-        return self.client.open(filename = self.__build_fn(name), mode = 'rb')
+        return self.client.open(self.__build_fn(name), mode = 'rb')
 
     def put(self, type, name, fp):
-        remote_file = self.client.open(filename = self.__build_fn(name), mode = 'wb')
+        remote_file = self.client.open(self.__build_fn(name), mode = 'wb')
         buf = fp.read(4096)
         while (len(buf) > 0):
             remote_file.write(buf)
@@ -113,11 +113,14 @@ class SFTPStore(Store):
         remote_file.close()
 
     def delete(self, type, name):
-        self.client.remove(filename = self.__build_fn(name))
+        self.client.remove(self.__build_fn(name))
 
     def stat(self, type, name):
-        stat = self.client.stat(filename = self.__build_fn(name))
-        return {'size': stat.st_size}
+        try:
+            stat = self.client.stat(self.__build_fn(name))
+            return {'size': stat.st_size}
+        except IOError:
+            raise NotFoundError
 
     def close(self):
         """connection has to be explicitly closed, otherwise

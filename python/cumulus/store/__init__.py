@@ -67,5 +67,8 @@ class Store (object):
 
        pass
 
+    def __del__(self):
+        self.close()
+
 def open(url):
     return Store(url)
