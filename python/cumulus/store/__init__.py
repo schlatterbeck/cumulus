@@ -61,11 +61,11 @@ class Store (object):
         pass
 
     def close(self):
-       """Tier down the connection explicitly if needed
+        """Tear down the connection explicitly if needed
 
-       Currently needed for sftp to be able to end the program."""
+        Currently needed for sftp to be able to end the program."""
 
-       pass
+        pass
 
     def __del__(self):
         self.close()
