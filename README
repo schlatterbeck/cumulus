@@ -10,6 +10,7 @@ Dependencies:
     http://code.google.com/p/boto
   - paramiko, SSH2 protocol for python (for sftp storage)
     http://www.lag.net/paramiko/
+  - python 2.5+ for sftp storage backend
 
 Building should be a simple matter of running "make".  This will produce
 an executable called "cumulus".
@@ -151,6 +152,11 @@ Supported URL forms are
         (Expects the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
         environment variables to be set appropriately)
     sftp://server/path  Storage on sftp server
+        (note that no password authentication or password protected
+        authorization keys are not supported atm and config options
+        like port or individual authorization keys are to be
+        configured in ~/.ssh/config and the public key of the
+        server has to be in ~/.ssh/known_hosts)
 
 To copy backup snapshots from one storage area to another, the
 cumulus-sync command can be used, as in
