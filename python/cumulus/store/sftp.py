@@ -48,15 +48,10 @@ class SFTPStore(Store):
         does not support password authentication or password
         protected authentication keys"""
     def __init__(self, url, **kw):
-        if self.path.find('@') != -1:
+        if self.netloc.find('@') != -1:
             user, self.netloc = self.netloc.split('@')
         else:
             user = None
-
-#        if self.netloc.find(':') != -1:
-#            host, self.path = self.netloc.split(':')
-#        else:
-#            host, self.path = self.netloc.split('/', 1)
 
         self.config = SSHHostConfig(self.netloc, user)
 
