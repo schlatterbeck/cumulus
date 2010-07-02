@@ -816,6 +816,9 @@ class LocalDatabase:
                 info.age_days = 0.0
             if info.used_bytes is None:
                 info.used_bytes = 0.0
+            # prevent division by zero or None: at least 1 byte
+            if not info.size_bytes:
+                info.size_bytes = 1.0
 
             # Benefit calculation: u is the estimated fraction of each segment
             # which is utilized (bytes belonging to objects still in use
