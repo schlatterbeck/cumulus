@@ -1,6 +1,6 @@
 PACKAGES=sqlite3 uuid
 DEBUG=-g
-CXXFLAGS=-O -Wall -D_FILE_OFFSET_BITS=64 $(DEBUG) \
+CXXFLAGS=-O -Wall -Wextra -D_FILE_OFFSET_BITS=64 $(DEBUG) \
 	 $(shell pkg-config --cflags $(PACKAGES)) \
 	 -DCUMULUS_VERSION=$(shell cat version)
 LDFLAGS=$(DEBUG) $(shell pkg-config --libs $(PACKAGES))
