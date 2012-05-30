@@ -1,7 +1,7 @@
-"""High-level interface for working with LBS archives.
+"""High-level interface for working with Cumulus archives.
 
 This module provides an easy interface for reading from and manipulating
-various parts of an LBS archive:
+various parts of a Cumulus archive:
   - listing the snapshots and segments present
   - reading segment contents
   - parsing snapshot descriptors and snapshot metadata logs
@@ -15,7 +15,7 @@ from pysqlite2 import dbapi2 as sqlite3
 import cumulus.store, cumulus.store.file
 
 # The largest supported snapshot format that can be understood.
-FORMAT_VERSION = (0, 8)         # LBS Snapshot v0.8
+FORMAT_VERSION = (0, 11)        # Cumulus Snapshot v0.11
 
 # Maximum number of nested indirect references allowed in a snapshot.
 MAX_RECURSION_DEPTH = 3
@@ -60,7 +60,7 @@ CHECKSUM_ALGORITHMS = {
 }
 
 class ChecksumCreator:
-    """Compute an LBS checksum for provided data.
+    """Compute a Cumulus checksum for provided data.
 
     The algorithm used is selectable, but currently defaults to sha1.
     """
@@ -324,7 +324,7 @@ def parse_full(lines):
 def parse_metadata_version(s):
     """Convert a string with the snapshot version format to a tuple."""
 
-    m = re.match(r"^LBS Snapshot v(\d+(\.\d+)*)$", s)
+    m = re.match(r"^(?:Cumulus|LBS) Snapshot v(\d+(\.\d+)*)$", s)
     if m is None:
         return ()
     else:
@@ -682,7 +682,7 @@ class LocalDatabase:
         """
 
         # The expired column of the block_index table is used when generating a
-        # new LBS snapshot.  A null value indicates that an object may be
+        # new Cumulus snapshot.  A null value indicates that an object may be
         # re-used.  Otherwise, an object must be written into a new segment if
         # needed.  Objects with distinct expired values will be written into
         # distinct segments, to allow for some grouping by age.  The value 0 is

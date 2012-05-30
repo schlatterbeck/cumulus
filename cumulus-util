@@ -12,17 +12,14 @@ sys.path.append(os.path.join(script_directory, 'python'))
 
 import cumulus
 
-# Compatibility
-lbs = cumulus
-
-# We support up to "LBS Snapshot v0.8" formats, but are also limited by the lbs
-# module.
-FORMAT_VERSION = min(lbs.FORMAT_VERSION, (0, 8))
+# We support up to "Cumulus Snapshot v0.11" formats, but are also limited by
+# the cumulus module.
+FORMAT_VERSION = min(cumulus.FORMAT_VERSION, (0, 11))
 
 def check_version(format):
-    ver = lbs.parse_metadata_version(format)
+    ver = cumulus.parse_metadata_version(format)
     if ver > FORMAT_VERSION:
-        raise RuntimeError("Unsupported LBS format: " + format)
+        raise RuntimeError("Unsupported Cumulus format: " + format)
 
 # Read a passphrase from the user and store it in the LBS_GPG_PASSPHRASE
 # environment variable.
@@ -36,7 +33,7 @@ def cmd_prune_db(args):
         actually schedule any segment cleaning.
         Syntax: $0 --localdb=LOCALDB prune-db
     """
-    db = lbs.LocalDatabase(options.localdb)
+    db = cumulus.LocalDatabase(options.localdb)
 
     # Delete old snapshots from the local database.
     #db.garbage_collect()
@@ -46,7 +43,7 @@ def cmd_clean(args, clean_threshold=7.0):
     """ Run the segment cleaner.
         Syntax: $0 --localdb=LOCALDB clean
     """
-    db = lbs.LocalDatabase(options.localdb)
+    db = cumulus.LocalDatabase(options.localdb)
 
     # Delete old snapshots from the local database.
     intent = float(options.intent)
@@ -68,7 +65,7 @@ def cmd_list_snapshots(args):
     """ List snapshots stored.
         Syntax: $0 --data=DATADIR list-snapshots
     """
-    store = lbs.LowlevelDataStore(options.store)
+    store = cumulus.LowlevelDataStore(options.store)
     for s in sorted(store.list_snapshots()):
         print s
 
@@ -76,15 +73,15 @@ def cmd_list_snapshot_sizes(args):
     """ List size of data needed for each snapshot.
         Syntax: $0 --data=DATADIR list-snapshot-sizes
     """
-    lowlevel = lbs.LowlevelDataStore(options.store)
+    lowlevel = cumulus.LowlevelDataStore(options.store)
     lowlevel.scan()
-    store = lbs.ObjectStore(lowlevel)
+    store = cumulus.ObjectStore(lowlevel)
     previous = set()
     exts = {}
     for seg in lowlevel.store.list('segments'):
         exts.update ([seg.split ('.', 1)])
     for s in sorted(lowlevel.list_snapshots()):
-        d = lbs.parse_full(store.load_snapshot(s))
+        d = cumulus.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
 
         try:
@@ -113,13 +110,13 @@ def cmd_garbage_collect(args):
         snapshots and offer to delete them.
         Syntax: $0 --store=DATADIR gc
     """
-    lowlevel = lbs.LowlevelDataStore(options.store)
+    lowlevel = cumulus.LowlevelDataStore(options.store)
     lowlevel.scan()
-    store = lbs.ObjectStore(lowlevel)
+    store = cumulus.ObjectStore(lowlevel)
     snapshots = set(lowlevel.list_snapshots())
     segments = set()
     for s in snapshots:
-        d = lbs.parse_full(store.load_snapshot(s))
+        d = cumulus.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
         segments.update(d['Segments'].split())
 
@@ -142,13 +139,13 @@ def cmd_object_checksums(segments):
         segments if none are specified.
     """
     get_passphrase()
-    lowlevel = lbs.LowlevelDataStore(options.store)
-    store = lbs.ObjectStore(lowlevel)
+    lowlevel = cumulus.LowlevelDataStore(options.store)
+    store = cumulus.ObjectStore(lowlevel)
     if len(segments) == 0:
         segments = sorted(lowlevel.list_segments())
     for s in segments:
         for (o, data) in store.load_segment(s):
-            csum = lbs.ChecksumCreator().update(data).compute()
+            csum = cumulus.ChecksumCreator().update(data).compute()
             print "%s/%s:%d:%s" % (s, o, len(data), csum)
     store.cleanup()
 object_sums = cmd_object_checksums
@@ -157,10 +154,10 @@ def cmd_read_snapshots(snapshots):
     """ Read a snapshot file
     """
     get_passphrase()
-    lowlevel = lbs.LowlevelDataStore(options.store)
-    store = lbs.ObjectStore(lowlevel)
+    lowlevel = cumulus.LowlevelDataStore(options.store)
+    store = cumulus.ObjectStore(lowlevel)
     for s in snapshots:
-        d = lbs.parse_full(store.load_snapshot(s))
+        d = cumulus.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
         print d
         print d['Segments'].split()
@@ -171,11 +168,11 @@ def cmd_read_metadata(args):
     """
     snapshot = args [0]
     get_passphrase()
-    lowlevel = lbs.LowlevelDataStore(options.store)
-    store = lbs.ObjectStore(lowlevel)
-    d = lbs.parse_full(store.load_snapshot(snapshot))
+    lowlevel = cumulus.LowlevelDataStore(options.store)
+    store = cumulus.ObjectStore(lowlevel)
+    d = cumulus.parse_full(store.load_snapshot(snapshot))
     check_version(d['Format'])
-    metadata = lbs.read_metadata(store, d['Root'])
+    metadata = cumulus.read_metadata(store, d['Root'])
     blank = True
     for l in metadata:
         if l == '\n':
@@ -190,19 +187,19 @@ def cmd_verify_snapshots(snapshots):
     """ Verify snapshot integrity
     """
     get_passphrase()
-    lowlevel = lbs.LowlevelDataStore(options.store)
-    store = lbs.ObjectStore(lowlevel)
+    lowlevel = cumulus.LowlevelDataStore(options.store)
+    store = cumulus.ObjectStore(lowlevel)
     for s in snapshots:
-        lbs.accessed_segments.clear()
+        cumulus.accessed_segments.clear()
         print "#### Snapshot", s
-        d = lbs.parse_full(store.load_snapshot(s))
+        d = cumulus.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
         print "## Root:", d['Root']
-        metadata = lbs.iterate_metadata(store, d['Root'])
+        metadata = cumulus.iterate_metadata(store, d['Root'])
         for m in metadata:
             if m.fields['type'] not in ('-', 'f'): continue
             print "%s [%d bytes]" % (m.fields['name'], int(m.fields['size']))
-            verifier = lbs.ChecksumVerifier(m.fields['checksum'])
+            verifier = cumulus.ChecksumVerifier(m.fields['checksum'])
             size = 0
             for block in m.data():
                 data = store.get(block)
@@ -217,21 +214,21 @@ def cmd_verify_snapshots(snapshots):
         # actually accurate: covered all segments that were really read, and
         # doesn't contain duplicates.
         listed_segments = set(d['Segments'].split())
-        if lbs.accessed_segments - listed_segments:
+        if cumulus.accessed_segments - listed_segments:
             print "Error: Some segments not listed in descriptor!"
-            print sorted(list(lbs.accessed_segments - listed_segments))
-        if listed_segments - lbs.accessed_segments :
+            print sorted(list(cumulus.accessed_segments - listed_segments))
+        if listed_segments - cumulus.accessed_segments :
             print "Warning: Extra unused segments listed in descriptor!"
-            print sorted(list(listed_segments - lbs.accessed_segments))
+            print sorted(list(listed_segments - cumulus.accessed_segments))
     store.cleanup()
 
 def cmd_restore_snapshot(args):
     """ Restore a snapshot, or some subset of files from it
     """
     get_passphrase()
-    lowlevel = lbs.LowlevelDataStore(options.store)
-    store = lbs.ObjectStore(lowlevel)
-    snapshot = lbs.parse_full(store.load_snapshot(args[0]))
+    lowlevel = cumulus.LowlevelDataStore(options.store)
+    store = cumulus.ObjectStore(lowlevel)
+    snapshot = cumulus.parse_full(store.load_snapshot(args[0]))
     check_version(snapshot['Format'])
     destdir = args[1]
     paths = args[2:]
@@ -254,7 +251,7 @@ def cmd_restore_snapshot(args):
     metadata_items = []
     metadata_paths = {}
     metadata_segments = {}
-    for m in lbs.iterate_metadata(store, snapshot['Root']):
+    for m in cumulus.iterate_metadata(store, snapshot['Root']):
         pathname = os.path.normpath(m.items.name)
         while os.path.isabs(pathname):
             pathname = pathname[1:]
@@ -271,7 +268,7 @@ def cmd_restore_snapshot(args):
             metadata_paths[pathname] = m
             for block in m.data():
                 (segment, object, checksum, slice) \
-                    = lbs.ObjectStore.parse_ref(block)
+                    = cumulus.ObjectStore.parse_ref(block)
                 if segment not in metadata_segments:
                     metadata_segments[segment] = set()
                 metadata_segments[segment].add(pathname)
@@ -291,7 +288,7 @@ def cmd_restore_snapshot(args):
         destpath = os.path.join(destdir, pathname)
 
         file = open(destpath, 'wb')
-        verifier = lbs.ChecksumVerifier(m.items.checksum)
+        verifier = cumulus.ChecksumVerifier(m.items.checksum)
         size = 0
         for block in m.data():
             data = store.get(block)
