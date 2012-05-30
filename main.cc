@@ -18,8 +18,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-/* Main entry point for LBS.  Contains logic for traversing the filesystem and
- * constructing a backup. */
+/* Main entry point for Cumulus.  Contains logic for traversing the filesystem
+ * and constructing a backup. */
 
 #include <dirent.h>
 #include <errno.h>
@@ -812,11 +812,12 @@ int main(int argc, char *argv[])
     /* Store the time when the backup started, so it can be included in the
      * snapshot name. */
     time_t now;
-    struct tm time_buf;
+    struct tm time_buf_local, time_buf_utc;
     char desc_buf[256];
     time(&now);
-    localtime_r(&now, &time_buf);
-    strftime(desc_buf, sizeof(desc_buf), "%Y%m%dT%H%M%S", &time_buf);
+    localtime_r(&now, &time_buf_local);
+    gmtime_r(&now, &time_buf_utc);
+    strftime(desc_buf, sizeof(desc_buf), "%Y%m%dT%H%M%S", &time_buf_utc);
 
     /* Open the local database which tracks all objects that are stored
      * remotely, for efficient incrementals.  Provide it with the name of this
@@ -919,9 +920,10 @@ int main(int argc, char *argv[])
     }
     FILE *descriptor = fdopen(descriptor_fd, "w");
 
-    fprintf(descriptor, "Format: LBS Snapshot v0.8\n");
+    fprintf(descriptor, "Format: Cumulus Snapshot v0.11\n");
     fprintf(descriptor, "Producer: Cumulus %s\n", cumulus_version);
-    strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z", &time_buf);
+    strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z",
+             &time_buf_local);
     fprintf(descriptor, "Date: %s\n", desc_buf);
     if (backup_scheme.size() > 0)
         fprintf(descriptor, "Scheme: %s\n", backup_scheme.c_str());

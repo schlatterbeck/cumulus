@@ -1,16 +1,13 @@
                        Backup Format Description
          for Cumulus: Efficient Filesystem Backup to the Cloud
-                      Version: "LBS Snapshot v0.8"
+                   Version: "Cumulus Snapshot v0.11"
 
 NOTE: This format specification is intended to be mostly stable, but is
 still subject to change before the 1.0 release.  The code may provide
 additional useful documentation on the format.
 
-NOTE2: The name of this project has changed from LBS to Cumulus.
-However, to avoid introducing gratuitous changes into the format, in
-most cases any references to "LBS" in the format description have been
-left as-is.  The name may be changed in the future if the format is
-updated.
+NOTE2: The name of this project has changed from LBS to Cumulus.  In
+some areas the name "LBS" is still used.
 
 This document simply describes the snapshot format.  It is described
 from the point of view of a decompressor which wishes to restore the
@@ -275,20 +272,29 @@ The name of snapshot descriptor file is
 logically distinct sets of snapshots (such as snapshots for two
 different directory trees) that are being stored in the same location.
 <timestamp> gives the date and time the snapshot was taken; the format
-is %Y%m%dT%H%M%S (20070806T092239 means 2007-08-06 09:22:39).
+is %Y%m%dT%H%M%S (20070806T092239 means 2007-08-06 09:22:39).  It is
+recommended that the timestamp be given in UTC for consistent sorting
+even if the offset from UTC to local time changes, however the
+authoritative timestamp (including timezone) can be found in the Date
+field.  (In version v0.10 and earlier the timestamp is given in local
+time; in current versions UTC is used.)
 
 The contents of the descriptor are a set of RFC 822-style headers (much
 like the metadata listing).  The fields which are defined are:
-    Format: The string "LBS Snapshot v0.6" which identifies this file as
-        a Cumulus backup descriptor.  The version number (v0.6) might
-        change if there are changes to the format.  It is expected that
-        at some point, once the format is stabilized, the version
-        identifier will be changed to v1.0.
+    Format: The string "Cumulus Snapshot v0.11" which identifies this
+        file as a Cumulus backup descriptor.  The version number (v0.11)
+        might change if there are changes to the format.  It is expected
+        that at some point, once the format is stabilized, the version
+        identifier will be changed to v1.0.  (Earlier versions, format
+        v0.8 and earlier, used the string "LBS Snapshot" instead of
+        "Cumulus Snapshot", reflecting an earlier name for the project.
+        Consumers should be prepared for either name.)
     Producer: A informative string which identifies the program that
         produced the backup.
-    Date: The date the snapshot was produced.  This matches the
-        timestamp encoded in the filename, but is written out in full.
-        A timezone is given.  For example: "2007-08-06 09:22:39 -0700".
+    Date: The date the snapshot was produced, in the local time zone.
+        This matches the timestamp encoded in the filename, but is
+        written out in full.  A timezone (offset from UTC) is given.
+        For example: "2007-08-06 02:22:39 -0700".
     Scheme: The <scheme> field from the descriptor filename.
     Segments: A whitespace-seprated list of segment names.  Any segment
         which is referenced by this snapshot must be included in the
