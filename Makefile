@@ -10,7 +10,7 @@ SRCS=chunk.cc localdb.cc main.cc metadata.cc ref.cc remote.cc sha1.cc \
 OBJS=$(SRCS:.cc=.o)
 
 cumulus : $(OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $^
+	$(CXX) -o $@ $^ $(LDFLAGS)
 
 version : NEWS
 	(git describe || (head -n1 NEWS | cut -d" " -f1)) >version 2>/dev/null
