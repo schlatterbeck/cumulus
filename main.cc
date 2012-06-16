@@ -41,6 +41,7 @@
 #include <fstream>
 #include <iostream>
 #include <list>
+#include <map>
 #include <set>
 #include <sstream>
 #include <string>
@@ -55,6 +56,7 @@
 #include "util.h"
 
 using std::list;
+using std::map;
 using std::string;
 using std::vector;
 using std::ostream;
@@ -327,6 +329,39 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
     return size;
 }
 
+/* Look up a user/group and convert it to string form (either strictly numeric
+ * or numeric plus symbolic).  Caches the results of the call to
+ * getpwuid/getgrgid. */
+string user_to_string(uid_t uid) {
+    static map<uid_t, string> user_cache;
+    map<uid_t, string>::const_iterator i = user_cache.find(uid);
+    if (i != user_cache.end())
+        return i->second;
+
+    string result = encode_int(uid);
+    struct passwd *pwd = getpwuid(uid);
+    if (pwd != NULL && pwd->pw_name != NULL) {
+        result += " (" + uri_encode(pwd->pw_name) + ")";
+    }
+    user_cache[uid] = result;
+    return result;
+}
+
+string group_to_string(gid_t gid) {
+    static map<gid_t, string> group_cache;
+    map<gid_t, string>::const_iterator i = group_cache.find(gid);
+    if (i != group_cache.end())
+        return i->second;
+
+    string result = encode_int(gid);
+    struct group *grp = getgrgid(gid);
+    if (grp != NULL && grp->gr_name != NULL) {
+        result += " (" + uri_encode(grp->gr_name) + ")";
+    }
+    group_cache[gid] = result;
+    return result;
+}
+
 /* Dump a specified filesystem object (file, directory, etc.) based on its
  * inode information.  If the object is a regular file, an open filehandle is
  * provided. */
@@ -348,23 +383,13 @@ void dump_inode(const string& path,         // Path within snapshot
     file_info["mode"] = encode_int(stat_buf.st_mode & 07777, 8);
     file_info["ctime"] = encode_int(stat_buf.st_ctime);
     file_info["mtime"] = encode_int(stat_buf.st_mtime);
-    file_info["user"] = encode_int(stat_buf.st_uid);
-    file_info["group"] = encode_int(stat_buf.st_gid);
+    file_info["user"] = user_to_string(stat_buf.st_uid);
+    file_info["group"] = group_to_string(stat_buf.st_gid);
 
     time_t now = time(NULL);
     if (now - stat_buf.st_ctime < 30 || now - stat_buf.st_mtime < 30)
         if ((stat_buf.st_mode & S_IFMT) != S_IFDIR)
             file_info["volatile"] = "1";
-
-    struct passwd *pwd = getpwuid(stat_buf.st_uid);
-    if (pwd != NULL && pwd->pw_name != NULL) {
-        file_info["user"] += " (" + uri_encode(pwd->pw_name) + ")";
-    }
-
-    struct group *grp = getgrgid(stat_buf.st_gid);
-    if (grp != NULL && grp->gr_name != NULL) {
-        file_info["group"] += " (" + uri_encode(grp->gr_name) + ")";
-    }
 
     if (stat_buf.st_nlink > 1 && (stat_buf.st_mode & S_IFMT) != S_IFDIR) {
         file_info["links"] = encode_int(stat_buf.st_nlink);
