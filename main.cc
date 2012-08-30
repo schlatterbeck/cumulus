@@ -53,9 +53,9 @@
 #include "metadata.h"
 #include "remote.h"
 #include "store.h"
-#include "sha1.h"
 #include "subfile.h"
 #include "util.h"
+#include "third_party/sha1.h"
 
 using std::list;
 using std::map;

@@ -36,8 +36,8 @@
 
 #include "localdb.h"
 #include "remote.h"
-#include "sha1.h"
 #include "ref.h"
+#include "third_party/sha1.h"
 
 class LbsObject;
 

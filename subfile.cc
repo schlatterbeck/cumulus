@@ -28,8 +28,8 @@
 #include <arpa/inet.h>
 
 #include "subfile.h"
-#include "chunk.h"
-#include "sha1.h"
+#include "third_party/chunk.h"
+#include "third_party/sha1.h"
 
 using std::list;
 using std::map;

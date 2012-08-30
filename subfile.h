@@ -31,10 +31,10 @@
 #include <string>
 #include <vector>
 
-#include "chunk.h"
 #include "localdb.h"
 #include "ref.h"
 #include "store.h"
+#include "third_party/chunk.h"
 
 class Subfile {
 public:
