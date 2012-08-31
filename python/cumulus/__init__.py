@@ -9,7 +9,7 @@ various parts of a Cumulus archive:
 """
 
 from __future__ import division
-import os, re, sha, tarfile, tempfile, thread
+import hashlib, os, re, tarfile, tempfile, thread
 from pysqlite2 import dbapi2 as sqlite3
 
 import cumulus.store, cumulus.store.file
@@ -56,7 +56,8 @@ class Struct:
         return "<%s %s>" % (self.__class__, self.__dict__)
 
 CHECKSUM_ALGORITHMS = {
-    'sha1': sha.new
+    'sha1': hashlib.sha1,
+    'sha256': hashlib.sha256,
 }
 
 class ChecksumCreator:
