@@ -1,6 +1,7 @@
 /* Cumulus: Smart Filesystem Backup to Dumb Servers
  *
- * Copyright (C) 2006-2008  The Regents of the University of California
+ * Copyright (C) 2006-2009  The Regents of the University of California
+ * Copyright (C) 2012  Google Inc.
  * Written by Michael Vrable <mvrable@cs.ucsd.edu>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -47,6 +48,7 @@
 #include <string>
 #include <vector>
 
+#include "exclude.h"
 #include "localdb.h"
 #include "metadata.h"
 #include "remote.h"
@@ -90,14 +92,7 @@ std::set<string> segment_list;
 double snapshot_intent = 1.0;
 
 /* Selection of files to include/exclude in the snapshot. */
-std::list<string> includes;         // Paths in which files should be saved
-std::list<string> excludes;         // Paths which will not be saved
-std::list<string> excluded_names;   // Directories which will not be saved
-std::list<string> searches;         // Directories we don't want to save, but
-                                    //   do want to descend searching for data
-                                    //   in included paths
-
-bool relative_paths = true;
+PathFilterList filter_rules;
 
 bool flag_rebuild_statcache = false;
 
@@ -109,6 +104,61 @@ bool verbose = false;
 void add_segment(const string& segment)
 {
     segment_list.insert(segment);
+}
+
+/* Attempts to open a regular file read-only, but with safety checks for files
+ * that might not be fully trusted. */
+int safe_open(const string& path, struct stat *stat_buf)
+{
+    int fd;
+
+    /* Be paranoid when opening the file.  We have no guarantee that the
+     * file was not replaced between the stat() call above and the open()
+     * call below, so we might not even be opening a regular file.  We
+     * supply flags to open to to guard against various conditions before
+     * we can perform an lstat to check that the file is still a regular
+     * file:
+     *   - O_NOFOLLOW: in the event the file was replaced by a symlink
+     *   - O_NONBLOCK: prevents open() from blocking if the file was
+     *     replaced by a fifo
+     * We also add in O_NOATIME, since this may reduce disk writes (for
+     * inode updates).  However, O_NOATIME may result in EPERM, so if the
+     * initial open fails, try again without O_NOATIME.  */
+    fd = open(path.c_str(), O_RDONLY|O_NOATIME|O_NOFOLLOW|O_NONBLOCK);
+    if (fd < 0) {
+        fd = open(path.c_str(), O_RDONLY|O_NOFOLLOW|O_NONBLOCK);
+    }
+    if (fd < 0) {
+        fprintf(stderr, "Unable to open file %s: %m\n", path.c_str());
+        return -1;
+    }
+
+    /* Drop the use of the O_NONBLOCK flag; we only wanted that for file
+     * open. */
+    long flags = fcntl(fd, F_GETFL);
+    fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+
+    /* Re-check file attributes, storing them into stat_buf if that is
+     * non-NULL. */
+    struct stat internal_stat_buf;
+    if (stat_buf == NULL)
+        stat_buf = &internal_stat_buf;
+
+    /* Perform the stat call again, and check that we still have a regular
+     * file. */
+    if (fstat(fd, stat_buf) < 0) {
+        fprintf(stderr, "fstat: %m\n");
+        close(fd);
+        return -1;
+    }
+
+    if ((stat_buf->st_mode & S_IFMT) != S_IFREG) {
+        fprintf(stderr, "file is no longer a regular file!\n");
+        close(fd);
+        return -1;
+    }
+
+    return fd;
 }
 
 /* Read data from a file descriptor and return the amount of data read.  A
@@ -463,120 +513,76 @@ void dump_inode(const string& path,         // Path within snapshot
     metawriter->add(file_info);
 }
 
-void scanfile(const string& path, bool include)
+/* Converts a path to the normalized form used in the metadata log.  Paths are
+ * written as relative (without any leading slashes).  The root directory is
+ * referred to as ".". */
+string metafile_path(const string& path)
+{
+    const char *newpath = path.c_str();
+    if (*newpath == '/')
+        newpath++;
+    if (*newpath == '\0')
+        newpath = ".";
+    return newpath;
+}
+
+void try_merge_filter(const string& path, const string& basedir)
+{
+    struct stat stat_buf;
+    if (lstat(path.c_str(), &stat_buf) < 0)
+        return;
+    if ((stat_buf.st_mode & S_IFMT) != S_IFREG)
+        return;
+    int fd = safe_open(path, NULL);
+    if (fd < 0)
+        return;
+
+    /* As a very crude limit on the complexity of merge rules, only read up to
+     * one block (1 MB) worth of data.  If the file doesn't seems like it might
+     * be larger than that, don't parse the rules in it. */
+    ssize_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
+    if (bytes < 0 || bytes >= static_cast<ssize_t>(LBS_BLOCK_SIZE - 1)) {
+        /* TODO: Add more strict resource limits on merge files? */
+        fprintf(stderr,
+                "Unable to read filter merge file (possibly size too large\n");
+        return;
+    }
+    filter_rules.merge_patterns(metafile_path(path), basedir,
+                                string(block_buf, bytes));
+}
+
+void scanfile(const string& path)
 {
     int fd = -1;
-    long flags;
     struct stat stat_buf;
     list<string> refs;
 
-    string true_path;
-    if (relative_paths)
-        true_path = path;
-    else
-        true_path = "/" + path;
+    string output_path = metafile_path(path);
 
-    // Set to true if we should scan through the contents of this directory,
-    // but not actually back files up
-    bool scan_only = false;
-
-    // Check this file against the include/exclude list to see if it should be
-    // considered
-    for (list<string>::iterator i = includes.begin();
-         i != includes.end(); ++i) {
-        if (path == *i) {
-            include = true;
-        }
-    }
-
-    for (list<string>::iterator i = excludes.begin();
-         i != excludes.end(); ++i) {
-        if (path == *i) {
-            include = false;
-        }
-    }
-
-    if (excluded_names.size() > 0) {
-        std::string name = path;
-        std::string::size_type last_slash = name.rfind('/');
-        if (last_slash != std::string::npos) {
-            name.replace(0, last_slash + 1, "");
-        }
-
-        for (list<string>::iterator i = excluded_names.begin();
-             i != excluded_names.end(); ++i) {
-            if (name == *i) {
-                include = false;
-            }
-        }
-    }
-
-    for (list<string>::iterator i = searches.begin();
-         i != searches.end(); ++i) {
-        if (path == *i) {
-            scan_only = true;
-        }
-    }
-
-    if (!include && !scan_only)
-        return;
-
-    if (lstat(true_path.c_str(), &stat_buf) < 0) {
+    if (lstat(path.c_str(), &stat_buf) < 0) {
         fprintf(stderr, "lstat(%s): %m\n", path.c_str());
         return;
     }
 
+    bool is_directory = ((stat_buf.st_mode & S_IFMT) == S_IFDIR);
+    if (!filter_rules.is_included(output_path, is_directory))
+        return;
+
     if ((stat_buf.st_mode & S_IFMT) == S_IFREG) {
-        /* Be paranoid when opening the file.  We have no guarantee that the
-         * file was not replaced between the stat() call above and the open()
-         * call below, so we might not even be opening a regular file.  We
-         * supply flags to open to to guard against various conditions before
-         * we can perform an lstat to check that the file is still a regular
-         * file:
-         *   - O_NOFOLLOW: in the event the file was replaced by a symlink
-         *   - O_NONBLOCK: prevents open() from blocking if the file was
-         *     replaced by a fifo
-         * We also add in O_NOATIME, since this may reduce disk writes (for
-         * inode updates).  However, O_NOATIME may result in EPERM, so if the
-         * initial open fails, try again without O_NOATIME.  */
-        fd = open(true_path.c_str(), O_RDONLY|O_NOATIME|O_NOFOLLOW|O_NONBLOCK);
-        if (fd < 0) {
-            fd = open(true_path.c_str(), O_RDONLY|O_NOFOLLOW|O_NONBLOCK);
-        }
-        if (fd < 0) {
-            fprintf(stderr, "Unable to open file %s: %m\n", path.c_str());
+        fd = safe_open(path, &stat_buf);
+        if (fd < 0)
             return;
-        }
-
-        /* Drop the use of the O_NONBLOCK flag; we only wanted that for file
-         * open. */
-        flags = fcntl(fd, F_GETFL);
-        fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-
-        /* Perform the stat call again, and check that we still have a regular
-         * file. */
-        if (fstat(fd, &stat_buf) < 0) {
-            fprintf(stderr, "fstat: %m\n");
-            close(fd);
-            return;
-        }
-
-        if ((stat_buf.st_mode & S_IFMT) != S_IFREG) {
-            fprintf(stderr, "file is no longer a regular file!\n");
-            close(fd);
-            return;
-        }
     }
 
-    dump_inode(path, true_path, stat_buf, fd);
+    dump_inode(output_path, path, stat_buf, fd);
 
     if (fd >= 0)
         close(fd);
 
-    // If we hit a directory, now that we've written the directory itself,
-    // recursively scan the directory.
-    if ((stat_buf.st_mode & S_IFMT) == S_IFDIR) {
-        DIR *dir = opendir(true_path.c_str());
+    /* If we hit a directory, now that we've written the directory itself,
+     * recursively scan the directory. */
+    if (is_directory) {
+        DIR *dir = opendir(path.c_str());
 
         if (dir == NULL) {
             fprintf(stderr, "Error: %m\n");
@@ -596,55 +602,42 @@ void scanfile(const string& path, bool include)
 
         sort(contents.begin(), contents.end());
 
+        filter_rules.save();
+
+        /* First pass through the directory items: look for any filter rules to
+         * merge and do so. */
+        for (vector<string>::iterator i = contents.begin();
+             i != contents.end(); ++i) {
+            string filename;
+            if (path == ".")
+                filename = *i;
+            else if (path == "/")
+                filename = "/" + *i;
+            else
+                filename = path + "/" + *i;
+            if (filter_rules.is_mergefile(metafile_path(filename))) {
+                if (verbose) {
+                    printf("Merging directory filter rules %s\n",
+                           filename.c_str());
+                }
+                try_merge_filter(filename, output_path);
+            }
+        }
+
+        /* Second pass: recursively scan all items in the directory for backup;
+         * scanfile() will check if the item should be included or not. */
         for (vector<string>::iterator i = contents.begin();
              i != contents.end(); ++i) {
             const string& filename = *i;
             if (path == ".")
-                scanfile(filename, include);
+                scanfile(filename);
+            else if (path == "/")
+                scanfile("/" + filename);
             else
-                scanfile(path + "/" + filename, include);
-        }
-    }
-}
-
-/* Include the specified file path in the backups.  Append the path to the
- * includes list, and to ensure that we actually see the path when scanning the
- * directory tree, add all the parent directories to the search list, which
- * means we will scan through the directory listing even if the files
- * themselves are excluded from being backed up. */
-void add_include(const char *path)
-{
-    /* Was an absolute path specified?  If so, we'll need to start scanning
-     * from the root directory.  Make sure that the user was consistent in
-     * providing either all relative paths or all absolute paths. */
-    if (path[0] == '/') {
-        if (includes.size() > 0 && relative_paths == true) {
-            fprintf(stderr,
-                    "Error: Cannot mix relative and absolute paths!\n");
-            exit(1);
+                scanfile(path + "/" + filename);
         }
 
-        relative_paths = false;
-
-        // Skip over leading '/'
-        path++;
-    } else if (relative_paths == false && path[0] != '/') {
-        fprintf(stderr, "Error: Cannot mix relative and absolute paths!\n");
-        exit(1);
-    }
-
-    includes.push_back(path);
-
-    /* Split the specified path into directory components, and ensure that we
-     * descend into all the directories along the path. */
-    const char *slash = path;
-
-    if (path[0] == '\0')
-        return;
-
-    while ((slash = strchr(slash + 1, '/')) != NULL) {
-        string component(path, slash - path);
-        searches.push_back(component);
+        filter_rules.restore();
     }
 }
 
@@ -698,18 +691,19 @@ int main(int argc, char *argv[])
     while (1) {
         static struct option long_options[] = {
             {"localdb", 1, 0, 0},           // 0
-            {"exclude", 1, 0, 0},           // 1
-            {"filter", 1, 0, 0},            // 2
-            {"filter-extension", 1, 0, 0},  // 3
-            {"dest", 1, 0, 0},              // 4
-            {"scheme", 1, 0, 0},            // 5
-            {"signature-filter", 1, 0, 0},  // 6
-            {"intent", 1, 0, 0},            // 7
-            {"full-metadata", 0, 0, 0},     // 8
-            {"tmpdir", 1, 0, 0},            // 9
-            {"upload-script", 1, 0, 0},     // 10
-            {"rebuild-statcache", 0, 0, 0}, // 11
-            {"exclude-name", 1, 0, 0},      // 12
+            {"filter", 1, 0, 0},            // 1
+            {"filter-extension", 1, 0, 0},  // 2
+            {"dest", 1, 0, 0},              // 3
+            {"scheme", 1, 0, 0},            // 4
+            {"signature-filter", 1, 0, 0},  // 5
+            {"intent", 1, 0, 0},            // 6
+            {"full-metadata", 0, 0, 0},     // 7
+            {"tmpdir", 1, 0, 0},            // 8
+            {"upload-script", 1, 0, 0},     // 9
+            {"rebuild-statcache", 0, 0, 0}, // 10
+            {"include", 1, 0, 0},           // 11
+            {"exclude", 1, 0, 0},           // 12
+            {"dir-merge", 1, 0, 0},         // 13
             // Aliases for short options
             {"verbose", 0, 0, 'v'},
             {NULL, 0, 0, 0},
@@ -726,46 +720,46 @@ int main(int argc, char *argv[])
             case 0:     // --localdb
                 localdb_dir = optarg;
                 break;
-            case 1:     // --exclude
-                if (optarg[0] != '/')
-                    excludes.push_back(optarg);
-                else
-                    excludes.push_back(optarg + 1);
-                break;
-            case 2:     // --filter
+            case 1:     // --filter
                 filter_program = optarg;
                 break;
-            case 3:     // --filter-extension
+            case 2:     // --filter-extension
                 filter_extension = optarg;
                 break;
-            case 4:     // --dest
+            case 3:     // --dest
                 backup_dest = optarg;
                 break;
-            case 5:     // --scheme
+            case 4:     // --scheme
                 backup_scheme = optarg;
                 break;
-            case 6:     // --signature-filter
+            case 5:     // --signature-filter
                 signature_filter = optarg;
                 break;
-            case 7:     // --intent
+            case 6:     // --intent
                 snapshot_intent = atof(optarg);
                 if (snapshot_intent <= 0)
                     snapshot_intent = 1;
                 break;
-            case 8:     // --full-metadata
+            case 7:     // --full-metadata
                 flag_full_metadata = true;
                 break;
-            case 9:     // --tmpdir
+            case 8:     // --tmpdir
                 tmp_dir = optarg;
                 break;
-            case 10:    // --upload-script
+            case 9:     // --upload-script
                 backup_script = optarg;
                 break;
-            case 11:    // --rebuild-statcache
+            case 10:    // --rebuild-statcache
                 flag_rebuild_statcache = true;
                 break;
-            case 12:     // --exclude-name
-                excluded_names.push_back(optarg);
+            case 11:    // --include
+                filter_rules.add_pattern(PathFilterList::INCLUDE, optarg, "");
+                break;
+            case 12:    // --exclude
+                filter_rules.add_pattern(PathFilterList::EXCLUDE, optarg, "");
+                break;
+            case 13:    // --dir-merge
+                filter_rules.add_pattern(PathFilterList::DIRMERGE, optarg, "");
                 break;
             default:
                 fprintf(stderr, "Unhandled long option!\n");
@@ -787,10 +781,6 @@ int main(int argc, char *argv[])
         usage(argv[0]);
         return 1;
     }
-
-    searches.push_back(".");
-    for (int i = optind; i < argc; i++)
-        add_include(argv[i]);
 
     if (backup_dest == "" && backup_script == "") {
         fprintf(stderr,
@@ -858,7 +848,9 @@ int main(int argc, char *argv[])
     metawriter = new MetadataWriter(tss, localdb_dir.c_str(), desc_buf,
                                     backup_scheme.c_str());
 
-    scanfile(".", false);
+    for (int i = optind; i < argc; i++) {
+        scanfile(argv[i]);
+    }
 
     ObjectReference root_ref = metawriter->close();
     add_segment(root_ref.get_segment());

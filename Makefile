@@ -5,8 +5,8 @@ CXXFLAGS=-O -Wall -Wextra -D_FILE_OFFSET_BITS=64 $(DEBUG) \
 	 -DCUMULUS_VERSION=$(shell cat version)
 LDFLAGS=$(DEBUG) $(shell pkg-config --libs $(PACKAGES))
 
-SRCS=chunk.cc localdb.cc main.cc metadata.cc ref.cc remote.cc sha1.cc \
-     store.cc subfile.cc util.cc
+SRCS=chunk.cc exclude.cc localdb.cc main.cc metadata.cc ref.cc remote.cc \
+     sha1.cc store.cc subfile.cc util.cc
 OBJS=$(SRCS:.cc=.o)
 
 cumulus : $(OBJS)
