@@ -59,7 +59,7 @@ def cmd_clean(args, clean_threshold=7.0):
     # Delete old snapshots from the local database.
     intent = float(options.intent)
     for s in db.list_schemes():
-        db.garbage_collect(s, intent)
+        db.prune_old_snapshots(s, intent)
 
     # Expire segments which are poorly-utilized.
     for s in db.get_segment_cleaning_list():

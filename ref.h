@@ -110,7 +110,7 @@ public:
     bool has_range() const { return range_valid; }
     size_t get_range_start() const { return range_start; }
     size_t get_range_length() const { return range_length; }
-    size_t get_range_exact() const { return range_exact; }
+    bool range_is_exact() const { return range_exact; }
     void clear_range()
         { range_start = range_length = 0;
           range_valid = false; range_exact = false; }

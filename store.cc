@@ -41,6 +41,7 @@
 #include <iostream>
 
 #include "hash.h"
+#include "localdb.h"
 #include "store.h"
 #include "ref.h"
 #include "util.h"
@@ -226,7 +227,9 @@ static const size_t SEGMENT_SIZE = 4 * 1024 * 1024;
 static map<string, pair<int64_t, int64_t> > group_sizes;
 
 ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
-                                              const std::string &group)
+                                              const std::string &group,
+                                              const std::string &checksum,
+                                              double age)
 {
     struct segment_info *segment;
 
@@ -240,7 +243,7 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
         segment->basename = segment->name + ".tar";
         segment->basename += filter_extension;
         segment->count = 0;
-        segment->size = 0;
+        segment->data_size = 0;
         segment->rf = remote->alloc_file(segment->basename, "segments");
         segment->file = new Tarfile(segment->rf, segment->name);
 
@@ -255,11 +258,16 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
 
     segment->file->write_object(id, data, len);
     segment->count++;
-    segment->size += len;
+    segment->data_size += len;
 
     group_sizes[group].first += len;
 
     ObjectReference ref(segment->name, id_buf);
+    ref.set_range(0, len, true);
+    if (checksum.size() > 0)
+        ref.set_checksum(checksum);
+    if (db != NULL)
+        db->StoreObject(ref, age);
 
     // If this segment meets or exceeds the size target, close it so that
     // future objects will go into a new segment.
@@ -292,17 +300,21 @@ void TarSegmentStore::close_segment(const string &group)
     delete segment->file;
 
     if (db != NULL) {
-        SHA1Checksum segment_checksum;
-        if (segment_checksum.process_file(segment->rf->get_local_path().c_str())) {
-            string checksum = segment_checksum.checksum_str();
-            db->SetSegmentChecksum(segment->name, segment->basename, checksum,
-                                   segment->size);
+        struct stat stat_buf;
+        int disk_size = 0;
+        if (stat(segment->rf->get_local_path().c_str(), &stat_buf) == 0) {
+            disk_size = stat_buf.st_size;
+            group_sizes[segment->group].second += disk_size;
         }
 
-        struct stat stat_buf;
-        if (stat(segment->rf->get_local_path().c_str(), &stat_buf) == 0) {
-            group_sizes[segment->group].second += stat_buf.st_size;
+        SHA1Checksum segment_checksum;
+        string checksum;
+        if (segment_checksum.process_file(segment->rf->get_local_path().c_str())) {
+            checksum = segment_checksum.checksum_str();
         }
+
+        db->SetSegmentChecksum(segment->name, segment->basename, checksum,
+                               segment->data_size, disk_size);
     }
 
     segment->rf->send();
@@ -317,7 +329,7 @@ string TarSegmentStore::object_reference_to_segment(const string &object)
 }
 
 LbsObject::LbsObject()
-    : group(""), data(NULL), data_len(0), written(false)
+    : group(""), age(0.0), data(NULL), data_len(0), written(false)
 {
 }
 
@@ -325,21 +337,26 @@ LbsObject::~LbsObject()
 {
 }
 
+void LbsObject::set_data(const char *d, size_t len, const char *checksum)
+{
+    data = d;
+    data_len = len;
+
+    if (checksum != NULL) {
+        this->checksum = checksum;
+    } else {
+        Hash *hash = Hash::New();
+        hash->update(data, data_len);
+        this->checksum = hash->digest_str();
+        delete hash;
+    }
+}
+
 void LbsObject::write(TarSegmentStore *store)
 {
     assert(data != NULL);
     assert(!written);
 
-    ref = store->write_object(data, data_len, group);
+    ref = store->write_object(data, data_len, group, checksum, age);
     written = true;
-}
-
-void LbsObject::checksum()
-{
-    assert(written);
-
-    Hash *hash = Hash::New();
-    hash->update(data, data_len);
-    ref.set_checksum(hash->digest_str());
-    delete hash;
 }

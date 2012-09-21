@@ -102,10 +102,12 @@ class RetentionEngine(object):
 
     def add_policy(self, backup_class, retention_period):
         self._policies[backup_class] = retention_period
-        self._last_snapshots[backup_class] = (None, None)
+        self._last_snapshots[backup_class] = (None, None, False)
 
     @staticmethod
     def parse_timestamp(s):
+        if isinstance(s, datetime.datetime):
+            return s
         return datetime.datetime.strptime(s, TIMESTAMP_FORMAT)
 
     def consider_snapshot(self, snapshot):
@@ -134,9 +136,11 @@ class RetentionEngine(object):
             partition = _backup_classes[backup_class](timestamp_policy)
             last_snapshot = self._last_snapshots[backup_class]
             if self._last_snapshots[backup_class][0] != partition:
-                self._last_snapshots[backup_class] = (partition, snapshot)
                 self._labels.add(backup_class)
-                if snapshot_age < retention_period: retain = True
+                retain_label = snapshot_age < retention_period
+                self._last_snapshots[backup_class] = (partition, snapshot,
+                                                      retain_label)
+                if retain_label: retain = True
         return retain
 
     def last_labels(self):
@@ -148,4 +152,5 @@ class RetentionEngine(object):
 
     def last_snapshots(self):
         """Returns the most recent snapshot in each backup class."""
-        return dict((k, v[1]) for (k, v) in self._last_snapshots.iteritems())
+        return dict((k, v[1]) for (k, v)
+                    in self._last_snapshots.iteritems() if v[2])

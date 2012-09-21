@@ -51,7 +51,6 @@ def _build_retention_engine(spec):
             seconds = int(m.group(1)) * _TIME_UNITS[m.group(2)]
             period = period + datetime.timedelta(seconds=seconds)
             intervalspec = m.group(3)
-        print classname, period
         policy.add_policy(classname, period)
     return policy
 

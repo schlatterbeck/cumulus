@@ -82,9 +82,6 @@ static char *block_buf;
  * invocations to help in creating incremental snapshots. */
 LocalDb *db;
 
-/* Keep track of all segments which are needed to reconstruct the snapshot. */
-std::set<string> segment_list;
-
 /* Snapshot intent: 1=daily, 7=weekly, etc.  This is not used directly, but is
  * stored in the local database and can help guide segment cleaning and
  * snapshot expiration policies. */
@@ -97,13 +94,6 @@ bool flag_rebuild_statcache = false;
 
 /* Whether verbose output is enabled. */
 bool verbose = false;
-
-/* Ensure that the given segment is listed as a dependency of the current
- * snapshot. */
-void add_segment(const string& segment)
-{
-    segment_list.insert(segment);
-}
 
 /* Attempts to open a regular file read-only, but with safety checks for files
  * that might not be fully trusted. */
@@ -232,8 +222,6 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                  i != old_blocks.end(); ++i) {
                 const ObjectReference &ref = *i;
                 object_list.push_back(ref.to_string());
-                if (ref.is_normal())
-                    add_segment(ref.get_segment());
                 db->UseObject(ref);
             }
             size = stat_buf.st_size;
@@ -274,9 +262,10 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
             double block_age = 0.0;
             ObjectReference ref;
 
-            SHA1Checksum block_hash;
-            block_hash.process(block_buf, bytes);
-            string block_csum = block_hash.checksum_str();
+            Hash *hash = Hash::New();
+            hash->update(block_buf, bytes);
+            string block_csum = hash->digest_str();
+            delete hash;
 
             if (all_zero) {
                 ref = ObjectReference(ObjectReference::REF_ZERO);
@@ -332,8 +321,6 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
             while (!refs.empty()) {
                 ref = refs.front(); refs.pop_front();
                 object_list.push_back(ref.to_string());
-                if (ref.is_normal())
-                    add_segment(ref.get_segment());
                 db->UseObject(ref);
             }
             size += bytes;
@@ -859,7 +846,6 @@ int main(int argc, char *argv[])
     }
 
     ObjectReference root_ref = metawriter->close();
-    add_segment(root_ref.get_segment());
     string backup_root = root_ref.to_string();
 
     delete metawriter;
@@ -880,6 +866,7 @@ int main(int argc, char *argv[])
                                                    "checksums");
     FILE *checksums = fdopen(checksum_file->get_fd(), "w");
 
+    std::set<string> segment_list = db->GetUsedSegments();
     for (std::set<string>::iterator i = segment_list.begin();
          i != segment_list.end(); ++i) {
         string seg_path, seg_csum;

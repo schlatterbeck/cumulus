@@ -3,13 +3,25 @@
 --
 -- The index is stored in an SQLite3 database.  This is its schema.
 
--- List of snapshots which have been created.
+-- Versioning information, describing the revision for which the table schema
+-- was set up.
+create table schema_version(
+    version text,               -- Program version, dotted decimal string
+    major integer,              -- Major version number
+    minor integer               -- Minor version number
+);
+insert into schema_version values ('0.11', 0, 11);
+
+-- List of snapshots which have been created and which we are still tracking.
+-- There may be more snapshots than this actually stored at the remote server,
+-- but the reverse should not ever be true: Cumulus may depend on data stored
+-- in these snapshots when writing a new snapshot.
 create table snapshots (
     snapshotid integer primary key,
     name text not null,
     scheme text not null,
     timestamp real,
-    intent real
+    intent real                 -- TODO: deprecated, should be removed
 );
 
 -- List of segments which have been created.
@@ -19,11 +31,13 @@ create table segments (
     path text,
     checksum text,
     mtime real,
-    size integer,
-    expire_time integer         -- snapshotid of latest snapshot when expired
+    data_size integer,          -- sum of bytes in all objects in the segment
+    disk_size integer           -- size of segment on disk, after compression
+    -- TODO: group? metadata vs. non-metadata?
 );
 
--- Index of all blocks which have been stored, by checksum.
+-- Index of all data blocks in stored segments.  This is indexed by content
+-- hash to allow for coarse block-level data deduplication.
 create table block_index (
     blockid integer primary key,
     segmentid integer not null,
@@ -57,20 +71,14 @@ create table subblock_signatures (
     signatures blob not null
 );
 
--- Summary of segment utilization for each snapshots.
-create table segments_used (
+-- Summary of segment utilization for each snapshot.
+create table segment_utilization (
     snapshotid integer not null,
     segmentid integer not null,
-    utilization real
-);
-create unique index segments_used_index
-    on segments_used(snapshotid, segmentid);
 
--- Overall estimate of segment utilization, for all snapshots combined.
-create view segment_info as
-select segmentid, mtime, size, expire_time,
-       cast(size * utilization as integer) as used, utilization
-from segments join
-     (select segmentid, max(utilization) as utilization
-      from segments_used group by segmentid)
-using (segmentid);
+    -- Estimate for the number of live bytes in data objects: this is capped at
+    -- segments.data_size if all data in the segment is referenced.
+    bytes_referenced integer
+);
+create unique index segment_utilization_index
+    on segment_utilization(snapshotid, segmentid);

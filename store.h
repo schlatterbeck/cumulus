@@ -108,7 +108,9 @@ public:
     // used to control object placement; objects with different group
     // parameters are kept in separate segments.
     ObjectReference write_object(const char *data, size_t len,
-                                 const std::string &group = "");
+                                 const std::string &group = "",
+                                 const std::string &checksum = "",
+                                 double age = 0.0);
 
     // Ensure all segments have been fully written.
     void sync();
@@ -122,7 +124,7 @@ private:
         std::string group;
         std::string name;           // UUID
         int count;                  // Objects written to this segment
-        int size;                   // Combined size of objects written
+        int data_size;              // Combined size of objects written
         std::string basename;       // Name of segment without directory
         RemoteFile *rf;
     };
@@ -155,27 +157,32 @@ public:
     // Data in an object must be written all at once, and cannot be generated
     // incrementally.  Data can be an arbitrary block of binary data of any
     // size.  The pointer to the data need only remain valid until write() is
-    // called.
-    void set_data(const char *d, size_t len) { data = d; data_len = len; }
+    // called.  If checksum is non-NULL then it is assumed to contain a hash
+    // value for the data; this provides an optimization in case the caller has
+    // already checksummed the data.  Otherwise the set_data will compute a
+    // hash of the data itself.
+    void set_data(const char *d, size_t len, const char *checksum);
+
+    // Explicitly sets the age of the data, for later garbage-collection or
+    // repacking purposes.  If not set, the age defaults to the current time.
+    // The age is stored in the database as a floating point value, expressing
+    // the time in Julian days.
+    void set_age(double age) { this->age = age; }
 
     // Write an object to a segment, thus making it permanent.  This function
     // can be called at most once.
     void write(TarSegmentStore *store);
 
-    // Compute the checksum of an object, and include it in the object
-    // reference.  This should be called after write(), and the data specified
-    // by set_data() must remain valid through the call to checksum().
-    void checksum();
-
     // An object is assigned a permanent name once it has been written to a
     // segment.  Until that time, its name cannot be determined.
-    std::string get_name() const { return ref.to_string(); }
     ObjectReference get_ref() { return ref; }
 
 private:
     std::string group;
+    double age;
     const char *data;
     size_t data_len;
+    std::string checksum;
 
     bool written;
     ObjectReference ref;

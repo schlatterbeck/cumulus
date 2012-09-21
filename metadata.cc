@@ -49,7 +49,6 @@ bool flag_full_metadata = false;
 
 /* TODO: Move to header file */
 extern LocalDb *db;
-void add_segment(const string& segment);
 
 /* Like strcmp, but sorts in the order that files will be visited in the
  * filesystem.  That is, we break paths apart at slashes, and compare path
@@ -296,8 +295,7 @@ void MetadataWriter::metadata_flush()
         // If indirectly referencing any other metadata logs, be sure those
         // segments are properly referenced.
         if (i->reused) {
-            add_segment(i->ref.get_segment());
-            db->UseSegment(i->ref.get_segment(), 1.0);
+            db->UseObject(i->ref);
         }
 
         // Write out an indirect reference to any previous objects which could
@@ -338,15 +336,13 @@ void MetadataWriter::metadata_flush()
     /* Write current metadata information to a new object. */
     LbsObject *meta = new LbsObject;
     meta->set_group("metadata");
-    meta->set_data(m.data(), m.size());
+    meta->set_data(m.data(), m.size(), NULL);
     meta->write(store);
-    meta->checksum();
 
     /* Write a reference to this block in the root. */
     ObjectReference ref = meta->get_ref();
     metadata_root << "@" << ref.to_string() << "\n";
-    add_segment(ref.get_segment());
-    db->UseSegment(ref.get_segment(), 1.0);
+    db->UseObject(ref);
 
     delete meta;
 
@@ -397,11 +393,9 @@ ObjectReference MetadataWriter::close()
 
     LbsObject *root = new LbsObject;
     root->set_group("metadata");
-    root->set_data(root_data.data(), root_data.size());
+    root->set_data(root_data.data(), root_data.size(), NULL);
     root->write(store);
-    root->checksum();
-    add_segment(root->get_ref().get_segment());
-    db->UseSegment(root->get_ref().get_segment(), 1.0);
+    db->UseObject(root->get_ref());
 
     ObjectReference ref = root->get_ref();
     delete root;

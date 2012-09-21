@@ -532,7 +532,26 @@ class LocalDatabase:
         schemes.sort()
         return schemes
 
-    def garbage_collect(self, scheme, intent=1.0):
+    def list_snapshots(self, scheme):
+        """Return a list of snapshots for the given scheme."""
+        cur = self.cursor()
+        cur.execute("select name from snapshots")
+        snapshots = [row[0] for row in cur.fetchall()]
+        snapshots.sort()
+        return snapshots
+
+    def delete_snapshot(self, scheme, name):
+        """Remove the specified snapshot from the database.
+
+        Warning: This does not garbage collect all dependent data in the
+        database, so it must be followed by a call to garbage_collect() to make
+        the database consistent.
+        """
+        cur = self.cursor()
+        cur.execute("delete from snapshots where scheme = ? and name = ?",
+                    (scheme, name))
+
+    def prune_old_snapshots(self, scheme, intent=1.0):
         """Delete entries from old snapshots from the database.
 
         Only snapshots with the specified scheme name will be deleted.  If
@@ -579,6 +598,16 @@ class LocalDatabase:
             first = False
             max_intent = max(max_intent, snap_intent)
 
+        self.garbage_collect()
+
+    def garbage_collect(self):
+        """Garbage-collect unreachable segment and object data.
+
+        Remove all segments and checksums which is not reachable from the
+        current set of snapshots stored in the local database.
+        """
+        cur = self.cursor()
+
         # Delete entries in the segments_used table which are for non-existent
         # snapshots.
         cur.execute("""delete from segments_used
@@ -590,16 +619,10 @@ class LocalDatabase:
         cur.execute("""delete from segments where segmentid not in
                            (select segmentid from segments_used)""")
 
-        # Delete unused objects in the block_index table.  By "unused", we mean
-        # any object which was stored in a segment which has been deleted, and
-        # any object in a segment which was marked for cleaning and has had
-        # cleaning performed already (the expired time is less than the current
-        # largest snapshot id).
+        # Delete dangling objects in the block_index table.
         cur.execute("""delete from block_index
-                       where segmentid not in (select segmentid from segments)
-                          or segmentid in (select segmentid from segments
-                                           where expire_time < ?)""",
-                    (last_snapshotid,))
+                       where segmentid not in
+                           (select segmentid from segments)""")
 
         # Remove sub-block signatures for deleted objects.
         cur.execute("""delete from subblock_signatures

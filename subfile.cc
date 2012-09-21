@@ -262,16 +262,11 @@ list<ObjectReference> Subfile::create_incremental(TarSegmentStore *tss,
     // No data was matched.  The entire block can be written out as is into a
     // new object, and the new_block_summary used to save chunk signatures.
     if (!matched_old) {
-        SHA1Checksum block_hash;
-        block_hash.process(analyzed_buf, analyzed_len);
-        string block_csum = block_hash.checksum_str();
-
-        o->set_data(analyzed_buf, analyzed_len);
+        o->set_age(block_age);
+        o->set_data(analyzed_buf, analyzed_len, NULL);
         o->write(tss);
         ObjectReference ref = o->get_ref();
-        db->StoreObject(ref, block_csum, analyzed_len, block_age);
         store_analyzed_signatures(ref);
-        ref.set_range(0, analyzed_len, true);
         refs.push_back(ref);
         delete o;
         return refs;
@@ -295,7 +290,7 @@ list<ObjectReference> Subfile::create_incremental(TarSegmentStore *tss,
         string block_csum = block_hash.checksum_str();
 
         o->set_group("data");
-        o->set_data(literal_buf, new_data);
+        o->set_data(literal_buf, new_data, NULL);
         o->write(tss);
         ObjectReference ref = o->get_ref();
         for (i = items.begin(); i != items.end(); ++i) {
@@ -305,7 +300,7 @@ list<ObjectReference> Subfile::create_incremental(TarSegmentStore *tss,
             }
         }
 
-        db->StoreObject(ref, block_csum, new_data, 0.0);
+        //db->StoreObject(ref, 0.0);
 
         block_summary summary;
         summary.ref = ref;
