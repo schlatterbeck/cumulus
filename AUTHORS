@@ -1,0 +1,17 @@
+Cumulus was written primarily by Michael Vrable <vrable@cs.hmc.edu>;
+copyright interests are partially held by:
+
+Google Inc.
+The Regents of the University of California
+
+Copyright is also held by the following individuals who have made
+contributions:
+
+Albert Dengg <albert@fsfe.org>
+Ralf Schlatterbeck <rsc@runtux.com>
+
+
+
+Files in third_party/ have been copied from other projects; for
+copyright and authorship information for that directory please look at
+those files directly.

@@ -1,7 +1,6 @@
-/* Cumulus: Smart Filesystem Backup to Dumb Servers
- *
- * Copyright (C) 2008  The Regents of the University of California
- * Written by Michael Vrable <mvrable@cs.ucsd.edu>
+/* Cumulus: Efficient Filesystem Backup to the Cloud
+ * Copyright (C) 2008 The Cumulus Developers
+ * See the AUTHORS file for a list of contributors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
