@@ -27,6 +27,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include "../hash.h"
 #include "sha1.h"
 
 #include <stddef.h>
@@ -391,4 +392,41 @@ string SHA1Checksum::checksum_str()
     }
 
     return result;
+}
+
+class SHA1Hash : public Hash {
+public:
+    SHA1Hash();
+    static Hash *New() { return new SHA1Hash; }
+    virtual void update(const void *data, size_t len);
+    virtual size_t digest_size() const { return 20; }
+    virtual std::string name() const { return "sha1"; }
+
+protected:
+    const uint8_t *finalize();
+
+private:
+    struct sha1_ctx ctx;
+    char resbuf[20] __attribute__ ((__aligned__ (__alignof__ (md5_uint32))));
+};
+
+SHA1Hash::SHA1Hash()
+{
+    sha1_init_ctx(&ctx);
+}
+
+void SHA1Hash::update(const void *data, size_t len)
+{
+    sha1_process_bytes(data, len, &ctx);
+}
+
+const uint8_t *SHA1Hash::finalize()
+{
+    sha1_finish_ctx(&ctx, resbuf);
+    return (const uint8_t *)resbuf;
+}
+
+void sha1_register()
+{
+    Hash::Register("sha1", SHA1Hash::New);
 }

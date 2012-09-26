@@ -41,6 +41,7 @@
 #include <string>
 #include <iostream>
 
+#include "hash.h"
 #include "store.h"
 #include "ref.h"
 #include "util.h"
@@ -338,7 +339,8 @@ void LbsObject::checksum()
 {
     assert(written);
 
-    SHA1Checksum hash;
-    hash.process(data, data_len);
-    ref.set_checksum(hash.checksum_str());
+    Hash *hash = Hash::New();
+    hash->update(data, data_len);
+    ref.set_checksum(hash->digest_str());
+    delete hash;
 }

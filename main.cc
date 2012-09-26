@@ -49,6 +49,7 @@
 #include <vector>
 
 #include "exclude.h"
+#include "hash.h"
 #include "localdb.h"
 #include "metadata.h"
 #include "remote.h"
@@ -244,7 +245,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
     /* If the file is new or changed, we must read in the contents a block at a
      * time. */
     if (!cached) {
-        SHA1Checksum hash;
+        Hash *hash = Hash::New();
         Subfile subfile(db);
         subfile.load_old_blocks(old_blocks);
 
@@ -258,7 +259,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                 break;
             }
 
-            hash.process(block_buf, bytes);
+            hash->update(block_buf, bytes);
 
             // Sparse file processing: if we read a block of all zeroes, encode
             // that explicitly.
@@ -343,7 +344,8 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                 status = "old";
         }
 
-        file_info["checksum"] = hash.checksum_str();
+        file_info["checksum"] = hash->digest_str();
+        delete hash;
     }
 
     // Sanity check: if we are rebuilding the statcache, but the file looks
@@ -683,6 +685,8 @@ void usage(const char *program)
 
 int main(int argc, char *argv[])
 {
+    hash_init();
+
     string backup_dest = "", backup_script = "";
     string localdb_dir = "";
     string backup_scheme = "";
