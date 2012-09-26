@@ -1,9 +1,12 @@
 /* sha1.cc - Functions to compute SHA1 message digest of data streams
  * according to the NIST specification FIPS-180-1.
- * part of Cumulus: Smart Filesystem Backup to Dumb Servers
+ * part of Cumulus: Efficient Filesystem Backup to the Cloud
  *
  * Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
  * Copyright (C) 2006-2007  The Regents of the University of California
+ * Copyright (C) 2012 The Cumulus Developers
+ * See the AUTHORS file for a list of Cumulus contributors.
+ *
  * Written by Scott G. Miller
  * Additional Credits:
  *    Robert Klep <robert@ilse.nl>  -- Expansion function fix

@@ -1,24 +1,30 @@
-/* sha256.cc - Message digests for Cumulus using SHA256
- *
- * This code is adapted from crypto/sha256_generic.c and include/crypto/sha.n
- * from the Linux kernel version 3.4.
- */
-
 /* SHA-256, as specified in
  * http://csrc.nist.gov/groups/STM/cavp/documents/shs/sha256-384-512.pdf
- *
- * SHA-256 code by Jean-Luc Cooke <jlcooke@certainkey.com>.
+ * part of Cumulus: Efficient Filesystem Backup to the Cloud
  *
  * Copyright (c) Jean-Luc Cooke <jlcooke@certainkey.com>
  * Copyright (c) Andrew McDonald <andrew@mcdonald.org.uk>
  * Copyright (c) 2002 James Morris <jmorris@intercode.com.au>
  * SHA224 Support Copyright 2007 Intel Corporation <jonathan.lynch@intel.com>
+ * Copyright (C) 2012 The Cumulus Developers
+ * See the AUTHORS file for a list of Cumulus contributors.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option) 
- * any later version.
+ * This code is adapted from crypto/sha256_generic.c and include/crypto/sha.h
+ * from the Linux kernel version 3.4, and reworked to fit within Cumulus.
  *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #define _BSD_SOURCE

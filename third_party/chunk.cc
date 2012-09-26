@@ -1,10 +1,14 @@
-/* Cumulus: Smart Filesystem Backup to Dumb Servers
- *
- * Copyright (C) 2006-2008  The Regents of the University of California
- * Written by Michael Vrable <mvrable@cs.ucsd.edu>
- *
- * Much of the code in this file is taken from LBFS, which is
+/* Cumulus: Efficient Filesystem Backup to the Cloud
  * Copyright (C) 1998, 1999 David Mazieres (dm@uun.org)
+ * Copyright (C) 2006-2008  The Regents of the University of California
+ *
+ * This code is largely taken from LBFS, primarily the files:
+ *   liblbfs/fingerprint.C  (fingerprint.C,v 1.1 2001/01/29 22:49:13 benjie Exp)
+ *   liblbfs/rabinpoly.h  (rabinpoly.h,v 1.4 2002/01/07 21:30:21 athicha Exp)
+ *   liblbfs/rabinpoly.C  (rabinpoly.C,v 1.1 2001/01/29 22:49:13 benjie Exp)
+ *   async/msb.h  (msb.h,v 1.6 1998/12/26 18:21:51 dm Exp)
+ *   async/msb.C  (msb.C,v 1.4 1998/12/26 18:21:51 dm Exp)
+ * but adapted and slimmed down to fit within Cumulus.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,14 +26,8 @@
  */
 
 /* Compute incremental backups at a sub-file level by chopping files up into
- * blocks in a content-sensitive manner (using Rabin fingerprints).  This code
- * is largely taken from LBFS, primarily the files:
- *   liblbfs/fingerprint.C  (fingerprint.C,v 1.1 2001/01/29 22:49:13 benjie Exp)
- *   liblbfs/rabinpoly.h  (rabinpoly.h,v 1.4 2002/01/07 21:30:21 athicha Exp)
- *   liblbfs/rabinpoly.C  (rabinpoly.C,v 1.1 2001/01/29 22:49:13 benjie Exp)
- *   async/msb.h  (msb.h,v 1.6 1998/12/26 18:21:51 dm Exp)
- *   async/msb.C  (msb.C,v 1.4 1998/12/26 18:21:51 dm Exp)
- * but adapted and slimmed down to fit within Cumulus. */
+ * blocks in a content-sensitive manner (using Rabin fingerprints).
+ */
 
 #include <stdio.h>
 #include <stdlib.h>

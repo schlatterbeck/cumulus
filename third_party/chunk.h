@@ -1,5 +1,4 @@
-/* Cumulus: Smart Filesystem Backup to Dumb Servers
- *
+/* Cumulus: Efficient Filesystem Backup to the Cloud
  * Copyright (C) 2006-2008  The Regents of the University of California
  * Written by Michael Vrable <mvrable@cs.ucsd.edu>
  *
