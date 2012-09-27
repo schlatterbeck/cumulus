@@ -1,3 +1,30 @@
+0.11 [???]
+    - SNAPSHOT FORMAT CHANGES:
+        - Timestamps encoded into the top-level snapshot file name are
+          now UTC instead of the local time zone.  This should avoid
+          ambiguity and ensure sorted order is chronological order in
+          the face of time zone changes.
+        - The format identifier is now "Format: Cumulus Snapshot v0.nn"
+          instead of "Format: LBS Snapshot v0.nn" (but the updated tools
+          will accept either variation).
+        - Additional checksum algorithms: sha224, sha256 (sha1 is still
+          supported).
+    - LOCAL DATABASE CHANGES:
+        - Segment utilization data (per snapshot) is tracked
+          differently, to allow better segment cleaning decisions.
+    - New, greatly-enhanced file include/exclude filtering language.
+      This is based on the filter language is rsync (though simplified)
+      and allows glob-like patterns.  It also supports filter rules
+      merged at backup-time from files in the file system; this allows,
+      for example, users to control which files in their home
+      directories are included in backups.  See doc/exclude.rst for
+      details.
+    - A new Python-based command-line interface to Cumulus.  Eventually
+      this should be the only command directly invoked by the user; it
+      will automate backup expiration, segment cleaning, backup
+      mirroring, etc.  Configuration options are read from a config file
+      so they can be applied consistently.
+
 0.10 [2012-05-29]
     - Make a release that packages up various long-existing patches.
     - Add FTP and SFTP storage backends (from Ralf Schlatterbeck and
