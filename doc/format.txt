@@ -32,8 +32,10 @@ format.  The general format used is
     <algorithm>=<hexdigits>
 
 <algorithm> identifies the checksum algorithm used, and allows new
-algorithms to be added later.  At the moment, the only permissible value
-is "sha1", indicating a SHA-1 checksum.
+algorithms to be added later.  Permissible values are:
+    "sha1": SHA-1
+    "sha224": SHA-224 (added in version 0.11)
+    "sha256": SHA-256 (added in version 0.11)
 
 <hexdigits> is a sequence of hexadecimal digits which encode the
 checksum value.  For sha1, <hexdigits> should be precisely 40 digits

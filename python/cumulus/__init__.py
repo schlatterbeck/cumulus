@@ -57,6 +57,7 @@ class Struct:
 
 CHECKSUM_ALGORITHMS = {
     'sha1': hashlib.sha1,
+    'sha224': hashlib.sha224,
     'sha256': hashlib.sha256,
 }
 
