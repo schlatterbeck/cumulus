@@ -541,6 +541,7 @@ void try_merge_filter(const string& path, const string& basedir)
      * one block (1 MB) worth of data.  If the file doesn't seems like it might
      * be larger than that, don't parse the rules in it. */
     ssize_t bytes = file_read(fd, block_buf, LBS_BLOCK_SIZE);
+    close(fd);
     if (bytes < 0 || bytes >= static_cast<ssize_t>(LBS_BLOCK_SIZE - 1)) {
         /* TODO: Add more strict resource limits on merge files? */
         fprintf(stderr,
@@ -585,7 +586,8 @@ void scanfile(const string& path)
         DIR *dir = opendir(path.c_str());
 
         if (dir == NULL) {
-            fprintf(stderr, "Error: %m\n");
+            fprintf(stderr, "Error reading directory %s: %m\n",
+                    path.c_str());
             return;
         }
 
