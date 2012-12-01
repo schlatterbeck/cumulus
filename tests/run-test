@@ -1,0 +1,70 @@
+#!/bin/bash
+#
+# Cumulus: Efficient Filesystem Backup to the Cloud
+# Copyright (C) 2012 The Cumulus Developers
+# See the AUTHORS file for a list of contributors.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+# Perform a simple Cumulus integration test: create a sample file tree, create
+# a backup, modify the files, create a new backup, then try restoring and
+# compare with the original state.
+
+# Directory containing test scripts
+TEST_DIR="$(readlink -f "$(dirname "$0")")"
+
+# Directory containing Cumulus binaries
+BIN_DIR="$(readlink -f "$TEST_DIR/..")"
+
+# Directory where temporary files used for the tests can be stored.
+TMP_DIR="$(readlink -f "$(mktemp -d cumulus-tests.XXXXXX)")"
+
+log_action() {
+    echo
+    echo "================================================================"
+    echo "$@"
+}
+
+log_action "Starting tests: BIN_DIR=$BIN_DIR TMP_DIR=$TMP_DIR"
+
+log_action "Initializing local database..."
+LOCALDB="$TMP_DIR/database"
+mkdir "$LOCALDB"
+sqlite3 -init "$BIN_DIR/schema.sql" "$LOCALDB/localdb.sqlite" ".exit"
+
+log_action "Creating test file system tree..."
+TREE="$TMP_DIR/tree"
+mkdir "$TREE"
+cp "$BIN_DIR"/*.cc "$BIN_DIR"/*.h "$TREE"
+cp -a "$BIN_DIR/python" "$TREE"
+"$TEST_DIR"/digest_tree "$TREE" >"$TMP_DIR/digest.1"
+
+log_action "Running initial backup..."
+sleep 5
+BACKUP_DIR="$TMP_DIR/backups"
+mkdir "$BACKUP_DIR"
+"$BIN_DIR"/cumulus --dest="$BACKUP_DIR" --localdb="$LOCALDB" \
+    --scheme=test -v "$TREE"
+
+log_action "Modifying files..."
+rm "$TREE/"*.h
+cp -a "$BIN_DIR/third_party" "$TREE"
+
+log_action "Running second backup..."
+sleep 5
+BACKUP_DIR="$TMP_DIR/backups"
+mkdir "$BACKUP_DIR"
+"$BIN_DIR"/cumulus --dest="$BACKUP_DIR" --localdb="$LOCALDB" \
+    --scheme=test -v "$TREE"
