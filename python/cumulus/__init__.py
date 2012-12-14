@@ -146,7 +146,7 @@ class LowlevelDataStore:
         """Return a file-like object for reading data from the given file."""
 
         (type, filename) = self._classify(filename)
-        return self.store.get(type, filename)
+        return self.store.get(type + "/" + filename)
 
     def lowlevel_stat(self, filename):
         """Return a dictionary of information about the given file.
@@ -156,7 +156,7 @@ class LowlevelDataStore:
         """
 
         (type, filename) = self._classify(filename)
-        return self.store.stat(type, filename)
+        return self.store.stat(type + "/" + filename)
 
     # Slightly higher-level list methods.
     def list_snapshots(self):
@@ -248,7 +248,7 @@ class ObjectStore:
                 yield (path[1], data_obj.read())
 
     def load_snapshot(self, snapshot):
-        file = self.store.lowlevel_open("snapshot-" + snapshot + ".lbs")
+        file = self.store.lowlevel_open("snapshot-" + snapshot + ".cumulus")
         return file.read().splitlines(True)
 
     def extract_segment(self, segment):

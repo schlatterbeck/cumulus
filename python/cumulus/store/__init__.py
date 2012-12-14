@@ -21,7 +21,7 @@ import exceptions, re, urlparse
 type_patterns = {
     'checksums': re.compile(r"^snapshot-(.*)\.(\w+)sums$"),
     'segments': re.compile(r"^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\.\S+)?$"),
-    'snapshots': re.compile(r"^snapshot-(.*)\.lbs$")
+    'snapshots': re.compile(r"^snapshot-(.*)\.(cumulus|lbs)$")
 }
 
 class NotFoundError(exceptions.KeyError):

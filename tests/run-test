@@ -61,6 +61,7 @@ mkdir "$BACKUP_DIR"
 log_action "Modifying files..."
 rm "$TREE/"*.h
 cp -a "$BIN_DIR/third_party" "$TREE"
+"$TEST_DIR"/digest_tree "$TREE" >"$TMP_DIR/digest.2"
 
 log_action "Running second backup..."
 sleep 5
@@ -68,3 +69,15 @@ BACKUP_DIR="$TMP_DIR/backups"
 mkdir "$BACKUP_DIR"
 "$BIN_DIR"/cumulus --dest="$BACKUP_DIR" --localdb="$LOCALDB" \
     --scheme=test -v "$TREE"
+
+log_action "Restoring snapshots"
+export LBS_GPG_PASSPHRASE=""
+snapshots=$("$BIN_DIR"/cumulus-util --store="$BACKUP_DIR" list-snapshots)
+echo "Available snapshots:" $snapshots
+i=0
+for s in $snapshots; do
+    i=$((i + 1))
+    dest="$TMP_DIR/restore-$i"
+    mkdir -p "$dest"
+    "$BIN_DIR"/cumulus-util --store="$BACKUP_DIR" restore-snapshot $s "$dest"
+done

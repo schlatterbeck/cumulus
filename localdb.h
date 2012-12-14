@@ -49,10 +49,11 @@ public:
     void UseObject(const ObjectReference& ref);
 
     std::set<std::string> GetUsedSegments();
-    void SetSegmentChecksum(const std::string &segment, const std::string &path,
+    void SetSegmentMetadata(const std::string &segment, const std::string &path,
                             const std::string &checksum,
-                            int data_size, int disk_size);
-    bool GetSegmentChecksum(const std::string &segment,
+                            const std::string &type, int data_size,
+                            int disk_size);
+    bool GetSegmentMetadata(const std::string &segment,
                             std::string *seg_path, std::string *seg_checksum);
 
     bool LoadChunkSignatures(ObjectReference ref,

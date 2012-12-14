@@ -244,7 +244,9 @@ ObjectReference TarSegmentStore::write_object(const char *data, size_t len,
         segment->basename += filter_extension;
         segment->count = 0;
         segment->data_size = 0;
-        segment->rf = remote->alloc_file(segment->basename, "segments");
+        segment->rf = remote->alloc_file(segment->basename,
+                                         group == "metadata" ? "segments0"
+                                                             : "segments1");
         segment->file = new Tarfile(segment->rf, segment->name);
 
         segments[group] = segment;
@@ -313,8 +315,8 @@ void TarSegmentStore::close_segment(const string &group)
             checksum = segment_checksum.checksum_str();
         }
 
-        db->SetSegmentChecksum(segment->name, segment->basename, checksum,
-                               segment->data_size, disk_size);
+        db->SetSegmentMetadata(segment->name, segment->basename, checksum,
+                               group, segment->data_size, disk_size);
     }
 
     segment->rf->send();

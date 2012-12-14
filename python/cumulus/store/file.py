@@ -30,17 +30,17 @@ class FileStore(cumulus.store.Store):
         self.prefix = self.path.rstrip("/")
 
     def _get_path(self, type, name):
-        return "%s/%s" % (self.prefix, name)
+        return os.path.join(self.prefix, type, name)
 
-    def list(self, type):
-        files = os.listdir(self.prefix)
-        return (f for f in files if type_patterns[type].match(f))
+    def list(self, subdir):
+        return os.listdir(os.path.join(self.prefix, subdir))
 
-    def get(self, type, name):
-        k = self._get_path(type, name)
-        return open(k, 'rb')
+    def get(self, path):
+        return open(os.path.join(self.prefix, path), 'rb')
 
-    def put(self, type, name, fp):
+    def put(self, path, fp):
+        # TODO: Implement
+        raise NotImplementedError
         k = self._get_path(type, name)
         out = open(k, 'wb')
         buf = fp.read(4096)
@@ -48,15 +48,14 @@ class FileStore(cumulus.store.Store):
             out.write(buf)
             buf = fp.read(4096)
 
-    def delete(self, type, name):
-        k = self._get_path(type, name)
-        os.unlink(k)
+    def delete(self, path):
+        os.unlink(os.path.join(self.prefix, path))
 
-    def stat(self, type, name):
+    def stat(self, path):
         try:
-            stat = os.stat(self._get_path(type, name))
+            stat = os.stat(os.path.join(self.prefix, path))
             return {'size': stat.st_size}
         except OSError:
-            raise cumulus.store.NotFoundError, (type, name)
+            raise cumulus.store.NotFoundError, path
 
 Store = FileStore

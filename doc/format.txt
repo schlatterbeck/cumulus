@@ -19,6 +19,30 @@ This document does not explain the rationale behind the format; for
 that, see design.txt.
 
 
+BACKUP REPOSITORY LAYOUT
+========================
+
+Cumulus backups are stored using a relatively simple layout.  Data files
+described below are written into one of several directories on the
+backup server, depending on their purpose:
+    snapshots/
+        Snapshot descriptor files, which quickly summarize each backup
+        snapshot stored.
+    segments0/
+    segments1/
+        Storage of the bulk of the backup data, in compressed/encrypted
+        form.  Technically any segment could be stored in either
+        directory (both directories will be searched when looking for a
+        segment).  However, data in segments0 might be faster to access
+        (but more expensive) depending on the storage backend.  The
+        intent is that segments0 can store filesystem tree metadata and
+        segments1 can store file contents.
+    meta/
+        Snapshot-specific metadata that is not core to the backup.  This
+        can include checksums of segments, some data for rebuilding
+        local database contents, etc.
+
+
 DATA CHECKSUMS
 ==============
 
@@ -71,6 +95,8 @@ fixed points; an example UUID is
 This segment could be stored in the filesystem as a file
     a704eeae-97f2-4f30-91a4-d4473956366b.tar
 The UUID used to name a segment is assigned when the segment is created.
+These files are stored in either the segments0 or segments1 directories
+on the backup server.
 
 Filters can be layered on top of the segment storage to provide
 compression, encryption, or other features.  For example, the example
@@ -101,8 +127,8 @@ object.
 
 NOTE: When naming an object, the segment portion consists of the UUID
 only.  Any extensions appended to the segment when storing it as a file
-in the filesystem (for example, .tar.bz2) are _not_ part of the name of
-the object.
+in the filesystem (for example, .tar.bz2) and path information (for
+example, segments0) are _not_ part of the name of the object.
 
 There are two additional components which may appear in an object name;
 both are optional.

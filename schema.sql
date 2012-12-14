@@ -28,12 +28,12 @@ create table snapshots (
 create table segments (
     segmentid integer primary key,
     segment text unique not null,
+    mtime real,                 -- timestamp when segment was created
     path text,
     checksum text,
-    mtime real,
     data_size integer,          -- sum of bytes in all objects in the segment
-    disk_size integer           -- size of segment on disk, after compression
-    -- TODO: group? metadata vs. non-metadata?
+    disk_size integer,          -- size of segment on disk, after compression
+    type text
 );
 
 -- Index of all data blocks in stored segments.  This is indexed by content

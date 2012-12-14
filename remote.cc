@@ -26,6 +26,7 @@
  * scripts that are called when a file is to be transferred. */
 
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,10 +45,31 @@
 
 using std::string;
 
+static const char *backup_directories[] = {
+    "meta",
+    "segments0",
+    "segments1",
+    "snapshots",
+    NULL
+};
+
 RemoteStore::RemoteStore(const string &stagedir, const string &script)
 {
     staging_dir = stagedir;
     backup_script = script;
+
+    /* Ensure all necessary directories exist for each type of backup file. */
+    for (size_t i = 0; backup_directories[i]; i++) {
+        string path = stagedir + "/" + backup_directories[i];
+        if (mkdir(path.c_str(), 0777) < 0) {
+            /* Ignore errors for already-existing directories. */
+            if (errno != EEXIST) {
+                fprintf(stderr,
+                        "Warning: Cannot create backup directory %s: %m!",
+                        path.c_str());
+            }
+        }
+    }
 
     /* A background thread is created for each RemoteStore to manage the actual
      * transfers to a remote server.  The main program thread can enqueue
@@ -93,7 +115,8 @@ RemoteFile *RemoteStore::alloc_file(const string &name, const string &type)
     pthread_mutex_lock(&lock);
     files_outstanding++;
     pthread_mutex_unlock(&lock);
-    return new RemoteFile(this, name, type, staging_dir + "/" + name);
+    return new RemoteFile(this, name, type,
+                          staging_dir + "/" + type + "/" + name);
 }
 
 /* Request that a file be transferred to the remote server.  The actual
@@ -250,7 +273,7 @@ RemoteFile::RemoteFile(RemoteStore *remote,
     remote_store = remote;
     this->type = type;
     this->local_path = local_path;
-    this->remote_path = name;
+    this->remote_path = type + "/" + name;
 
     fd = open(local_path.c_str(), O_WRONLY | O_CREAT, 0666);
     if (fd < 0)

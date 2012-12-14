@@ -806,7 +806,7 @@ int main(int argc, char *argv[])
      * a temporary directory for staging files.  Otherwise, write backups
      * directly to the destination directory. */
     if (backup_script != "") {
-        tmp_dir = tmp_dir + "/lbs." + generate_uuid();
+        tmp_dir = tmp_dir + "/cumulus." + generate_uuid();
         if (mkdir(tmp_dir.c_str(), 0700) < 0) {
             fprintf(stderr, "Cannot create temporary directory %s: %m\n",
                     tmp_dir.c_str());
@@ -863,14 +863,14 @@ int main(int argc, char *argv[])
         checksum_filename += backup_scheme + "-";
     checksum_filename = checksum_filename + desc_buf + "." + csum_type + "sums";
     RemoteFile *checksum_file = remote->alloc_file(checksum_filename,
-                                                   "checksums");
+                                                   "meta");
     FILE *checksums = fdopen(checksum_file->get_fd(), "w");
 
     std::set<string> segment_list = db->GetUsedSegments();
     for (std::set<string>::iterator i = segment_list.begin();
          i != segment_list.end(); ++i) {
         string seg_path, seg_csum;
-        if (db->GetSegmentChecksum(*i, &seg_path, &seg_csum)) {
+        if (db->GetSegmentMetadata(*i, &seg_path, &seg_csum)) {
             const char *raw_checksum = NULL;
             if (strncmp(seg_csum.c_str(), csum_type,
                         strlen(csum_type)) == 0) {
@@ -912,7 +912,7 @@ int main(int argc, char *argv[])
     string desc_filename = "snapshot-";
     if (backup_scheme.size() > 0)
         desc_filename += backup_scheme + "-";
-    desc_filename = desc_filename + desc_buf + ".lbs";
+    desc_filename = desc_filename + desc_buf + ".cumulus";
 
     RemoteFile *descriptor_file = remote->alloc_file(desc_filename,
                                                      "snapshots");

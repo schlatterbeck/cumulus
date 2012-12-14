@@ -283,17 +283,6 @@ void LocalDb::StoreObject(const ObjectReference& ref, double age)
     }
 
     sqlite3_finalize(stmt);
-
-    if (age != 0.0) {
-        stmt = Prepare("update segments "
-                       "set mtime = coalesce(max(mtime, ?), ?) "
-                       "where segmentid = ?");
-        sqlite3_bind_double(stmt, 1, age);
-        sqlite3_bind_double(stmt, 2, age);
-        sqlite3_bind_int64(stmt, 3, SegmentToId(ref.get_segment()));
-        rc = sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
-    }
 }
 
 ObjectReference LocalDb::FindObject(const string &checksum, int64_t size)
@@ -495,25 +484,28 @@ void LocalDb::UseObject(const ObjectReference& ref)
     }
 }
 
-void LocalDb::SetSegmentChecksum(const std::string &segment,
+void LocalDb::SetSegmentMetadata(const std::string &segment,
                                  const std::string &path,
                                  const std::string &checksum,
+                                 const std::string &type,
                                  int data_size, int disk_size)
 {
     int rc;
     sqlite3_stmt *stmt;
 
     stmt = Prepare("update segments set path = ?, checksum = ?, "
-                   "data_size = ?, disk_size = ?, "
+                   "type = ?, data_size = ?, disk_size = ?, "
                    "mtime = coalesce(mtime, julianday('now')) "
                    "where segmentid = ?");
     sqlite3_bind_text(stmt, 1, path.c_str(), path.size(),
                       SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, checksum.c_str(), checksum.size(),
                       SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt, 3, data_size);
-    sqlite3_bind_int64(stmt, 4, disk_size);
-    sqlite3_bind_int64(stmt, 5, SegmentToId(segment));
+    sqlite3_bind_text(stmt, 3, type.c_str(), type.size(),
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 4, data_size);
+    sqlite3_bind_int64(stmt, 5, disk_size);
+    sqlite3_bind_int64(stmt, 6, SegmentToId(segment));
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
@@ -524,7 +516,7 @@ void LocalDb::SetSegmentChecksum(const std::string &segment,
     sqlite3_finalize(stmt);
 }
 
-bool LocalDb::GetSegmentChecksum(const string &segment,
+bool LocalDb::GetSegmentMetadata(const string &segment,
                                  string *seg_path,
                                  string *seg_checksum)
 {
