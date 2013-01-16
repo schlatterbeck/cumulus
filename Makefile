@@ -10,7 +10,12 @@ SRCS=exclude.cc hash.cc localdb.cc main.cc metadata.cc ref.cc remote.cc \
      store.cc subfile.cc util.cc $(addprefix third_party/,$(THIRD_PARTY_SRCS))
 OBJS=$(SRCS:.cc=.o)
 
+all : cumulus cumulus-chunker-standalone
+
 cumulus : $(OBJS)
+	$(CXX) -o $@ $^ $(LDFLAGS)
+
+cumulus-chunker-standalone : chunker-standalone.o third_party/chunk.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 version : NEWS

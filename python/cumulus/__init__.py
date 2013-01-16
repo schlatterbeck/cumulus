@@ -191,7 +191,7 @@ class ObjectStore:
     def parse_ref(refstr):
         m = re.match(r"^zero\[(\d+)\]$", refstr)
         if m:
-            return ("zero", None, None, (0, int(m.group(1))))
+            return ("zero", None, None, (0, int(m.group(1)), False))
 
         m = re.match(r"^([-0-9a-f]+)\/([0-9a-f]+)(\(\S+\))?(\[(((\d+)\+)?(\d+)|=(\d+))\])?$", refstr)
         if not m: return
