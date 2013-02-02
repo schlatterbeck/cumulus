@@ -33,16 +33,19 @@ class FileStore(cumulus.store.Store):
         return os.path.join(self.prefix, type, name)
 
     def list(self, subdir):
-        return os.listdir(os.path.join(self.prefix, subdir))
+        try:
+            return os.listdir(os.path.join(self.prefix, subdir))
+        except OSError:
+            raise cumulus.store.NotFoundError(subdir)
 
     def get(self, path):
-        return open(os.path.join(self.prefix, path), 'rb')
+        try:
+            return open(os.path.join(self.prefix, path), 'rb')
+        except IOError:
+            raise cumulus.store.NotFoundError(path)
 
     def put(self, path, fp):
-        # TODO: Implement
-        raise NotImplementedError
-        k = self._get_path(type, name)
-        out = open(k, 'wb')
+        out = open(os.path.join(self.prefix, path), 'wb')
         buf = fp.read(4096)
         while len(buf) > 0:
             out.write(buf)

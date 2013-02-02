@@ -55,19 +55,19 @@ class Store (object):
         except ImportError:
             raise NotImplementedError, "Scheme %s not implemented" % scheme
 
-    def list(self, type):
+    def list(self, path):
         raise NotImplementedError
 
-    def get(self, type, name):
+    def get(self, path):
         raise NotImplementedError
 
-    def put(self, type, name, fp):
+    def put(self, path, fp):
         raise NotImplementedError
 
-    def delete(self, type, name):
+    def delete(self, path):
         raise NotImplementedError
 
-    def stat(self, type, name):
+    def stat(self, path):
         raise NotImplementedError
 
     def scan(self):

@@ -76,97 +76,75 @@ def cmd_list_snapshots(args):
     """ List snapshots stored.
         Syntax: $0 --data=DATADIR list-snapshots
     """
-    store = cumulus.LowlevelDataStore(options.store)
-    for s in sorted(store.list_snapshots()):
-        print s
+    store = cumulus.CumulusStore(options.store)
+    for s in sorted(store.list_snapshots()): print s
 
 def cmd_list_snapshot_sizes(args):
     """ List size of data needed for each snapshot.
         Syntax: $0 --data=DATADIR list-snapshot-sizes
     """
-    lowlevel = cumulus.LowlevelDataStore(options.store)
-    lowlevel.scan()
-    store = cumulus.ObjectStore(lowlevel)
+    store = cumulus.CumulusStore(options.store)
+    backend = store.backend
     previous = set()
-    exts = {}
-    for seg in lowlevel.store.list('segments'):
-        exts.update ([seg.split ('.', 1)])
-    for s in sorted(lowlevel.list_snapshots()):
+    size = 0
+    def get_size(segment):
+        return backend.stat_generic(segment + ".tar", "segments")["size"]
+    for s in sorted(store.list_snapshots()):
         d = cumulus.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
 
-        try:
-            intent = float(d['Backup-Intent'])
-        except:
-            intent = 1.0
-
-        segments = d['Segments'].split()
-        (size, added, removed, addcount, remcount) = (0, 0, 0, 0, 0)
-        lo_stat = lowlevel.lowlevel_stat
-        for seg in segments:
-            segsize = lo_stat('.'.join ((seg, exts[seg])))['size']
-            size += segsize
-            if seg not in previous:
-                added += segsize
-                addcount += 1
-        for seg in previous:
-            if seg not in segments:
-                removed += lo_stat('.'.join((seg, exts[seg])))['size']
-                remcount += 1
-        previous = set(segments)
-        print "%s [%s]: %.3f +%.3f -%.3f (+%d/-%d segments)" % (s, intent, size / 1024.0**2, added / 1024.0**2, removed / 1024.0**2, addcount, remcount)
+        segments = set(d['Segments'].split())
+        (added, removed, addcount, remcount) = (0, 0, 0, 0)
+        for seg in segments.difference(previous):
+            added += get_size(seg)
+            addcount += 1
+        for seg in previous.difference(segments):
+            removed += get_size(seg)
+            remcount += 1
+        size += added - removed
+        previous = segments
+        print "%s: %.3f +%.3f -%.3f (+%d/-%d segments)" % (s, size / 1024.0**2, added / 1024.0**2, removed / 1024.0**2, addcount, remcount)
 
 def cmd_garbage_collect(args):
     """ Search for any files which are not needed by any current
         snapshots and offer to delete them.
         Syntax: $0 --store=DATADIR gc
     """
-    lowlevel = cumulus.LowlevelDataStore(options.store)
-    lowlevel.scan()
-    store = cumulus.ObjectStore(lowlevel)
-    snapshots = set(lowlevel.list_snapshots())
-    segments = set()
-    for s in snapshots:
+    store = cumulus.CumulusStore(options.store)
+    backend = store.backend
+    referenced = set()
+    for s in store.list_snapshots():
         d = cumulus.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
-        segments.update(d['Segments'].split())
+        referenced.add(s)
+        referenced.update(d['Segments'].split())
 
-    referenced = snapshots.union(segments)
-    reclaimed = 0
-    for (t, r) in cumulus.store.type_patterns.items():
-        for f in lowlevel.store.list(t):
-            m = r.match(f)
-            if m is None or m.group(1) not in referenced:
-                print "Garbage:", (t, f)
-                reclaimed += lowlevel.store.stat(t, f)['size']
-                if not options.dry_run:
-                    lowlevel.store.delete(t, f)
-    print "Reclaimed space:", reclaimed
+    print referenced
 
+    to_delete = []
+    to_preserve = []
+    for filetype in cumulus.SEARCH_PATHS:
+        for (name, path) in store.backend.list_generic(filetype):
+            if name in referenced:
+                to_preserve.append(path)
+            else:
+                to_delete.append(path)
+
+    print to_preserve
+    print to_delete
+
+    raw_backend = backend.raw_backend
+    for f in to_delete:
+        print "Delete:", f
+        if not options.dry_run:
+            raw_backend.delete(f)
 cmd_gc = cmd_garbage_collect
-
-def cmd_object_checksums(segments):
-    """ Build checksum list for objects in the given segments, or all
-        segments if none are specified.
-    """
-    get_passphrase()
-    lowlevel = cumulus.LowlevelDataStore(options.store)
-    store = cumulus.ObjectStore(lowlevel)
-    if len(segments) == 0:
-        segments = sorted(lowlevel.list_segments())
-    for s in segments:
-        for (o, data) in store.load_segment(s):
-            csum = cumulus.ChecksumCreator().update(data).compute()
-            print "%s/%s:%d:%s" % (s, o, len(data), csum)
-    store.cleanup()
-object_sums = cmd_object_checksums
 
 def cmd_read_snapshots(snapshots):
     """ Read a snapshot file
     """
     get_passphrase()
-    lowlevel = cumulus.LowlevelDataStore(options.store)
-    store = cumulus.ObjectStore(lowlevel)
+    store = cumulus.CumulusStore(options.store)
     for s in snapshots:
         d = cumulus.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
@@ -179,8 +157,7 @@ def cmd_read_metadata(args):
     """
     snapshot = args [0]
     get_passphrase()
-    lowlevel = cumulus.LowlevelDataStore(options.store)
-    store = cumulus.ObjectStore(lowlevel)
+    store = cumulus.CumulusStore(options.store)
     d = cumulus.parse_full(store.load_snapshot(snapshot))
     check_version(d['Format'])
     metadata = cumulus.read_metadata(store, d['Root'])
@@ -198,8 +175,7 @@ def cmd_verify_snapshots(snapshots):
     """ Verify snapshot integrity
     """
     get_passphrase()
-    lowlevel = cumulus.LowlevelDataStore(options.store)
-    store = cumulus.ObjectStore(lowlevel)
+    store = cumulus.CumulusStore(options.store)
     for s in snapshots:
         cumulus.accessed_segments.clear()
         print "#### Snapshot", s
@@ -237,8 +213,7 @@ def cmd_restore_snapshot(args):
     """ Restore a snapshot, or some subset of files from it
     """
     get_passphrase()
-    lowlevel = cumulus.LowlevelDataStore(options.store)
-    store = cumulus.ObjectStore(lowlevel)
+    store = cumulus.CumulusStore(options.store)
     snapshot = cumulus.parse_full(store.load_snapshot(args[0]))
     check_version(snapshot['Format'])
     destdir = args[1]
@@ -279,7 +254,7 @@ def cmd_restore_snapshot(args):
             metadata_paths[pathname] = m
             for block in m.data():
                 (segment, object, checksum, slice) \
-                    = cumulus.ObjectStore.parse_ref(block)
+                    = cumulus.CumulusStore.parse_ref(block)
                 if segment not in metadata_segments:
                     metadata_segments[segment] = set()
                 metadata_segments[segment].add(pathname)

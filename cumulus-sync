@@ -30,27 +30,40 @@ sys.path.append(os.path.join(script_directory, 'python'))
 import cumulus
 import cumulus.store
 
-store1 = cumulus.store.open(sys.argv[1])
-store2 = cumulus.store.open(sys.argv[2])
+store1 = cumulus.BackendWrapper(sys.argv[1])
+store2 = cumulus.BackendWrapper(sys.argv[2])
 
-source = cumulus.ObjectStore(cumulus.LowlevelDataStore(store1))
+source = cumulus.CumulusStore(store1)
 
-filter = set()
-for s in sys.argv[3:]:
-    filter.add(s)
+items_required = set()
+snapshots = sys.argv[3:]
+if not snapshots:
+    snapshots = list(source.list_snapshots())
+for s in snapshots:
+    items_required.add(s)
     d = cumulus.parse_full(source.load_snapshot(s))
-    filter.update(d['Segments'].split())
+    items_required.update(d['Segments'].split())
+print "Required:", items_required
 
-for ty in ('segments', 'checksums', 'snapshots'):
-    for f in sorted(store1.list(ty)):
-        m = cumulus.store.type_patterns[ty].match(f)
-        if not m: continue
-        if filter and m.group(1) not in filter:
-            continue
+files_present = set()
+for filetype in cumulus.SEARCH_PATHS:
+    for (name, path) in store2.list_generic(filetype):
+        items_required.discard(name)
+        files_present.add(path)
+print "Files already present:", sorted(files_present)
 
-        print ty, f
-        try:
-            store2.stat(ty, f)
-        except cumulus.store.NotFoundError:
-            store2.put(ty, f, store1.get(ty, f))
-            print "    [sent]"
+files_required = []
+items_found = set()
+for filetype in cumulus.SEARCH_PATHS:
+    for (name, path) in store1.list_generic(filetype):
+        if name in items_required:
+            files_required.append(path)
+            items_found.add(name)
+files_required.sort()
+
+print "Missing:", items_required.difference(items_found)
+print "Required files:", files_required
+
+for f in files_required:
+    print f
+    store2.raw_backend.put(f, store1.raw_backend.get(f))
