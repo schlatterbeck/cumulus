@@ -39,7 +39,7 @@
 class LocalDb {
 public:
     void Open(const char *path, const char *snapshot_name,
-              const char *snapshot_scheme, double intent);
+              const char *snapshot_scheme);
     void Close();
     void StoreObject(const ObjectReference& ref, double age);
     ObjectReference FindObject(const std::string &checksum, int64_t size);

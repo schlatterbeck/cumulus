@@ -82,11 +82,6 @@ static char *block_buf;
  * invocations to help in creating incremental snapshots. */
 LocalDb *db;
 
-/* Snapshot intent: 1=daily, 7=weekly, etc.  This is not used directly, but is
- * stored in the local database and can help guide segment cleaning and
- * snapshot expiration policies. */
-double snapshot_intent = 1.0;
-
 /* Selection of files to include/exclude in the snapshot. */
 PathFilterList filter_rules;
 
@@ -657,8 +652,7 @@ void usage(const char *program)
         "  --signature-filter=COMMAND\n"
         "                       program though which to filter descriptor\n"
         "  --scheme=NAME        optional name for this snapshot\n"
-        "  --intent=FLOAT       intended backup type: 1=daily, 7=weekly, ...\n"
-        "                           (defaults to \"1\")\n"
+        "  --intent=FLOAT       DEPRECATED: ignored, and will be removed soon\n"
         "  --full-metadata      do not re-use metadata from previous backups\n"
         "  --rebuild-statcache  re-read all file data to verify statcache\n"
         "  -v --verbose         list files as they are backed up\n"
@@ -689,7 +683,7 @@ int main(int argc, char *argv[])
             {"dest", 1, 0, 0},              // 3
             {"scheme", 1, 0, 0},            // 4
             {"signature-filter", 1, 0, 0},  // 5
-            {"intent", 1, 0, 0},            // 6
+            {"intent", 1, 0, 0},            // 6, DEPRECATED
             {"full-metadata", 0, 0, 0},     // 7
             {"tmpdir", 1, 0, 0},            // 8
             {"upload-script", 1, 0, 0},     // 9
@@ -729,9 +723,9 @@ int main(int argc, char *argv[])
                 signature_filter = optarg;
                 break;
             case 6:     // --intent
-                snapshot_intent = atof(optarg);
-                if (snapshot_intent <= 0)
-                    snapshot_intent = 1;
+                fprintf(stderr,
+                        "Warning: The --intent= option is deprecated and will "
+                        "be removed in the future.\n");
                 break;
             case 7:     // --full-metadata
                 flag_full_metadata = true;
@@ -832,8 +826,7 @@ int main(int argc, char *argv[])
      * snapshot. */
     string database_path = localdb_dir + "/localdb.sqlite";
     db = new LocalDb;
-    db->Open(database_path.c_str(), desc_buf, backup_scheme.c_str(),
-             snapshot_intent);
+    db->Open(database_path.c_str(), desc_buf, backup_scheme.c_str());
 
     tss = new TarSegmentStore(remote, db);
 
@@ -937,7 +930,6 @@ int main(int argc, char *argv[])
     fprintf(descriptor, "Date: %s\n", desc_buf);
     if (backup_scheme.size() > 0)
         fprintf(descriptor, "Scheme: %s\n", backup_scheme.c_str());
-    fprintf(descriptor, "Backup-Intent: %g\n", snapshot_intent);
     fprintf(descriptor, "Root: %s\n", backup_root.c_str());
 
     if (csum.size() > 0) {
