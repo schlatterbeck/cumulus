@@ -729,16 +729,15 @@ class LocalDatabase:
         """
         cur = self.cursor()
 
-        # Delete entries in the segments_used table which are for non-existent
-        # snapshots.
-        cur.execute("""delete from segments_used
+        # Delete entries in the segment_utilization table which are for
+        # non-existent snapshots.
+        cur.execute("""delete from segment_utilization
                        where snapshotid not in
                            (select snapshotid from snapshots)""")
 
-        # Find segments which contain no objects used by any current snapshots,
-        # and delete them from the segment table.
+        # Delete segments not referenced by any current snapshots.
         cur.execute("""delete from segments where segmentid not in
-                           (select segmentid from segments_used)""")
+                           (select segmentid from segment_utilization)""")
 
         # Delete dangling objects in the block_index table.
         cur.execute("""delete from block_index
