@@ -31,10 +31,10 @@ import hashlib
 import itertools
 import os
 import re
+import sqlite3
 import tarfile
 import tempfile
 import thread
-from pysqlite2 import dbapi2 as sqlite3
 
 import cumulus.store
 import cumulus.store.file
