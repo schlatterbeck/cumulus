@@ -1,5 +1,6 @@
 *.o
 *.pyc
 /cumulus
+/cumulus-chunker-standalone
 /Makefile.dep
 /version
