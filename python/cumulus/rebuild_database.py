@@ -201,7 +201,7 @@ class ChunkerExternal(Chunker):
         self.subproc.stdin.write(buf)
         self.subproc.stdin.flush()
         breaks = self.subproc.stdout.readline()
-        return [int(x) + 1 for x in breaks.split()]
+        return [0] + [int(x) + 1 for x in breaks.split()]
 
 
 class DatabaseRebuilder(object):
@@ -209,10 +209,8 @@ class DatabaseRebuilder(object):
         self.database = database
         self.cursor = database.cursor()
         self.segment_ids = {}
-        #try:
         self.chunker = ChunkerExternal()
-        #except:
-        #    self.chunker = Chunker()
+        #self.chunker = Chunker()
 
     def segment_to_id(self, segment):
         if segment in self.segment_ids: return self.segment_ids[segment]
@@ -311,14 +309,13 @@ class DatabaseRebuilder(object):
                 blockid = self.cursor.lastrowid
 
             # Store subblock signatures, if available.
-            print "blockid:", blockid
-            if (segment, object) in subblock_signatures:
+            sigs = subblock_signatures.get((segment, object))
+            if sigs:
                 self.cursor.execute(
                     """insert or replace into subblock_signatures(
                            blockid, algorithm, signatures)
                        values (?, ?, ?)""",
-                    (blockid, self.chunker.ALGORITHM_NAME,
-                     buffer(subblock_signatures[(segment, object)])))
+                    (blockid, self.chunker.ALGORITHM_NAME, buffer(sigs)))
 
 
 if __name__ == "__main__":
