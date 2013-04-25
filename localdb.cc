@@ -452,7 +452,7 @@ void LocalDb::UseObject(const ObjectReference& ref)
     // size will have a reference size capped at just less than the full object
     // size (we can't tell if some bytes were referenced multiple times, and
     // thus we conservatively assume some bytes might still be unreferenced).
-    int64_t new_refs = old_size;
+    int64_t new_refs;
     if (ref.has_range()) {
         new_refs = ref.get_range_length();
     } else {
