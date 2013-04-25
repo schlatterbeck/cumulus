@@ -30,9 +30,11 @@ import base64
 import hashlib
 import itertools
 import os
+import re
 import struct
 import subprocess
 import sys
+import tarfile
 
 import cumulus
 
@@ -318,7 +320,76 @@ class DatabaseRebuilder(object):
                     (blockid, self.chunker.ALGORITHM_NAME, buffer(sigs)))
 
 
+class SegmentStateRebuilder(object):
+    """Reconstructs segment metadata files from raw segment data."""
+
+    def __init__(self):
+        self.filters = dict(cumulus.SEGMENT_FILTERS)
+        self.segment_pattern = cumulus.SEARCH_PATHS["segments"]
+
+    def compute_metadata(self, path, relative_path):
+        """Recompute metadata of a single segment.
+
+        Args:
+            path: Path to the segment file in the file system.
+            relative_path: Path relative to the root for the storage backend.
+        """
+        # Does the filename match that of a segment?  If so, extract the
+        # extension to determine the filter to apply to decompress.
+        filename = os.path.basename(relative_path)
+        m = self.segment_pattern.match(filename)
+        if not m: return
+        segment_name = m.group(1)
+        extension = m.group(2)
+        if extension not in self.filters: return
+        filter_cmd = self.filters[extension]
+
+        # Compute attributes of the compressed segment data.
+        BLOCK_SIZE = 4096
+        with open(path) as segment:
+            disk_size = 0
+            checksummer = cumulus.ChecksumCreator(CHECKSUM_ALGORITHM)
+            while True:
+                buf = segment.read(BLOCK_SIZE)
+                if len(buf) == 0: break
+                disk_size += len(buf)
+                checksummer.update(buf)
+        checksum = checksummer.compute()
+
+        # Compute attributes of the objects within the segment.
+        data_size = 0
+        object_count = 0
+        with open(path) as segment:
+            decompressed = cumulus.CumulusStore.filter_data(segment, filter_cmd)
+            objects = tarfile.open(mode='r|', fileobj=decompressed)
+            for tarinfo in objects:
+                data_size += tarinfo.size
+                object_count += 1
+
+        return {"segment": segment_name,
+                "path": relative_path,
+                "checksum": checksum,
+                "data_size": data_size,
+                "disk_size": disk_size}
+
 if __name__ == "__main__":
+    segment_rebuilder = SegmentStateRebuilder()
+    topdir = sys.argv[1]
+    files = []
+    for dirpath, dirnames, filenames in os.walk(topdir):
+        for f in filenames:
+            files.append(os.path.join(dirpath, f))
+    files.sort()
+    for f in files:
+        metadata = segment_rebuilder.compute_metadata(
+            f,
+            os.path.relpath(f, topdir))
+        if metadata:
+            for (k, v) in sorted(metadata.items()):
+                print "%s: %s" % (k, cumulus.uri_encode(str(v)))
+            print
+    sys.exit(0)
+
     # Read metadata from stdin; filter out lines starting with "@@" so the
     # statcache file can be parsed as well.
     metadata = (x for x in sys.stdin if not x.startswith("@@"))
