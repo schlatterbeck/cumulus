@@ -319,7 +319,7 @@ bool LocalDb::IsOldObject(const string &checksum, int64_t size, double *age,
     sqlite3_stmt *stmt;
     bool found = false;
 
-    stmt = Prepare("select segmentid, object, timestamp, expired "
+    stmt = Prepare("select segmentid, object, julianday(timestamp), expired "
                    "from block_index where checksum = ? and size = ?");
     sqlite3_bind_text(stmt, 1, checksum.c_str(), checksum.size(),
                       SQLITE_TRANSIENT);
@@ -494,7 +494,8 @@ void LocalDb::SetSegmentMetadata(const std::string &segment,
 
     stmt = Prepare("update segments set path = ?, checksum = ?, "
                    "type = ?, data_size = ?, disk_size = ?, "
-                   "mtime = coalesce(mtime, julianday('now')) "
+                   "timestamp = coalesce(julianday(timestamp), "
+                   "                     julianday('now')) "
                    "where segmentid = ?");
     sqlite3_bind_text(stmt, 1, path.c_str(), path.size(),
                       SQLITE_TRANSIENT);
