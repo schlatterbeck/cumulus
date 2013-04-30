@@ -27,6 +27,7 @@
 using std::map;
 using std::string;
 
+static string default_algorithm;
 static map<string, Hash *(*)()> hash_registry;
 
 void Hash::Register(const std::string& name, Hash *(*constructor)())
@@ -37,8 +38,7 @@ void Hash::Register(const std::string& name, Hash *(*constructor)())
 
 Hash *Hash::New()
 {
-    // TODO: Make generic
-    return New("sha224");
+    return New(default_algorithm);
 }
 
 Hash *Hash::New(const std::string& name)
@@ -102,4 +102,5 @@ void hash_init()
 {
     sha1_register();
     sha256_register();
+    default_algorithm = "sha224";
 }

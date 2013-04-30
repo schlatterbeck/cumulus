@@ -62,9 +62,12 @@ public:
     static const int HASH_SIZE = 20;
 
 private:
+    std::string algorithm_name;
+    size_t hash_size;
+
     struct chunk_info {
-        char hash[HASH_SIZE];
         int offset, len;
+        std::string hash;
     };
 
     struct block_summary {
@@ -89,10 +92,6 @@ private:
     void index_chunks(ObjectReference ref);
     void free_analysis();
     void store_block_signatures(ObjectReference ref, block_summary summary);
-
-    std::string get_algorithm() {
-        return chunk_algorithm_name() + "/sha1";
-    }
 };
 
 #endif // _LBS_SUBFILE_H

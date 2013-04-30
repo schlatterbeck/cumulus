@@ -26,9 +26,9 @@
 #include <assert.h>
 #include <arpa/inet.h>
 
+#include "hash.h"
 #include "subfile.h"
 #include "third_party/chunk.h"
-#include "third_party/sha1.h"
 
 using std::list;
 using std::map;
@@ -41,6 +41,11 @@ using std::make_pair;
 Subfile::Subfile(LocalDb *localdb)
     : db(localdb), checksums_loaded(false), new_block_summary_valid(false)
 {
+    Hash *hasher = Hash::New();
+    hasher->digest();
+    algorithm_name = chunk_algorithm_name() + "/" + hasher->name();
+    hash_size = hasher->digest_size();
+    delete hasher;
 }
 
 Subfile::~Subfile()
@@ -92,7 +97,7 @@ void Subfile::index_chunks(ObjectReference ref)
     string algorithm;
     if (!db->LoadChunkSignatures(ref, (void **)&packed_sigs, &len, &algorithm))
         return;
-    if (algorithm != get_algorithm()) {
+    if (algorithm != algorithm_name) {
         free(packed_sigs);
         return;
     }
@@ -101,13 +106,13 @@ void Subfile::index_chunks(ObjectReference ref)
 
     block_summary summary;
     summary.ref = ref.base();
-    summary.num_chunks = len / (2 + HASH_SIZE);
+    summary.num_chunks = len / (2 + hash_size);
     summary.chunks = new chunk_info[summary.num_chunks];
 
     int block_start = 0;
     for (int i = 0; i < summary.num_chunks; i++) {
-        char *packed_info = &packed_sigs[i * (2 + HASH_SIZE)];
-        memcpy(summary.chunks[i].hash, &packed_info[2], HASH_SIZE);
+        char *packed_info = &packed_sigs[i * (2 + hash_size)];
+        summary.chunks[i].hash = string(&packed_info[2], hash_size);
 
         uint16_t chunk_len;
         memcpy(&chunk_len, &packed_info[0], 2);
@@ -115,8 +120,7 @@ void Subfile::index_chunks(ObjectReference ref)
         summary.chunks[i].offset = block_start;
         block_start += summary.chunks[i].len;
 
-        chunk_index[string(summary.chunks[i].hash, HASH_SIZE)]
-            = make_pair(block_id, i);
+        chunk_index[summary.chunks[i].hash] = make_pair(block_id, i);
     }
 
     block_list.push_back(summary);
@@ -164,11 +168,13 @@ void Subfile::analyze_new_block(const char *buf, size_t len)
         new_block_summary.chunks[i].len = breakpoints[i] - block_start + 1;
         block_start = breakpoints[i] + 1;
 
-        SHA1Checksum hash;
-        hash.process(&buf[new_block_summary.chunks[i].offset],
-                     new_block_summary.chunks[i].len);
-        assert(hash.checksum_size() == (size_t)HASH_SIZE);
-        memcpy(new_block_summary.chunks[i].hash, hash.checksum(), HASH_SIZE);
+        Hash *hasher = Hash::New();
+        hasher->update(&buf[new_block_summary.chunks[i].offset],
+                       new_block_summary.chunks[i].len);
+        new_block_summary.chunks[i].hash
+            = string(reinterpret_cast<const char *>(hasher->digest()),
+                     hasher->digest_size());
+        delete hasher;
     }
 
     new_block_summary_valid = true;
@@ -178,18 +184,17 @@ void Subfile::analyze_new_block(const char *buf, size_t len)
 void Subfile::store_block_signatures(ObjectReference ref, block_summary summary)
 {
     int n = summary.num_chunks;
-    char *packed = (char *)malloc(n * (2 + HASH_SIZE));
+    char *packed = (char *)malloc(n * (2 + hash_size));
 
     for (int i = 0; i < n; i++) {
         assert(summary.chunks[i].len >= 0 && summary.chunks[i].len <= 0xffff);
         uint16_t len = htons(summary.chunks[i].len);
-        char *packed_info = &packed[i * (2 + HASH_SIZE)];
+        char *packed_info = &packed[i * (2 + hash_size)];
         memcpy(&packed_info[0], &len, 2);
-        memcpy(&packed_info[2], summary.chunks[i].hash, HASH_SIZE);
+        memcpy(&packed_info[2], summary.chunks[i].hash.data(), hash_size);
     }
 
-    db->StoreChunkSignatures(ref, packed, n * (2 + HASH_SIZE),
-                             get_algorithm());
+    db->StoreChunkSignatures(ref, packed, n * (2 + hash_size), algorithm_name);
 
     free(packed);
 }
@@ -212,7 +217,7 @@ struct subfile_item {
     // For type SUBFILE_NEW
     int src_offset, dst_offset;
     int len;
-    char hash[Subfile::HASH_SIZE];
+    string hash;
 };
 
 /* Compute an incremental representation of the data last analyzed.  A list of
@@ -236,8 +241,7 @@ list<ObjectReference> Subfile::create_incremental(TarSegmentStore *tss,
 
     for (int i = 0; i < new_block_summary.num_chunks; i++) {
         map<string, pair<int, int> >::iterator m
-            = chunk_index.find(string(new_block_summary.chunks[i].hash,
-                                      HASH_SIZE));
+            = chunk_index.find(new_block_summary.chunks[i].hash);
 
         struct subfile_item item;
         if (m == chunk_index.end()) {
@@ -245,7 +249,7 @@ list<ObjectReference> Subfile::create_incremental(TarSegmentStore *tss,
             item.src_offset = new_block_summary.chunks[i].offset;
             item.dst_offset = new_data;
             item.len = new_block_summary.chunks[i].len;
-            memcpy(item.hash, new_block_summary.chunks[i].hash, HASH_SIZE);
+            item.hash = new_block_summary.chunks[i].hash;
             new_data += item.len;
         } else {
             struct chunk_info &old_chunk
@@ -285,9 +289,10 @@ list<ObjectReference> Subfile::create_incremental(TarSegmentStore *tss,
             }
         }
 
-        SHA1Checksum block_hash;
-        block_hash.process(literal_buf, new_data);
-        string block_csum = block_hash.checksum_str();
+        Hash *hasher = Hash::New();
+        hasher->update(literal_buf, new_data);
+        string block_csum = hasher->digest_str();
+        delete hasher;
 
         o->set_group("data");
         o->set_data(literal_buf, new_data, NULL);
@@ -309,7 +314,7 @@ list<ObjectReference> Subfile::create_incremental(TarSegmentStore *tss,
         for (i = items.begin(); i != items.end(); ++i) {
             if (i->type == SUBFILE_NEW) {
                 chunk_info &info = summary.chunks[summary.num_chunks];
-                memcpy(info.hash, i->hash, HASH_SIZE);
+                info.hash = i->hash;
                 info.offset = i->dst_offset;
                 info.len = i->len;
                 summary.num_chunks++;
