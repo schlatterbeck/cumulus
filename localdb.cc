@@ -32,12 +32,14 @@
 #include <sqlite3.h>
 
 #include <algorithm>
+#include <map>
 #include <string>
 
 #include "localdb.h"
 #include "store.h"
 #include "util.h"
 
+using std::map;
 using std::max;
 using std::min;
 using std::set;
@@ -516,36 +518,33 @@ void LocalDb::SetSegmentMetadata(const std::string &segment,
     sqlite3_finalize(stmt);
 }
 
-bool LocalDb::GetSegmentMetadata(const string &segment,
-                                 string *seg_path,
-                                 string *seg_checksum)
+map<string, string> LocalDb::GetSegmentMetadata(const string &segment)
 {
     int rc;
     sqlite3_stmt *stmt;
-    ObjectReference ref;
-    int found = false;
+    map<string, string> info;
 
-    stmt = Prepare("select path, checksum from segments where segment = ?");
+    // Names in the returned map, in the order returned from the select
+    // statement below.
+    static const char *fields[] = {
+        "datetime", "path", "checksum", "data_size", "disk_size", "type", NULL
+    };
+
+    stmt = Prepare("select datetime(timestamp), path, checksum, "
+                   "    data_size, disk_size, type "
+                   "from segments where segment = ?");
     sqlite3_bind_text(stmt, 1, segment.c_str(), segment.size(),
                       SQLITE_TRANSIENT);
 
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_DONE) {
     } else if (rc == SQLITE_ROW) {
-        found = true;
-        const char *val;
-
-        val = (const char *)sqlite3_column_text(stmt, 0);
-        if (val == NULL)
-            found = false;
-        else
-            *seg_path = val;
-
-        val = (const char *)sqlite3_column_text(stmt, 1);
-        if (val == NULL)
-            found = false;
-        else
-            *seg_checksum = val;
+        info["segment"] = segment;
+        for (int i = 0; fields[i] != NULL; i++) {
+            const char *val = (const char *)sqlite3_column_text(stmt, i);
+            if (val != NULL)
+                info[fields[i]] = val;
+        }
     } else {
         fprintf(stderr, "Could not execute SELECT statement!\n");
         ReportError(rc);
@@ -553,7 +552,7 @@ bool LocalDb::GetSegmentMetadata(const string &segment,
 
     sqlite3_finalize(stmt);
 
-    return found;
+    return info;
 }
 
 /* Look up and return the packed representation of the subblock chunk

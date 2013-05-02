@@ -71,6 +71,7 @@ public:
     int get_fd() const { return fd; }
 
     const std::string &get_local_path() const { return local_path; }
+    const std::string &get_remote_path() const { return remote_path; }
 
     /* Called when the file is finished--request that it be sent to the remote
      * server.  This will delete the RemoteFile object. */

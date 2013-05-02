@@ -53,8 +53,8 @@ public:
                             const std::string &checksum,
                             const std::string &type, int data_size,
                             int disk_size);
-    bool GetSegmentMetadata(const std::string &segment,
-                            std::string *seg_path, std::string *seg_checksum);
+    std::map<std::string, std::string> GetSegmentMetadata(
+        const std::string &segment);
 
     bool LoadChunkSignatures(ObjectReference ref,
                              void **buf, size_t *len,

@@ -860,8 +860,12 @@ int main(int argc, char *argv[])
     std::set<string> segment_list = db->GetUsedSegments();
     for (std::set<string>::iterator i = segment_list.begin();
          i != segment_list.end(); ++i) {
-        string seg_path, seg_csum;
-        if (db->GetSegmentMetadata(*i, &seg_path, &seg_csum)) {
+        map<string, string> segment_metadata = db->GetSegmentMetadata(*i);
+        if (segment_metadata.count("path")
+            && segment_metadata.count("checksum"))
+        {
+            string seg_path = segment_metadata["path"];
+            string seg_csum = segment_metadata["checksum"];
             const char *raw_checksum = NULL;
             if (strncmp(seg_csum.c_str(), csum_type,
                         strlen(csum_type)) == 0) {
@@ -887,6 +891,33 @@ int main(int argc, char *argv[])
     }
 
     checksum_file->send();
+
+    /* Write out a summary file with metadata for all the segments in this
+     * snapshot (can be used to reconstruct database contents if needed). */
+    string dbmeta_filename = "snapshot-";
+    if (backup_scheme.size() > 0)
+        dbmeta_filename += backup_scheme + "-";
+    dbmeta_filename += timestamp + ".meta";
+    RemoteFile *dbmeta_file = remote->alloc_file(dbmeta_filename,
+                                                   "meta");
+    FILE *dbmeta = fdopen(dbmeta_file->get_fd(), "w");
+
+    for (std::set<string>::iterator i = segment_list.begin();
+         i != segment_list.end(); ++i) {
+        map<string, string> segment_metadata = db->GetSegmentMetadata(*i);
+        if (segment_metadata.size() > 0) {
+            map<string, string>::const_iterator j;
+            for (j = segment_metadata.begin();
+                 j != segment_metadata.end(); ++j)
+            {
+                fprintf(dbmeta, "%s: %s\n",
+                        j->first.c_str(), j->second.c_str());
+            }
+            fprintf(dbmeta, "\n");
+        }
+    }
+    fclose(dbmeta);
+    dbmeta_file->send();
 
     db->Close();
 

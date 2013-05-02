@@ -315,8 +315,8 @@ void TarSegmentStore::close_segment(const string &group)
             checksum = segment_checksum.checksum_str();
         }
 
-        db->SetSegmentMetadata(segment->name, segment->basename, checksum,
-                               group, segment->data_size, disk_size);
+        db->SetSegmentMetadata(segment->name, segment->rf->get_remote_path(),
+                               checksum, group, segment->data_size, disk_size);
     }
 
     segment->rf->send();
