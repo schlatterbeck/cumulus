@@ -31,6 +31,8 @@
 #include <string>
 #include <sstream>
 
+#include "util.h"
+
 using std::map;
 using std::ostream;
 using std::string;
@@ -133,4 +135,25 @@ void fatal(string msg)
 {
     fprintf(stderr, "FATAL: %s\n", msg.c_str());
     exit(1);
+}
+
+/* Available time formats. */
+const char TimeFormat::FORMAT_FILENAME[] = "%Y%m%dT%H%M%S";
+const char TimeFormat::FORMAT_ISO8601[] = "%Y-%m-%d %H:%M:%S";
+const char TimeFormat::FORMAT_LOCALTIME[] = "%Y-%m-%d %H:%M:%S %z";
+
+static size_t MAX_TIMESTAMP_LENGTH = 1024;
+
+std::string TimeFormat::format(time_t timestamp, const char *format, bool utc)
+{
+    struct tm time_buf;
+
+    if (utc)
+        gmtime_r(&timestamp, &time_buf);
+    else
+        localtime_r(&timestamp, &time_buf);
+
+    char buffer[MAX_TIMESTAMP_LENGTH];
+    strftime(buffer, MAX_TIMESTAMP_LENGTH, format, &time_buf);
+    return string(buffer);
 }

@@ -814,24 +814,21 @@ int main(int argc, char *argv[])
     /* Store the time when the backup started, so it can be included in the
      * snapshot name. */
     time_t now;
-    struct tm time_buf_local, time_buf_utc;
-    char desc_buf[256];
     time(&now);
-    localtime_r(&now, &time_buf_local);
-    gmtime_r(&now, &time_buf_utc);
-    strftime(desc_buf, sizeof(desc_buf), "%Y%m%dT%H%M%S", &time_buf_utc);
+    string timestamp
+        = TimeFormat::format(now, TimeFormat::FORMAT_FILENAME, true);
 
     /* Open the local database which tracks all objects that are stored
      * remotely, for efficient incrementals.  Provide it with the name of this
      * snapshot. */
     string database_path = localdb_dir + "/localdb.sqlite";
     db = new LocalDb;
-    db->Open(database_path.c_str(), desc_buf, backup_scheme.c_str());
+    db->Open(database_path.c_str(), timestamp.c_str(), backup_scheme.c_str());
 
     tss = new TarSegmentStore(remote, db);
 
     /* Initialize the stat cache, for skipping over unchanged files. */
-    metawriter = new MetadataWriter(tss, localdb_dir.c_str(), desc_buf,
+    metawriter = new MetadataWriter(tss, localdb_dir.c_str(), timestamp.c_str(),
                                     backup_scheme.c_str());
 
     for (int i = optind; i < argc; i++) {
@@ -854,7 +851,8 @@ int main(int argc, char *argv[])
     string checksum_filename = "snapshot-";
     if (backup_scheme.size() > 0)
         checksum_filename += backup_scheme + "-";
-    checksum_filename = checksum_filename + desc_buf + "." + csum_type + "sums";
+    checksum_filename
+        = checksum_filename + timestamp + "." + csum_type + "sums";
     RemoteFile *checksum_file = remote->alloc_file(checksum_filename,
                                                    "meta");
     FILE *checksums = fdopen(checksum_file->get_fd(), "w");
@@ -905,7 +903,7 @@ int main(int argc, char *argv[])
     string desc_filename = "snapshot-";
     if (backup_scheme.size() > 0)
         desc_filename += backup_scheme + "-";
-    desc_filename = desc_filename + desc_buf + ".cumulus";
+    desc_filename = desc_filename + timestamp + ".cumulus";
 
     RemoteFile *descriptor_file = remote->alloc_file(desc_filename,
                                                      "snapshots");
@@ -925,9 +923,9 @@ int main(int argc, char *argv[])
 
     fprintf(descriptor, "Format: Cumulus Snapshot v0.11\n");
     fprintf(descriptor, "Producer: Cumulus %s\n", cumulus_version);
-    strftime(desc_buf, sizeof(desc_buf), "%Y-%m-%d %H:%M:%S %z",
-             &time_buf_local);
-    fprintf(descriptor, "Date: %s\n", desc_buf);
+    string timestamp_local
+        = TimeFormat::format(now, TimeFormat::FORMAT_LOCALTIME, false);
+    fprintf(descriptor, "Date: %s\n", timestamp_local.c_str());
     if (backup_scheme.size() > 0)
         fprintf(descriptor, "Scheme: %s\n", backup_scheme.c_str());
     fprintf(descriptor, "Root: %s\n", backup_root.c_str());

@@ -36,4 +36,25 @@ void cloexec(int fd);
 
 void fatal(std::string msg) __attribute__((noreturn));
 
+/* Date/time string formatting and parsing utility functions.  All data and
+ * methods are static, so this class should not be instantiated. */
+class TimeFormat {
+public:
+    // Abbreviated time format encoded in snapshot file names.
+    static const char FORMAT_FILENAME[];
+    // A timestamp, in UTC, written out in an ISO 8601 format (compatible with
+    // the SQLite datetime function).
+    static const char FORMAT_ISO8601[];
+    // Similar to the above, but including a timezone offset.
+    static const char FORMAT_LOCALTIME[];
+
+    static std::string format(time_t timestamp, const char *format, bool utc);
+
+    static std::string isoformat(time_t timestamp)
+        { return format(timestamp, FORMAT_ISO8601, true); }
+
+private:
+    TimeFormat() { }
+};
+
 #endif // _LBS_TARSTORE_H
