@@ -53,6 +53,9 @@ public:
     static Hash *New();
     static Hash *New(const std::string& name);
 
+    // Computes and returns the hash of a file on disk.
+    static std::string hash_file(const char *filename);
+
 protected:
     virtual const uint8_t *finalize() = 0;
 

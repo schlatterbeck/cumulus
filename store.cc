@@ -309,11 +309,8 @@ void TarSegmentStore::close_segment(const string &group)
             group_sizes[segment->group].second += disk_size;
         }
 
-        SHA1Checksum segment_checksum;
-        string checksum;
-        if (segment_checksum.process_file(segment->rf->get_local_path().c_str())) {
-            checksum = segment_checksum.checksum_str();
-        }
+        string checksum
+            = Hash::hash_file(segment->rf->get_local_path().c_str());
 
         db->SetSegmentMetadata(segment->name, segment->rf->get_remote_path(),
                                checksum, group, segment->data_size, disk_size);

@@ -50,6 +50,17 @@ Hash *Hash::New(const std::string& name)
         return constructor();
 }
 
+std::string Hash::hash_file(const char *filename)
+{
+    string result;
+    Hash *hash = Hash::New();
+    if (hash->update_from_file(filename))
+        result = hash->digest_str();
+
+    delete hash;
+    return result;
+}
+
 bool Hash::update_from_file(const char *filename)
 {
     FILE *f = fopen(filename, "rb");

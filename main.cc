@@ -917,6 +917,9 @@ int main(int argc, char *argv[])
         }
     }
     fclose(dbmeta);
+
+    string dbmeta_csum
+        = Hash::hash_file(dbmeta_file->get_local_path().c_str());
     dbmeta_file->send();
 
     db->Close();
@@ -960,6 +963,10 @@ int main(int argc, char *argv[])
     if (backup_scheme.size() > 0)
         fprintf(descriptor, "Scheme: %s\n", backup_scheme.c_str());
     fprintf(descriptor, "Root: %s\n", backup_root.c_str());
+
+    if (dbmeta_csum.size() > 0) {
+        fprintf(descriptor, "Database-state: %s\n", dbmeta_csum.c_str());
+    }
 
     if (csum.size() > 0) {
         fprintf(descriptor, "Checksums: %s\n", csum.c_str());
