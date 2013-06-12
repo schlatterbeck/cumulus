@@ -27,6 +27,9 @@
 #include <map>
 #include <string>
 
+std::string string_printf(const char *fmt, ...)
+    __attribute__((format(printf, 1, 2)));
+
 std::string uri_encode(const std::string &in);
 std::string uri_decode(const std::string &in);
 std::string encode_int(long long n, int base=10);

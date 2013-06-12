@@ -292,9 +292,8 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                     if (object_group == 0) {
                         o->set_group("data");
                     } else {
-                        char group[32];
-                        sprintf(group, "compacted-%d", object_group);
-                        o->set_group(group);
+                        o->set_group(string_printf("compacted-%d",
+                                                   object_group));
                     }
                     if (status == NULL)
                         status = "partial";

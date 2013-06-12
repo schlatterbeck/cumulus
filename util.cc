@@ -20,6 +20,7 @@
 /* Utility functions for converting various datatypes to text format (and
  * later, for parsing them back, perhaps). */
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -36,6 +37,25 @@
 using std::map;
 using std::ostream;
 using std::string;
+
+/* Like sprintf, but returns the output as an allocated string. */
+string string_printf(const char *fmt, ...)
+{
+    va_list args;
+    char *output = NULL;
+    string result;
+
+    va_start(args, fmt);
+    if (vasprintf(&output, fmt, args) < 0) {
+        /* TODO: Error signalling? */
+        return result;
+    }
+    result = output;
+    va_end(args);
+
+    free(output);
+    return result;
+}
 
 /* Perform URI-style escaping of a string.  Bytes which cannot be represented
  * directly are encoded in the form %xx (where "xx" is a string of two
@@ -96,20 +116,12 @@ string uri_decode(const string &in)
  * advisory.  For negative numbers, will always use decimal. */
 string encode_int(long long n, int base)
 {
-    char buf[64];
-
-    if (n >= 0 && base == 16) {
-        sprintf(buf, "0x%llx", n);
-        return buf;
-    }
-
-    if (n > 0 && base == 8) {
-        sprintf(buf, "0%llo", n);
-        return buf;
-    }
-
-    sprintf(buf, "%lld", n);
-    return buf;
+    if (n >= 0 && base == 16)
+        return string_printf("0x%llx", n);
+    else if (n > 0 && base == 8)
+        return string_printf("0%llo", n);
+    else
+        return string_printf("%lld", n);
 }
 
 /* Parse the string representation of an integer.  Accepts decimal, octal, and
