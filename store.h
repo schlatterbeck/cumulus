@@ -68,6 +68,42 @@ struct tar_header
     char padding[12];
 };
 
+class FileFilter {
+public:
+    // It is valid for program to be NULL or empty; if so, no filtering is
+    // done.
+    static FileFilter *New(int fd, const char *program);
+
+    // Wait for the filter process to terminate.
+    int wait();
+
+    // Accessors for the file descriptors.
+    int get_raw_fd() const { return fd_raw; }
+    int get_wrapped_fd() const { return fd_wrapped; }
+
+private:
+    FileFilter(int raw, int wrapped, pid_t pid);
+
+    // Launch a process to filter data written to a file descriptor.  fd_out is
+    // the file descriptor where the filtered data should be written.  program
+    // is the filter program to execute (a single string which will be
+    // interpreted by /bin/sh).  The return value is a file descriptor to which
+    // the data to be filtered should be written.  The process ID of the filter
+    // process is stored at address filter_pid if non-NULL.
+    static int spawn_filter(int fd_out, const char *program, pid_t *filter_pid);
+
+    // The original file descriptor passed when creating the FileFilter object.
+    int fd_raw;
+
+    // The wrapped file descriptor: writes here are piped through the filter
+    // program.
+    int fd_wrapped;
+
+    // The filter process if one was launched, or -1 if there is no filter
+    // program.
+    pid_t pid;
+};
+
 /* A simple wrapper around a single TAR file to represent a segment.  Objects
  * may only be written out all at once, since the tar header must be written
  * first; incremental writing is not supported. */
@@ -86,10 +122,7 @@ private:
     std::string segment_name;
 
     RemoteFile *file;
-
-    /* Filter support. */
-    int real_fd, filter_fd;
-    pid_t filter_pid;
+    FileFilter *filter;
 
     // Write data to the tar file
     void tar_write(const char *data, size_t size);
@@ -194,13 +227,5 @@ extern const char *filter_program;
 /* Extension which should be appended to segments written out (.tar is already
  * included; this adds to it) */
 extern const char *filter_extension;
-
-/* Launch a process to filter data written to a file descriptor.  fd_out is the
- * file descriptor where the filtered data should be written.  program is the
- * filter program to execute (a single string which will be interpreted by
- * /bin/sh).  The return value is a file descriptor to which the data to be
- * filtered should be written.  The process ID of the filter process is stored
- * at address filter_pid if non-NULL. */
-int spawn_filter(int fd_out, const char *program, pid_t *filter_pid);
 
 #endif // _LBS_STORE_H

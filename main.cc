@@ -896,10 +896,15 @@ int main(int argc, char *argv[])
     string dbmeta_filename = "snapshot-";
     if (backup_scheme.size() > 0)
         dbmeta_filename += backup_scheme + "-";
-    dbmeta_filename += timestamp + ".meta";
-    RemoteFile *dbmeta_file = remote->alloc_file(dbmeta_filename,
-                                                   "meta");
-    FILE *dbmeta = fdopen(dbmeta_file->get_fd(), "w");
+    dbmeta_filename += timestamp + ".meta" + filter_extension;
+    RemoteFile *dbmeta_file = remote->alloc_file(dbmeta_filename, "meta");
+    FileFilter *dbmeta_filter = FileFilter::New(dbmeta_file->get_fd(),
+                                                filter_program);
+    if (dbmeta_filter == NULL) {
+        fprintf(stderr, "Unable to open descriptor output file: %m\n");
+        return 1;
+    }
+    FILE *dbmeta = fdopen(dbmeta_filter->get_wrapped_fd(), "w");
 
     for (std::set<string>::iterator i = segment_list.begin();
          i != segment_list.end(); ++i) {
@@ -940,19 +945,13 @@ int main(int argc, char *argv[])
 
     RemoteFile *descriptor_file = remote->alloc_file(desc_filename,
                                                      "snapshots");
-    int descriptor_fd = descriptor_file->get_fd();
-    if (descriptor_fd < 0) {
+    FileFilter *descriptor_filter = FileFilter::New(descriptor_file->get_fd(),
+                                                    signature_filter.c_str());
+    if (descriptor_filter == NULL) {
         fprintf(stderr, "Unable to open descriptor output file: %m\n");
         return 1;
     }
-    pid_t signature_pid = 0;
-    if (signature_filter.size() > 0) {
-        int new_fd = spawn_filter(descriptor_fd, signature_filter.c_str(),
-                                  &signature_pid);
-        close(descriptor_fd);
-        descriptor_fd = new_fd;
-    }
-    FILE *descriptor = fdopen(descriptor_fd, "w");
+    FILE *descriptor = fdopen(descriptor_filter->get_wrapped_fd(), "w");
 
     fprintf(descriptor, "Format: Cumulus Snapshot v0.11\n");
     fprintf(descriptor, "Producer: Cumulus %s\n", cumulus_version);
@@ -978,14 +977,8 @@ int main(int argc, char *argv[])
     }
 
     fclose(descriptor);
-
-    if (signature_pid) {
-        int status;
-        waitpid(signature_pid, &status, 0);
-
-        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-            fatal("Signature filter process error");
-        }
+    if (descriptor_filter->wait() < 0) {
+        fatal("Signature filter process error");
     }
 
     descriptor_file->send();
