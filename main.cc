@@ -46,6 +46,7 @@
 #include <string>
 #include <vector>
 
+#include "cumulus.h"
 #include "exclude.h"
 #include "hash.h"
 #include "localdb.h"
@@ -226,7 +227,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
     /* If the file is new or changed, we must read in the contents a block at a
      * time. */
     if (!cached) {
-        Hash *hash = Hash::New();
+        scoped_ptr<Hash> file_hash(Hash::New());
         Subfile subfile(db);
         subfile.load_old_blocks(old_blocks);
 
@@ -240,7 +241,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                 break;
             }
 
-            hash->update(block_buf, bytes);
+            file_hash->update(block_buf, bytes);
 
             // Sparse file processing: if we read a block of all zeroes, encode
             // that explicitly.
@@ -257,10 +258,9 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
             double block_age = 0.0;
             ObjectReference ref;
 
-            Hash *hash = Hash::New();
-            hash->update(block_buf, bytes);
-            string block_csum = hash->digest_str();
-            delete hash;
+            scoped_ptr<Hash> block_hash(Hash::New());
+            block_hash->update(block_buf, bytes);
+            string block_csum = block_hash->digest_str();
 
             if (all_zero) {
                 ref = ObjectReference(ObjectReference::REF_ZERO);
@@ -323,8 +323,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
                 status = "old";
         }
 
-        file_info["checksum"] = hash->digest_str();
-        delete hash;
+        file_info["checksum"] = file_hash->digest_str();
     }
 
     // Sanity check: if we are rebuilding the statcache, but the file looks

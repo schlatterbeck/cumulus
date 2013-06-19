@@ -11,6 +11,7 @@ Dependencies:
     http://code.google.com/p/boto
   - paramiko, SSH2 protocol for python (for sftp storage)
     http://www.lag.net/paramiko/
+  - Boost (smart_ptr)
 
 Building should be a simple matter of running "make".  This will produce
 an executable called "cumulus".
