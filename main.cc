@@ -843,56 +843,9 @@ int main(int argc, char *argv[])
     tss->dump_stats();
     delete tss;
 
-    /* Write out a checksums file which lists the checksums for all the
-     * segments included in this snapshot.  The format is designed so that it
-     * may be easily verified using the sha1sums command. */
-    const char csum_type[] = "sha1";
-    string checksum_filename = "snapshot-";
-    if (backup_scheme.size() > 0)
-        checksum_filename += backup_scheme + "-";
-    checksum_filename
-        = checksum_filename + timestamp + "." + csum_type + "sums";
-    RemoteFile *checksum_file = remote->alloc_file(checksum_filename,
-                                                   "meta");
-    FILE *checksums = fdopen(checksum_file->get_fd(), "w");
-
-    std::set<string> segment_list = db->GetUsedSegments();
-    for (std::set<string>::iterator i = segment_list.begin();
-         i != segment_list.end(); ++i) {
-        map<string, string> segment_metadata = db->GetSegmentMetadata(*i);
-        if (segment_metadata.count("path")
-            && segment_metadata.count("checksum"))
-        {
-            string seg_path = segment_metadata["path"];
-            string seg_csum = segment_metadata["checksum"];
-            const char *raw_checksum = NULL;
-            if (strncmp(seg_csum.c_str(), csum_type,
-                        strlen(csum_type)) == 0) {
-                raw_checksum = seg_csum.c_str() + strlen(csum_type);
-                if (*raw_checksum == '=')
-                    raw_checksum++;
-                else
-                    raw_checksum = NULL;
-            }
-
-            if (raw_checksum != NULL)
-                fprintf(checksums, "%s *%s\n",
-                        raw_checksum, seg_path.c_str());
-        }
-    }
-    fclose(checksums);
-
-    SHA1Checksum checksum_csum;
-    string csum;
-    checksum_filename = checksum_file->get_local_path();
-    if (checksum_csum.process_file(checksum_filename.c_str())) {
-        csum = checksum_csum.checksum_str();
-    }
-
-    checksum_file->send();
-
     /* Write out a summary file with metadata for all the segments in this
-     * snapshot (can be used to reconstruct database contents if needed). */
+     * snapshot (can be used to reconstruct database contents if needed), and
+     * contains hash values for the segments for quick integrity checks. */
     string dbmeta_filename = "snapshot-";
     if (backup_scheme.size() > 0)
         dbmeta_filename += backup_scheme + "-";
@@ -906,6 +859,7 @@ int main(int argc, char *argv[])
     }
     FILE *dbmeta = fdopen(dbmeta_filter->get_wrapped_fd(), "w");
 
+    std::set<string> segment_list = db->GetUsedSegments();
     for (std::set<string>::iterator i = segment_list.begin();
          i != segment_list.end(); ++i) {
         map<string, string> segment_metadata = db->GetSegmentMetadata(*i);
@@ -921,6 +875,7 @@ int main(int argc, char *argv[])
         }
     }
     fclose(dbmeta);
+    dbmeta_filter->wait();
 
     string dbmeta_csum
         = Hash::hash_file(dbmeta_file->get_local_path().c_str());
@@ -963,11 +918,7 @@ int main(int argc, char *argv[])
     fprintf(descriptor, "Root: %s\n", backup_root.c_str());
 
     if (dbmeta_csum.size() > 0) {
-        fprintf(descriptor, "Database-state: %s\n", dbmeta_csum.c_str());
-    }
-
-    if (csum.size() > 0) {
-        fprintf(descriptor, "Checksums: %s\n", csum.c_str());
+        fprintf(descriptor, "Segment-metadata: %s\n", dbmeta_csum.c_str());
     }
 
     fprintf(descriptor, "Segments:\n");
