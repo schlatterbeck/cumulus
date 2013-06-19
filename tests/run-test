@@ -31,6 +31,9 @@ BIN_DIR="$(readlink -f "$TEST_DIR/..")"
 # Directory where temporary files used for the tests can be stored.
 TMP_DIR="$(readlink -f "$(mktemp -d cumulus-tests.XXXXXX)")"
 
+# Command to use for running memory leak tests.
+VALGRIND="valgrind --tool=memcheck --leak-check=full --log-file=$TMP_DIR/valgrind.log"
+
 log_action() {
     echo
     echo "================================================================"
@@ -67,7 +70,7 @@ log_action "Running second backup..."
 sleep 5
 BACKUP_DIR="$TMP_DIR/backups"
 mkdir "$BACKUP_DIR"
-"$BIN_DIR"/cumulus --dest="$BACKUP_DIR" --localdb="$LOCALDB" \
+$VALGRIND "$BIN_DIR"/cumulus --dest="$BACKUP_DIR" --localdb="$LOCALDB" \
     --scheme=test -v "$TREE"
 
 log_action "Restoring snapshots"
