@@ -96,7 +96,6 @@ FileFilter *FileFilter::New(int fd, const char *program)
 
     pid_t pid;
     int wrapped_fd = spawn_filter(fd, program, &pid);
-    close(fd);
     return new FileFilter(fd, wrapped_fd, pid);
 }
 
@@ -105,6 +104,10 @@ int FileFilter::wait()
     // No filter program was launched implies no need to wait.
     if (pid == -1)
         return 0;
+
+    // The raw file descriptor was held open to track the output file size, but
+    // is not needed any longer.
+    close(fd_raw);
 
     int status;
     if (waitpid(pid, &status, 0) < 0) {
