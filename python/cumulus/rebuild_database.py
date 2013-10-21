@@ -259,6 +259,27 @@ class DatabaseRebuilder(object):
 
         self.database.commit()
 
+    def reload_segment_metadata(self, segment_metadata):
+        """Read a segment metadata (.meta) file into the local database.
+
+        Updates the segments table in the local database with information from
+        a a segment metadata backup file.  Old data is not overwritten, so
+        loading a .meta file with partial information is fine.
+        """
+        for info in cumulus.parse(segment_metadata,
+                                     terminate=lambda l: len(l) == 0):
+            segment = info.pop("segment")
+            self.insert_segment_info(segment, info)
+
+        self.database.commit()
+
+    def insert_segment_info(self, segment, info):
+        id = self.segment_to_id(segment)
+        for k, v in info.items():
+            self.cursor.execute("update segments set " + k + " = ? "
+                                "where segmentid = ?",
+                                (v, id))
+
     def rebuild_file(self, fp, metadata):
         """Recompute database signatures if a file is unchanged.
 
@@ -401,6 +422,7 @@ class SegmentStateRebuilder(object):
                 "timestamp": timestamp}
 
 if __name__ == "__main__":
+    # Sample code to reconstruct segment metadata--ought to be relocated.
     if False:
         segment_rebuilder = SegmentStateRebuilder()
         topdir = sys.argv[1]
@@ -417,6 +439,13 @@ if __name__ == "__main__":
                 for (k, v) in sorted(metadata.items()):
                     print "%s: %s" % (k, v)
                 print
+        sys.exit(0)
+
+    # Sample code to rebuild the segments table from metadata--needs to be
+    # merged with the code below.
+    if False:
+        rebuilder = DatabaseRebuilder(cumulus.LocalDatabase(sys.argv[1]))
+        rebuilder.reload_segment_metadata(open(sys.argv[2]))
         sys.exit(0)
 
     # Read metadata from stdin; filter out lines starting with "@@" so the
