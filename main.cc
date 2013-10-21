@@ -850,8 +850,8 @@ int main(int argc, char *argv[])
         dbmeta_filename += backup_scheme + "-";
     dbmeta_filename += timestamp + ".meta" + filter_extension;
     RemoteFile *dbmeta_file = remote->alloc_file(dbmeta_filename, "meta");
-    FileFilter *dbmeta_filter = FileFilter::New(dbmeta_file->get_fd(),
-                                                filter_program);
+    scoped_ptr<FileFilter> dbmeta_filter(FileFilter::New(dbmeta_file->get_fd(),
+                                                         filter_program));
     if (dbmeta_filter == NULL) {
         fprintf(stderr, "Unable to open descriptor output file: %m\n");
         return 1;
@@ -899,8 +899,8 @@ int main(int argc, char *argv[])
 
     RemoteFile *descriptor_file = remote->alloc_file(desc_filename,
                                                      "snapshots");
-    FileFilter *descriptor_filter = FileFilter::New(descriptor_file->get_fd(),
-                                                    signature_filter.c_str());
+    scoped_ptr<FileFilter> descriptor_filter(
+        FileFilter::New(descriptor_file->get_fd(), signature_filter.c_str()));
     if (descriptor_filter == NULL) {
         fprintf(stderr, "Unable to open descriptor output file: %m\n");
         return 1;

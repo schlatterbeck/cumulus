@@ -33,6 +33,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "cumulus.h"
 #include "localdb.h"
 #include "remote.h"
 #include "ref.h"
@@ -122,7 +123,7 @@ private:
     std::string segment_name;
 
     RemoteFile *file;
-    FileFilter *filter;
+    scoped_ptr<FileFilter> filter;
 
     // Write data to the tar file
     void tar_write(const char *data, size_t size);

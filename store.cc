@@ -64,7 +64,7 @@ Tarfile::Tarfile(RemoteFile *file, const string &segment)
     assert(sizeof(struct tar_header) == TAR_BLOCK_SIZE);
 
     this->file = file;
-    this->filter = FileFilter::New(file->get_fd(), filter_program);
+    this->filter.reset(FileFilter::New(file->get_fd(), filter_program));
 }
 
 Tarfile::~Tarfile()
