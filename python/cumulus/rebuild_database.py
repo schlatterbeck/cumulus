@@ -35,12 +35,15 @@ import struct
 import subprocess
 import sys
 import tarfile
+import time
 
 import cumulus
 
 CHECKSUM_ALGORITHM = "sha224"
-
 CHUNKER_PROGRAM = "cumulus-chunker-standalone"
+
+# TODO: Move to somewhere common
+SQLITE_TIMESTAMP = "%Y-%m-%d %H:%M:%S"
 
 class Chunker(object):
     """Compute sub-file chunk boundaries using a sliding Rabin fingerprint.
@@ -363,6 +366,11 @@ class SegmentStateRebuilder(object):
         if extension not in self.filters: return
         filter_cmd = self.filters[extension]
 
+        # File attributes.
+        st_buf = os.stat(path)
+        timestamp = time.strftime(SQLITE_TIMESTAMP,
+                                  time.gmtime(st_buf.st_mtime))
+
         # Compute attributes of the compressed segment data.
         BLOCK_SIZE = 4096
         with open(path) as segment:
@@ -385,11 +393,12 @@ class SegmentStateRebuilder(object):
                 data_size += tarinfo.size
                 object_count += 1
 
-        return {"segment": segment_name,
-                "path": relative_path,
+        return {"segment": cumulus.uri_encode(segment_name),
+                "path": cumulus.uri_encode(relative_path),
                 "checksum": checksum,
                 "data_size": data_size,
-                "disk_size": disk_size}
+                "disk_size": disk_size,
+                "timestamp": timestamp}
 
 if __name__ == "__main__":
     if False:
@@ -406,7 +415,7 @@ if __name__ == "__main__":
                 os.path.relpath(f, topdir))
             if metadata:
                 for (k, v) in sorted(metadata.items()):
-                    print "%s: %s" % (k, cumulus.uri_encode(str(v)))
+                    print "%s: %s" % (k, v)
                 print
         sys.exit(0)
 
