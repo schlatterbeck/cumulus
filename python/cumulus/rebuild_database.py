@@ -301,6 +301,9 @@ class DatabaseRebuilder(object):
             buf = fp.read(length)
             verifier.update(buf)
 
+            # Zero blocks get no checksums, so skip further processing on them.
+            if object is None: continue
+
             if exact:
                 csum = cumulus.ChecksumCreator(CHECKSUM_ALGORITHM)
                 csum.update(buf)
