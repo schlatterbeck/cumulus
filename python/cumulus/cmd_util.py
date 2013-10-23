@@ -85,6 +85,7 @@ def cmd_list_snapshot_sizes(args):
     """
     store = cumulus.CumulusStore(options.store)
     backend = store.backend
+    backend.prefetch_generic()
     previous = set()
     size = 0
     def get_size(segment):

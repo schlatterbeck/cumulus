@@ -43,14 +43,14 @@ for s in snapshots:
     items_required.add(s)
     d = cumulus.parse_full(source.load_snapshot(s))
     items_required.update(d['Segments'].split())
-print "Required:", items_required
+print "Required:", len(items_required)
 
 files_present = set()
 for filetype in cumulus.SEARCH_PATHS:
     for (name, path) in store2.list_generic(filetype):
         items_required.discard(name)
         files_present.add(path)
-print "Files already present:", sorted(files_present)
+print "Files already present:", len(sorted(files_present))
 
 files_required = []
 items_found = set()
@@ -61,9 +61,6 @@ for filetype in cumulus.SEARCH_PATHS:
             items_found.add(name)
 files_required.sort()
 
-print "Missing:", items_required.difference(items_found)
-print "Required files:", files_required
-
-for f in files_required:
-    print f
+for i, f in enumerate(files_required):
+    print "[%d/%d] %s" % (i + 1, len(files_required), f)
     store2.raw_backend.put(f, store1.raw_backend.get(f))

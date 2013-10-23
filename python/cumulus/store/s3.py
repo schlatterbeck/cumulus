@@ -20,10 +20,24 @@
 
 import os, sys, tempfile
 import boto
+from boto.exception import S3ResponseError
 from boto.s3.bucket import Bucket
 from boto.s3.key import Key
 
 import cumulus.store
+
+def throw_notfound(method):
+    """Decorator to convert a 404 error into a cumulus.store.NoutFoundError."""
+    def f(*args, **kwargs):
+        try:
+            return method(*args, **kwargs)
+        except S3ResponseError as e:
+            if e.status == 404:
+                print "Got a 404:", e
+                raise cumulus.store.NotFoundError(e)
+            else:
+                raise
+    return f
 
 class S3Store(cumulus.store.Store):
     def __init__(self, url, **kw):
@@ -44,39 +58,44 @@ class S3Store(cumulus.store.Store):
         self.prefix = prefix.strip("/")
         self.scan_cache = {}
 
-    def _get_key(self, type, name):
+    def _get_key(self, path):
         k = Key(self.bucket)
-        k.key = "%s/%s/%s" % (self.prefix, type, name)
+        k.key = "%s/%s" % (self.prefix, path)
         return k
 
-    def scan(self):
-        prefix = "%s/" % (self.prefix,)
+    @throw_notfound
+    def scan(self, path):
+        prefix = "%s/%s/" % (self.prefix, path)
         for i in self.bucket.list(prefix):
             assert i.key.startswith(prefix)
             self.scan_cache[i.key] = i
 
-    def list(self, type):
-        prefix = "%s/%s/" % (self.prefix, type)
+    @throw_notfound
+    def list(self, path):
+        prefix = "%s/%s/" % (self.prefix, path)
         for i in self.bucket.list(prefix):
             assert i.key.startswith(prefix)
             yield i.key[len(prefix):]
 
-    def get(self, type, name):
+    @throw_notfound
+    def get(self, path):
         fp = tempfile.TemporaryFile()
-        k = self._get_key(type, name)
+        k = self._get_key(path)
         k.get_file(fp)
         fp.seek(0)
         return fp
 
-    def put(self, type, name, fp):
-        k = self._get_key(type, name)
+    @throw_notfound
+    def put(self, path, fp):
+        k = self._get_key(path)
         k.set_contents_from_file(fp)
 
-    def delete(self, type, name):
-        self.bucket.delete_key("%s/%s/%s" % (self.prefix, type, name))
+    @throw_notfound
+    def delete(self, path):
+        self.bucket.delete_key("%s/%s" % (self.prefix, path))
 
-    def stat(self, type, name):
-        path = "%s/%s/%s" % (self.prefix, type, name)
+    def stat(self, path):
+        path = "%s/%s" % (self.prefix, path)
         if path in self.scan_cache:
             k = self.scan_cache[path]
         else:

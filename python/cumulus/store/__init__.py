@@ -70,7 +70,7 @@ class Store (object):
     def stat(self, path):
         raise NotImplementedError
 
-    def scan(self):
+    def scan(self, path):
         """Cache file information stored in this backend.
 
         This might make subsequent list or stat calls more efficient, but this

@@ -29,9 +29,6 @@ class FileStore(cumulus.store.Store):
             self.path = url
         self.prefix = self.path.rstrip("/")
 
-    def _get_path(self, type, name):
-        return os.path.join(self.prefix, type, name)
-
     def list(self, subdir):
         try:
             return os.listdir(os.path.join(self.prefix, subdir))

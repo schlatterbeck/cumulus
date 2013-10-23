@@ -219,7 +219,7 @@ class SearchPath(object):
             except cumulus.store.NotFoundError:
                 pass
         if not success:
-            raise cumulus.store.NotFoundError(basename)
+            raise cumulus.store.NotFoundError(backend)
 
 def _build_segments_searchpath(prefix):
     for (extension, filter) in SEGMENT_FILTERS:
@@ -231,6 +231,9 @@ SEARCH_PATHS = {
         [SearchPathEntry("meta", ".sha1sums"),
          SearchPathEntry("checksums", ".sha1sums"),
          SearchPathEntry("", ".sha1sums")]),
+    "meta": SearchPath(
+        r"^snapshot-(.*)\.meta(\.\S+)?$",
+        _build_segments_searchpath("meta")),
     "segments": SearchPath(
         (r"^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
          r"\.tar(\.\S+)?$"),
@@ -288,6 +291,15 @@ class BackendWrapper(object):
     def list_generic(self, filetype):
         return ((x[1].group(1), x[0])
                 for x in SEARCH_PATHS[filetype].list(self._backend))
+
+    def prefetch_generic(self):
+        """Calls scan on directories to prefetch file metadata."""
+        directories = set()
+        for typeinfo in SEARCH_PATHS.values():
+            directories.update(typeinfo.directories())
+        for d in directories:
+            print "Prefetch", d
+            self._backend.scan(d)
 
 class CumulusStore:
     def __init__(self, backend):
@@ -426,6 +438,9 @@ class CumulusStore:
             if len(data) != length: raise IndexError
 
         return data
+
+    def prefetch(self):
+        self.backend.prefetch_generic()
 
 def parse(lines, terminate=None):
     """Generic parser for RFC822-style "Key: Value" data streams.
