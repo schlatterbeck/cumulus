@@ -373,7 +373,7 @@ void MetadataWriter::add(dictionary info)
 
     if (info == old_metadata && !flag_full_metadata) {
         ObjectReference ref = ObjectReference::parse(old_metadata_loc);
-        if (!ref.is_null()) {
+        if (!ref.is_null() && db->IsAvailable(ref)) {
             item.reused = true;
             item.ref = ref;
         }
