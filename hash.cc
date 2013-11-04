@@ -32,7 +32,6 @@ static map<string, Hash *(*)()> hash_registry;
 
 void Hash::Register(const std::string& name, Hash *(*constructor)())
 {
-    printf("Registered hash algorithm %s\n", name.c_str());
     hash_registry.insert(make_pair(name, constructor));
 }
 
