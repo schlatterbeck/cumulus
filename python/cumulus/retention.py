@@ -132,7 +132,7 @@ class RetentionEngine(object):
 
         self._labels = set()
         retain = False
-        for (backup_class, retention_period) in self._policies.iteritems():
+        for (backup_class, retention_period) in self._policies.items():
             partition = _backup_classes[backup_class](timestamp_policy)
             last_snapshot = self._last_snapshots[backup_class]
             if self._last_snapshots[backup_class][0] != partition:
@@ -153,4 +153,4 @@ class RetentionEngine(object):
     def last_snapshots(self):
         """Returns the most recent snapshot in each backup class."""
         return dict((k, v[1]) for (k, v)
-                    in self._last_snapshots.iteritems() if v[2])
+                    in self._last_snapshots.items() if v[2])

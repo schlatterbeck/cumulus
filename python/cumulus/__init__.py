@@ -26,7 +26,7 @@ various parts of a Cumulus archive:
   - reading and maintaining the local object database
 """
 
-from __future__ import division
+
 import hashlib
 import itertools
 import os
@@ -34,7 +34,7 @@ import re
 import sqlite3
 import tarfile
 import tempfile
-import thread
+import _thread
 
 import cumulus.store
 import cumulus.store.file
@@ -264,7 +264,7 @@ class BackendWrapper(object):
 
         store may either be a Store object or URL.
         """
-        if type(backend) in (str, unicode):
+        if type(backend) in (str, str):
             if backend.find(":") >= 0:
                 self._backend = cumulus.store.open(backend)
             else:
@@ -295,10 +295,10 @@ class BackendWrapper(object):
     def prefetch_generic(self):
         """Calls scan on directories to prefetch file metadata."""
         directories = set()
-        for typeinfo in SEARCH_PATHS.values():
+        for typeinfo in list(SEARCH_PATHS.values()):
             directories.update(typeinfo.directories())
         for d in directories:
-            print "Prefetch", d
+            print("Prefetch", d)
             self._backend.scan(d)
 
 class CumulusStore:
@@ -374,7 +374,7 @@ class CumulusStore:
                 dst.write(block)
             src.close()
             dst.close()
-        thread.start_new_thread(copy_thread, (filehandle, input))
+        _thread.start_new_thread(copy_thread, (filehandle, input))
         return output
 
     def get_segment(self, segment):
@@ -481,7 +481,7 @@ def parse(lines, terminate=None):
 
 def parse_full(lines):
     try:
-        return parse(lines).next()
+        return next(parse(lines))
     except StopIteration:
         return {}
 
@@ -566,7 +566,7 @@ class MetadataItem:
     @staticmethod
     def decode_device(s):
         """Decode a device major/minor number."""
-        (major, minor) = map(MetadataItem.decode_int, s.split("/"))
+        (major, minor) = list(map(MetadataItem.decode_int, s.split("/")))
         return (major, minor)
 
     class Items: pass
@@ -578,7 +578,7 @@ class MetadataItem:
         self.object_store = object_store
         self.keys = []
         self.items = self.Items()
-        for (k, v) in fields.items():
+        for (k, v) in list(fields.items()):
             if k in self.field_types:
                 decoder = self.field_types[k]
                 setattr(self.items, k, decoder(v))
@@ -736,7 +736,7 @@ class LocalDatabase:
                 can_delete = True
 
             if can_delete and not first:
-                print "Delete snapshot %d (%s)" % (id, name)
+                print("Delete snapshot %d (%s)" % (id, name))
                 cur.execute("delete from snapshots where snapshotid = ?",
                             (id,))
             first = False
@@ -942,11 +942,11 @@ class LocalDatabase:
         target_size = max(2 * segment_size_estimate,
                           total_bytes / target_buckets)
 
-        print "segment_size:", segment_size_estimate
-        print "distribution:", distribution
-        print "total_bytes:", total_bytes
-        print "target_buckets:", target_buckets
-        print "min, target size:", min_size, target_size
+        print("segment_size:", segment_size_estimate)
+        print("distribution:", distribution)
+        print("total_bytes:", total_bytes)
+        print("target_buckets:", target_buckets)
+        print("min, target size:", min_size, target_size)
 
         # Chosen cutoffs.  Each bucket consists of objects with age greater
         # than one cutoff value, but not greater than the next largest cutoff.
@@ -976,7 +976,7 @@ class LocalDatabase:
             cutoffs.append(-1)
         cutoffs.append(-1)
 
-        print "cutoffs:", cutoffs
+        print("cutoffs:", cutoffs)
 
         # Update the database to assign each object to the appropriate bucket.
         cutoffs.reverse()

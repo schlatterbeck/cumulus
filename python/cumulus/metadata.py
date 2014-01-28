@@ -45,7 +45,7 @@ class Metadata:
         lines = self._load(ref)[n:]
 
         try:
-            return cumulus.parse(lines, lambda l: len(l) == 0).next()
+            return next(cumulus.parse(lines, lambda l: len(l) == 0))
         except StopIteration:
             return {}
 
@@ -195,6 +195,6 @@ if __name__ == '__main__':
 
     metadata = Metadata(store, root)
     ptr = metadata.search(['home', 'mvrable', 'docs'])
-    print ptr
-    print metadata._read(ptr)
+    print(ptr)
+    print(metadata._read(ptr))
     store.cleanup()

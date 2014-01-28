@@ -33,7 +33,7 @@ def throw_notfound(method):
             return method(*args, **kwargs)
         except S3ResponseError as e:
             if e.status == 404:
-                print "Got a 404:", e
+                print("Got a 404:", e)
                 raise cumulus.store.NotFoundError(e)
             else:
                 raise

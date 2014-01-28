@@ -56,6 +56,6 @@ class FileStore(cumulus.store.Store):
             stat = os.stat(os.path.join(self.prefix, path))
             return {'size': stat.st_size}
         except OSError:
-            raise cumulus.store.NotFoundError, path
+            raise cumulus.store.NotFoundError(path)
 
 Store = FileStore

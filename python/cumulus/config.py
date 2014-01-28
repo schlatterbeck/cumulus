@@ -22,7 +22,7 @@ See the Cumulus documentation for a description of the configuration file
 format.
 """
 
-import ConfigParser
+import configparser
 import datetime
 import re
 
@@ -41,7 +41,7 @@ def _build_retention_engine(spec):
     for s in spec.split():
         m = class_re.match(s)
         if not m:
-            print "Invalid retain spec:", s
+            print("Invalid retain spec:", s)
             continue
         period = datetime.timedelta()
         classname = m.group(1)
@@ -58,7 +58,7 @@ def _build_retention_engine(spec):
 class CumulusConfig(object):
     def __init__(self, filename):
         """Parse a Cumulus backup configuration from the specified file."""
-        self._config = ConfigParser.RawConfigParser()
+        self._config = configparser.RawConfigParser()
         self._config.readfp(open(filename))
 
     def get_global(self, key):

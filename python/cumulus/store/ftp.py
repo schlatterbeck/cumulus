@@ -98,16 +98,16 @@ class FtpStore (Store):
             self.ftp.sendcmd ('TYPE I')
             size = self.ftp.size (fn)
             self.ftp.sendcmd ('TYPE A')
-        except all_errors, err:
-            print err
+        except all_errors as err:
+            print(err)
             pass
         if size is not None:
             return {'size': size}
-        print "nlst: %s" % fn, size
+        print("nlst: %s" % fn, size)
         l = self.ftp.nlst (fn)
         if l:
             return {'size': 42}
-        raise NotFoundError, (type, name)
+        raise NotFoundError(type, name)
 
     def sync (self):
         """ After a get command at end of transfer a 2XX reply is still
@@ -120,7 +120,7 @@ class FtpStore (Store):
             if not self.synced:
                 self.ftp.voidresp()
             self.ftp.sendcmd ('TYPE A')
-        except error_temp, err :
+        except error_temp as err :
             if not err.message.startswith ('421') :
                 raise
             self.connect ()

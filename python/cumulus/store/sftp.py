@@ -17,7 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 #needed for python 2.5
-from __future__ import with_statement
+
 
 from paramiko import Transport, SFTPClient, RSAKey, DSSKey
 from paramiko.config import SSHConfig
@@ -74,18 +74,18 @@ class SFTPStore(Store):
 
         host_keys = paramiko.util.load_host_keys(os.path.expanduser('~/.ssh/known_hosts'))
         try:
-            self.hostkey = host_keys[self.config['hostkeyalias']].values()[0]
+            self.hostkey = list(host_keys[self.config['hostkeyalias']].values())[0]
         except:
-            print str(self.config)
+            print(str(self.config))
             raise
 
 
-        if(self.config.has_key('identityfile')):
+        if('identityfile' in self.config):
             key_file = os.path.expanduser(self.config['identityfile'])
             #not really nice but i don't see a cleaner way atm...
             try:
                 self.auth_key = RSAKey (key_file)
-            except SSHException, e:
+            except SSHException as e:
                 if e.message == 'Unable to parse file':
                     self.auth_key = DSAKey (key_file)
                 else:
@@ -111,7 +111,7 @@ class SFTPStore(Store):
         return "%s/%s" % (self.path,  name)
 
     def list(self, type):
-        return filter(type_patterns[type].match, self.client.listdir(self.path))
+        return list(filter(type_patterns[type].match, self.client.listdir(self.path)))
 
     def get(self, type, name):
         return self.client.open(self.__build_fn(name), mode = 'rb')

@@ -113,7 +113,7 @@ class Chunker(object):
     def compute_breaks(self, buf):
         breaks = [0]
         signature = self.window_init()
-        for i in xrange(len(buf)):
+        for i in range(len(buf)):
             self.window_update(signature, ord(buf[i]))
             block_len = i - breaks[-1] + 1
             if ((signature[0] % self.TARGET_CHUNK_SIZE == self.BREAKMARK_VALUE
@@ -163,9 +163,9 @@ class Chunker(object):
                 n -= i
 
         position = 0
-        for next_start, (size, digest) in sorted(signatures.iteritems()):
+        for next_start, (size, digest) in sorted(signatures.items()):
             if next_start < position:
-                print "Warning: overlapping signatures, ignoring"
+                print("Warning: overlapping signatures, ignoring")
                 continue
             skip(next_start - position)
             records.append(struct.pack(">H", size) + digest)
@@ -177,7 +177,7 @@ class Chunker(object):
         """Loads signatures from the binary format stored in the database."""
         entry_size = 2 + self.hash_size
         if len(signatures) % entry_size != 0:
-            print "Warning: Invalid signatures to load"
+            print("Warning: Invalid signatures to load")
             return {}
 
         null_digest = "\x00" * self.hash_size
@@ -250,11 +250,11 @@ class DatabaseRebuilder(object):
             if metadata.items.type not in ("-", "f"): continue
             try:
                 path = os.path.join(reference_path, metadata.items.name)
-                print "Path:", path
+                print("Path:", path)
                 # TODO: Check file size for early abort if different
                 self.rebuild_file(open(path), metadata)
             except IOError as e:
-                print e
+                print(e)
                 pass  # Ignore the file
 
         self.database.commit()
@@ -275,7 +275,7 @@ class DatabaseRebuilder(object):
 
     def insert_segment_info(self, segment, info):
         id = self.segment_to_id(segment)
-        for k, v in info.items():
+        for k, v in list(info.items()):
             self.cursor.execute("update segments set " + k + " = ? "
                                 "where segmentid = ?",
                                 (v, id))
@@ -323,10 +323,10 @@ class DatabaseRebuilder(object):
                 subblock[k] = self.chunker.dump_signatures(subblock[k])
             self.store_checksums(checksums, subblock)
         else:
-            print "Checksum mismatch"
+            print("Checksum mismatch")
 
     def store_checksums(self, block_checksums, subblock_signatures):
-        for (segment, object), (size, checksum) in block_checksums.iteritems():
+        for (segment, object), (size, checksum) in block_checksums.items():
             segmentid = self.segment_to_id(segment)
             self.cursor.execute(
                 """insert or ignore into block_index(segmentid, object)
@@ -440,8 +440,8 @@ if __name__ == "__main__":
                 os.path.relpath(f, topdir))
             if metadata:
                 for (k, v) in sorted(metadata.items()):
-                    print "%s: %s" % (k, v)
-                print
+                    print("%s: %s" % (k, v))
+                print()
         sys.exit(0)
 
     # Sample code to rebuild the segments table from metadata--needs to be

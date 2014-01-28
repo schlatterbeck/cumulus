@@ -47,13 +47,13 @@ def prune_backups(backup_config, scheme):
             expired_snapshots.append(snapshot)
     # The most recent snapshot is never removed.
     if expired_snapshots: expired_snapshots.pop()
-    print expired_snapshots
+    print(expired_snapshots)
 
     # TODO: Clean up the expiration part...
     for snapshot in expired_snapshots:
         store.store.delete("snapshot", "snapshot-%s.lbs" % snapshot)
 
-    print "Collecting garbage..."
+    print("Collecting garbage...")
     options = FakeOptions()
     options.store = backup_config.get_global("dest")
     options.dry_run = False
@@ -91,10 +91,10 @@ def prune_localdb(backup_config, scheme, next_snapshot=None):
         retention.consider_snapshot(next_snapshot)
     retained = set(retention.last_snapshots().values())
     retained.add(snapshots[-1])
-    print retention.last_snapshots()
-    print retained
+    print(retention.last_snapshots())
+    print(retained)
     for s in snapshots:
-        print s, s in retained
+        print(s, s in retained)
 
     evicted = [s for s in snapshots if s not in retained]
     for s in evicted:
@@ -105,7 +105,7 @@ def prune_localdb(backup_config, scheme, next_snapshot=None):
 def main(argv):
     backup_config = config.CumulusConfig(argv[1])
     for scheme in backup_config.backup_schemes():
-        print scheme
+        print(scheme)
         #prune_backups(backup_config, scheme)
         prune_localdb(backup_config, scheme, datetime.datetime.utcnow())
         #prune_localdb(backup_config, scheme, datetime.datetime(2013, 1, 1))

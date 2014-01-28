@@ -16,7 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import exceptions, re, urlparse
+import exceptions, re, urllib.parse
 
 type_patterns = {
     'checksums': re.compile(r"^snapshot-(.*)\.(\w+)sums$"),
@@ -39,7 +39,7 @@ class Store (object):
         if cls != Store:
             return super(Store, cls).__new__(cls, url, **kw)
         (scheme, netloc, path, params, query, fragment) \
-            = urlparse.urlparse(url)
+            = urllib.parse.urlparse(url)
 
         try:
             cumulus = __import__('cumulus.store.%s' % scheme, globals())
@@ -53,7 +53,7 @@ class Store (object):
             obj.fragment = fragment
             return obj
         except ImportError:
-            raise NotImplementedError, "Scheme %s not implemented" % scheme
+            raise NotImplementedError("Scheme %s not implemented" % scheme)
 
     def list(self, path):
         raise NotImplementedError
