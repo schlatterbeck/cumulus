@@ -32,6 +32,8 @@
 # written to stdout, which is either "OK" (for success) or "ERR" (if an error
 # occurred).
 
+from __future__ import division, print_function, unicode_literals
+
 import os, sys, traceback
 
 # Automatically set Python path, based on script directory.  This should be

@@ -26,18 +26,28 @@ various parts of a Cumulus archive:
   - reading and maintaining the local object database
 """
 
+from __future__ import division, print_function, unicode_literals
 
 import hashlib
 import itertools
 import os
 import re
 import sqlite3
+import sys
 import tarfile
 import tempfile
-import _thread
+try:
+    import _thread
+except ImportError:
+    import thread as _thread
 
 import cumulus.store
 import cumulus.store.file
+
+if sys.version < '3':
+    StringTypes = (str, unicode)
+else:
+    StringTypes = (str,)
 
 # The largest supported snapshot format that can be understood.
 FORMAT_VERSION = (0, 11)        # Cumulus Snapshot v0.11
@@ -264,7 +274,7 @@ class BackendWrapper(object):
 
         store may either be a Store object or URL.
         """
-        if type(backend) in (str, str):
+        if type(backend) in StringTypes:
             if backend.find(":") >= 0:
                 self._backend = cumulus.store.open(backend)
             else:
@@ -295,7 +305,7 @@ class BackendWrapper(object):
     def prefetch_generic(self):
         """Calls scan on directories to prefetch file metadata."""
         directories = set()
-        for typeinfo in list(SEARCH_PATHS.values()):
+        for typeinfo in SEARCH_PATHS.values():
             directories.update(typeinfo.directories())
         for d in directories:
             print("Prefetch", d)
@@ -566,7 +576,7 @@ class MetadataItem:
     @staticmethod
     def decode_device(s):
         """Decode a device major/minor number."""
-        (major, minor) = list(map(MetadataItem.decode_int, s.split("/")))
+        (major, minor) = map(MetadataItem.decode_int, s.split("/"))
         return (major, minor)
 
     class Items: pass
@@ -578,7 +588,7 @@ class MetadataItem:
         self.object_store = object_store
         self.keys = []
         self.items = self.Items()
-        for (k, v) in list(fields.items()):
+        for (k, v) in fields.items():
             if k in self.field_types:
                 decoder = self.field_types[k]
                 setattr(self.items, k, decoder(v))

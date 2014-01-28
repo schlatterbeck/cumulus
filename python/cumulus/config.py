@@ -22,7 +22,12 @@ See the Cumulus documentation for a description of the configuration file
 format.
 """
 
-import configparser
+from __future__ import division, print_function, unicode_literals
+
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
 import datetime
 import re
 

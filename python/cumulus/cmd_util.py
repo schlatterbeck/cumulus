@@ -18,6 +18,8 @@
 
 """Implementation of the Cumulus command-line utility program."""
 
+from __future__ import division, print_function, unicode_literals
+
 import getpass, os, stat, sys, time
 from optparse import OptionParser
 

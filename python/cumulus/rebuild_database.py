@@ -26,6 +26,8 @@ the local database.  This can be used to recover from a local database loss,
 given data from a previous backup.
 """
 
+from __future__ import division, print_function, unicode_literals
+
 import base64
 import hashlib
 import itertools
@@ -275,7 +277,7 @@ class DatabaseRebuilder(object):
 
     def insert_segment_info(self, segment, info):
         id = self.segment_to_id(segment)
-        for k, v in list(info.items()):
+        for k, v in info.items():
             self.cursor.execute("update segments set " + k + " = ? "
                                 "where segmentid = ?",
                                 (v, id))

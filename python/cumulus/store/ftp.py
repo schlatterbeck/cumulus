@@ -16,6 +16,8 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+from __future__ import division, print_function, unicode_literals
+
 from ftplib        import FTP, all_errors, error_temp
 from netrc         import netrc, NetrcParseError
 from cumulus.store import Store, type_patterns, NotFoundError

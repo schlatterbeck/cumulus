@@ -22,6 +22,8 @@ This implements maintenance functions and is a wrapper around the C++
 cumulus-backup program.
 """
 
+from __future__ import division, print_function, unicode_literals
+
 import datetime
 import re
 import sys

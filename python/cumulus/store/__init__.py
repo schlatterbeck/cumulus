@@ -16,7 +16,13 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import exceptions, re, urllib.parse
+from __future__ import division, print_function, unicode_literals
+
+import re
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 
 type_patterns = {
     'checksums': re.compile(r"^snapshot-(.*)\.(\w+)sums$"),
@@ -24,7 +30,7 @@ type_patterns = {
     'snapshots': re.compile(r"^snapshot-(.*)\.(cumulus|lbs)$")
 }
 
-class NotFoundError(exceptions.KeyError):
+class NotFoundError(KeyError):
     """Exception thrown when a file is not found in a repository."""
 
     pass
@@ -39,7 +45,7 @@ class Store (object):
         if cls != Store:
             return super(Store, cls).__new__(cls, url, **kw)
         (scheme, netloc, path, params, query, fragment) \
-            = urllib.parse.urlparse(url)
+            = urlparse(url)
 
         try:
             cumulus = __import__('cumulus.store.%s' % scheme, globals())

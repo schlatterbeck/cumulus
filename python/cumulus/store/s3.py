@@ -18,6 +18,8 @@
 
 """Amazon S3 storage backend.  Uses a URL of the form s3://BUCKET/PATH/."""
 
+from __future__ import division, print_function, unicode_literals
+
 import os, sys, tempfile
 import boto
 from boto.exception import S3ResponseError

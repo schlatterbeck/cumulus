@@ -18,6 +18,7 @@
 
 #needed for python 2.5
 
+from __future__ import division, print_function, unicode_literals
 
 from paramiko import Transport, SFTPClient, RSAKey, DSSKey
 from paramiko.config import SSHConfig

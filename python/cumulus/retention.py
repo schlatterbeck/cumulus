@@ -23,6 +23,8 @@ for example keeping daily snapshots for short periods of time but retaining
 weekly snapshots going back further in time.
 """
 
+from __future__ import division, print_function, unicode_literals
+
 import calendar
 import datetime
 
