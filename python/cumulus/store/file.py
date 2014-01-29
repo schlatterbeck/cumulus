@@ -22,14 +22,11 @@ import os, sys, tempfile
 
 import cumulus.store
 
-type_patterns = cumulus.store.type_patterns
-
-class FileStore(cumulus.store.Store):
-    def __init__(self, url, **kw):
-        # if constructor isn't called via factory interpret url as filename
-        if not hasattr (self, 'path'):
-            self.path = url
-        self.prefix = self.path.rstrip("/")
+class Store(cumulus.store.Store):
+    """Storage backend that accesses the local file system."""
+    def __init__(self, url):
+        super(Store, self).__init__(url)
+        self.prefix = cumulus.store.unquote(url.path)
 
     def list(self, subdir):
         try:
@@ -44,11 +41,11 @@ class FileStore(cumulus.store.Store):
             raise cumulus.store.NotFoundError(path)
 
     def put(self, path, fp):
-        out = open(os.path.join(self.prefix, path), 'wb')
-        buf = fp.read(4096)
-        while len(buf) > 0:
-            out.write(buf)
+        with open(os.path.join(self.prefix, path), "wb") as out:
             buf = fp.read(4096)
+            while len(buf) > 0:
+                out.write(buf)
+                buf = fp.read(4096)
 
     def delete(self, path):
         os.unlink(os.path.join(self.prefix, path))
@@ -59,5 +56,3 @@ class FileStore(cumulus.store.Store):
             return {'size': stat.st_size}
         except OSError:
             raise cumulus.store.NotFoundError(path)
-
-Store = FileStore

@@ -275,10 +275,7 @@ class BackendWrapper(object):
         store may either be a Store object or URL.
         """
         if type(backend) in StringTypes:
-            if backend.find(":") >= 0:
-                self._backend = cumulus.store.open(backend)
-            else:
-                self._backend = cumulus.store.file.FileStore(backend)
+            self._backend = cumulus.store.open(backend)
         else:
             self._backend = backend
 

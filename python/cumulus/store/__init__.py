@@ -18,11 +18,16 @@
 
 from __future__ import division, print_function, unicode_literals
 
+import importlib
 import re
 try:
-    from urllib.parse import urlparse
+    # Python 3
+    from urllib import parse as urlparse
+    from urllib.parse import quote, unquote
 except ImportError:
-    from urlparse import urlparse
+    # Python 2
+    from urllib import quote, unquote
+    import urlparse
 
 type_patterns = {
     'checksums': re.compile(r"^snapshot-(.*)\.(\w+)sums$"),
@@ -35,31 +40,19 @@ class NotFoundError(KeyError):
 
     pass
 
-class Store (object):
+class Store(object):
     """Base class for all cumulus storage backends."""
 
-    def __new__ (cls, url, **kw):
-        """ Return the correct sub-class depending on url,
-        pass parsed url parameters to object
-        """
-        if cls != Store:
-            return super(Store, cls).__new__(cls, url, **kw)
-        (scheme, netloc, path, params, query, fragment) \
-            = urlparse(url)
+    def __init__(self, url):
+        """Initializes a new storage backend.
 
-        try:
-            cumulus = __import__('cumulus.store.%s' % scheme, globals())
-            subcls = getattr (cumulus.store, scheme).Store
-            obj = super(Store, cls).__new__(subcls, url, **kw)
-            obj.scheme = scheme
-            obj.netloc = netloc
-            obj.path = path
-            obj.params = params
-            obj.query = query
-            obj.fragment = fragment
-            return obj
-        except ImportError:
-            raise NotImplementedError("Scheme %s not implemented" % scheme)
+        Params:
+          url: The parsed (by urlsplit) URL that specifies the storage
+              location.
+        """
+        pass
+
+    # TODO: Implement context manager.
 
     def list(self, path):
         raise NotImplementedError
@@ -95,4 +88,23 @@ class Store (object):
         self.close()
 
 def open(url):
-    return Store(url)
+    """Parse a storage url, then locate and initialize a backend for it."""
+    parsed_url = urlparse.urlsplit(url)
+
+    # If there is no scheme, fall back to treating the string as local path and
+    # construct a file:/// URL.
+    if not parsed_url.scheme:
+        parsed_url = urlparse.SplitResult("file", "", quote(url), "", "")
+
+    try:
+        # TODO: Support a registry for schemes that don't map to a module.
+        if re.match(r"^\w+$", parsed_url.scheme):
+            handler = importlib.import_module("cumulus.store.%s" %
+                                              parsed_url.scheme)
+            obj = handler.Store(parsed_url)
+            return obj
+    except ImportError:
+        # Fall through to error below
+        pass
+
+    raise NotImplementedError("Scheme %s not implemented" % scheme)

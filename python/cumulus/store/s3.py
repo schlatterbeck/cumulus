@@ -35,46 +35,44 @@ def throw_notfound(method):
             return method(*args, **kwargs)
         except S3ResponseError as e:
             if e.status == 404:
-                print("Got a 404:", e)
                 raise cumulus.store.NotFoundError(e)
             else:
                 raise
     return f
 
-class S3Store(cumulus.store.Store):
-    def __init__(self, url, **kw):
-        # Old versions of the Python urlparse library will take a URL like
-        # s3://bucket/path/ and include the bucket with the path, while new
-        # versions (2.6 and later) treat it as the netloc (which seems more
-        # correct).
-        #
-        # But, so that we can work with either behavior, for now just combine
-        # the netloc and path together before we do any further processing
-        # (which will then split the combined path apart into a bucket and path
-        # again).  If we didn't want to support Python 2.5, this would be
-        # easier as we could just use the netloc as the bucket directly.
-        path = self.netloc + '/' + self.path
-        (bucket, prefix) = path.lstrip("/").split("/", 1)
+class Store(cumulus.store.Store):
+    def __init__(self, url):
+        super(Store, self).__init__(url)
         self.conn = boto.connect_s3(is_secure=False)
-        self.bucket = self.conn.create_bucket(bucket)
-        self.prefix = prefix.strip("/")
+        self.bucket = self.conn.create_bucket(url.hostname)
+        self.prefix = url.path
+        if not self.prefix.endswith("/"):
+            self.prefix += "/"
+        self.prefix = self.prefix.lstrip("/")
         self.scan_cache = {}
+
+    def _fullpath(self, path, is_directory=False):
+        fullpath = self.prefix + path
+        if is_directory and not fullpath.endswith("/"):
+            fullpath += "/"
+        return fullpath
 
     def _get_key(self, path):
         k = Key(self.bucket)
-        k.key = "%s/%s" % (self.prefix, path)
+        k.key = self._fullpath(path)
         return k
 
     @throw_notfound
     def scan(self, path):
-        prefix = "%s/%s/" % (self.prefix, path)
+        prefix = self._fullpath(path, is_directory=True)
         for i in self.bucket.list(prefix):
             assert i.key.startswith(prefix)
             self.scan_cache[i.key] = i
 
     @throw_notfound
     def list(self, path):
-        prefix = "%s/%s/" % (self.prefix, path)
+        prefix = self._fullpath(path, is_directory=True)
+        # TODO: Should use a delimiter
         for i in self.bucket.list(prefix):
             assert i.key.startswith(prefix)
             yield i.key[len(prefix):]
@@ -94,10 +92,10 @@ class S3Store(cumulus.store.Store):
 
     @throw_notfound
     def delete(self, path):
-        self.bucket.delete_key("%s/%s" % (self.prefix, path))
+        self.bucket.delete_key(self._fullpath(path))
 
     def stat(self, path):
-        path = "%s/%s" % (self.prefix, path)
+        path = self._fullpath(path)
         if path in self.scan_cache:
             k = self.scan_cache[path]
         else:
@@ -106,5 +104,3 @@ class S3Store(cumulus.store.Store):
             raise cumulus.store.NotFoundError
 
         return {'size': int(k.size)}
-
-Store = S3Store
