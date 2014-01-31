@@ -34,6 +34,9 @@ TMP_DIR="$(readlink -f "$(mktemp -d cumulus-tests.XXXXXX)")"
 # Command to use for running memory leak tests.
 VALGRIND="valgrind --tool=memcheck --leak-check=full --log-file=$TMP_DIR/valgrind.log"
 
+# Python interpreter to test with.
+PYTHON="${PYTHON:-python2}"
+
 log_action() {
     echo
     echo "================================================================"
@@ -68,8 +71,6 @@ cp -a "$BIN_DIR/third_party" "$TREE"
 
 log_action "Running second backup..."
 sleep 5
-BACKUP_DIR="$TMP_DIR/backups"
-mkdir "$BACKUP_DIR"
 $VALGRIND "$BIN_DIR"/cumulus --dest="$BACKUP_DIR" --localdb="$LOCALDB" \
     --scheme=test -v "$TREE"
 
@@ -82,5 +83,6 @@ for s in $snapshots; do
     i=$((i + 1))
     dest="$TMP_DIR/restore-$i"
     mkdir -p "$dest"
-    "$BIN_DIR"/cumulus-util --store="$BACKUP_DIR" restore-snapshot $s "$dest"
+    "$PYTHON" "$BIN_DIR"/cumulus-util --store="$BACKUP_DIR" \
+        restore-snapshot $s "$dest"
 done
