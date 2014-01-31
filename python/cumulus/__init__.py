@@ -34,6 +34,7 @@ import itertools
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -379,7 +380,9 @@ class CumulusStore:
     def filter_data(filehandle, filter_cmd):
         if filter_cmd is None:
             return filehandle
-        (input, output) = os.popen2(filter_cmd)
+        p = subprocess.Popen(filter_cmd, shell=True, stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, close_fds=True)
+        input, output = p.stdin, p.stdout
         def copy_thread(src, dst):
             BLOCK_SIZE = 4096
             while True:
@@ -388,6 +391,7 @@ class CumulusStore:
                 dst.write(block)
             src.close()
             dst.close()
+            p.wait()
         _thread.start_new_thread(copy_thread, (filehandle, input))
         return output
 
