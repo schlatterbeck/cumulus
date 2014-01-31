@@ -36,7 +36,7 @@ class Store(cumulus.store.Store):
 
     def get(self, path):
         try:
-            return open(os.path.join(self.prefix, path), 'rb')
+            return open(os.path.join(self.prefix, path), "rb")
         except IOError:
             raise cumulus.store.NotFoundError(path)
 

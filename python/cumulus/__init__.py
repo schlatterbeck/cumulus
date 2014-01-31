@@ -28,6 +28,7 @@ various parts of a Cumulus archive:
 
 from __future__ import division, print_function, unicode_literals
 
+import codecs
 import hashlib
 import itertools
 import os
@@ -44,7 +45,7 @@ except ImportError:
 import cumulus.store
 import cumulus.store.file
 
-if sys.version < '3':
+if sys.version < "3":
     StringTypes = (str, unicode)
 else:
     StringTypes = (str,)
@@ -67,6 +68,12 @@ SEGMENT_FILTERS = [
     (".bz2", "bzip2 -dc"),
     ("", None),
 ]
+
+def to_lines(data):
+    """Decode binary data from a file into a sequence of lines.
+
+    Newline markers are retained."""
+    return list(codecs.iterdecode(data.splitlines(True), "utf-8"))
 
 def uri_decode(s):
     """Decode a URI-encoded (%xx escapes) string."""
@@ -366,7 +373,7 @@ class CumulusStore:
 
     def load_snapshot(self, snapshot):
         snapshot_file = self.backend.open_snapshot(snapshot)[0]
-        return snapshot_file.read().splitlines(True)
+        return to_lines(snapshot_file.read())
 
     @staticmethod
     def filter_data(filehandle, filter_cmd):
@@ -513,7 +520,7 @@ def read_metadata(object_store, root):
 
     def follow_ref(refstr):
         if len(stack) >= MAX_RECURSION_DEPTH: raise OverflowError
-        lines = object_store.get(refstr).splitlines(True)
+        lines = to_lines(object_store.get(refstr))
         lines.reverse()
         stack.append(lines)
 
