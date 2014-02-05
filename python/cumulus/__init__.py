@@ -32,6 +32,7 @@ import codecs
 import hashlib
 import itertools
 import os
+import posixpath
 import re
 import sqlite3
 import subprocess
@@ -168,7 +169,7 @@ class SearchPathEntry(object):
         and context is any additional data associated with this search entry
         (if any).
         """
-        return (os.path.join(self._directory_prefix, basename + self._suffix),
+        return (posixpath.join(self._directory_prefix, basename + self._suffix),
                 self._context)
 
 class SearchPath(object):
@@ -233,7 +234,7 @@ class SearchPath(object):
                 for f in backend.list(d):
                     success = True
                     m = self.match(f)
-                    if m: yield (os.path.join(d, f), m)
+                    if m: yield (posixpath.join(d, f), m)
             except cumulus.store.NotFoundError:
                 pass
         if not success:
