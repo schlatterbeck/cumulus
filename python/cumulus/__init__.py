@@ -343,7 +343,7 @@ class CumulusStore:
         if m:
             return ("zero", None, None, (0, int(m.group(1)), False))
 
-        m = re.match(r"^([-0-9a-f]+)\/([0-9a-f]+)(\(\S+\))?(\[(((\d+)\+)?(\d+)|=(\d+))\])?$", refstr)
+        m = re.match(r"^([-0-9a-f]+)\/([0-9a-f]+)(\(\S+\))?(\[(=?(\d+)|(\d+)\+(\d+))\])?$", refstr)
         if not m: return
 
         segment = m.group(1)
@@ -355,12 +355,9 @@ class CumulusStore:
             checksum = checksum.lstrip("(").rstrip(")")
 
         if slice is not None:
-            if m.group(9) is not None:
+            if m.group(6) is not None:
                 # Size-assertion slice
-                slice = (0, int(m.group(9)), True)
-            elif m.group(6) is None:
-                # Abbreviated slice
-                slice = (0, int(m.group(8)), False)
+                slice = (0, int(m.group(6)), True)
             else:
                 slice = (int(m.group(7)), int(m.group(8)), False)
 
@@ -451,6 +448,9 @@ class CumulusStore:
 
         if slice is not None:
             (start, length, exact) = slice
+            # Note: The following assertion check may need to be commented out
+            # to restore from pre-v0.8 snapshots, as the syntax for
+            # size-assertion slices has changed.
             if exact and len(data) != length: raise ValueError
             data = data[start:start+length]
             if len(data) != length: raise IndexError

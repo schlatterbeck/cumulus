@@ -149,18 +149,20 @@ is invalid to select using the slice syntax a range of bytes that does
 not fall within the original object.  The slice specification should be
 appended to an object name, for example:
     a704eeae-97f2-4f30-91a4-d4473956366b/000001ad[264+1000]
-selects only bytes 264..1263 from the original object.  As an
-abbreviation, the slice syntax
+selects only bytes 264..1263 from the original object.
+
+The slice syntax
     [<length>]
-is shorthand for
-    [0+<length>]
-In place of a traditional slice, the annotation
-    [=<length>]
-may be used.  This is somewhat similar to specifying [<length>], but
+indicates that all bytes of the object are to be used, but
 additionally asserts that the referenced object is exactly <length>
-bytes long--that is, this slice syntax does not change the bytes
-returned at all, but can be used to provide information about the
-underlying object store.
+bytes long.  Older versions of Cumulus can also use the syntax
+    [=<length>]
+as a synonym for length assertions, but this notation is deprecated.
+
+(In older versions of the format, the syntax [<length>] was a shorthand
+for [0+<length>]: that is, select the first <length> bytes of the object
+but make no assertions about the overall size.  The backup tool has not
+generated such slices since v0.8.)
 
 Both a checksum and a slice can be used.  In this case, the checksum is
 given first, followed by the slice.  The checksum is computed over the
@@ -176,7 +178,7 @@ object must have a slice specification appended to indicate the size of
 the object.  For example
     zero[1024]
 represents a block consisting of 1024 null bytes.  A checksum should not
-be given.  The slice syntax should use the abbreviated length-only form.
+be given.
 
 
 FILE METADATA LISTING

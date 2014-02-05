@@ -97,9 +97,7 @@ string ObjectReference::to_string() const
 
     if (range_valid) {
         char buf[64];
-        if (range_exact) {
-            sprintf(buf, "[=%zu]", range_length);
-        } else if (type == REF_ZERO) {
+        if (range_exact || type == REF_ZERO) {
             sprintf(buf, "[%zu]", range_length);
         } else {
             sprintf(buf, "[%zu+%zu]", range_start, range_length);
@@ -166,6 +164,9 @@ ObjectReference ObjectReference::parse(const std::string& str)
     if (*t == '[') {
         t++;
 
+        // An equal sign was once used for a length assertion but is now
+        // deprecated.  Skip it if present, and mark that we are expecting a
+        // length-only reference.
         if (*t == '=') {
             range_exact = true;
             t++;
@@ -179,6 +180,7 @@ ObjectReference ObjectReference::parse(const std::string& str)
         if (*t == ']') {
             string val(s, t - s);
             range2 = atoll(val.c_str());
+            range_exact = true;
         } else {
             if (*t != '+')
                 return ObjectReference();

@@ -1,5 +1,8 @@
 0.11 [???]
     - SNAPSHOT FORMAT CHANGES:
+        - The object slice syntax has been simplified; backup restores
+          are still possible but rebuilding the local database from
+          snapshots before v0.8 will require translation.
         - Timestamps encoded into the top-level snapshot file name are
           now UTC instead of the local time zone.  This should avoid
           ambiguity and ensure sorted order is chronological order in
