@@ -473,8 +473,11 @@ def parse(lines, terminate=None):
     stop reading input lines.
     """
 
-    dict = {}
+    result = {}
     last_key = None
+
+    def make_result(result):
+        return dict((k, "".join(v)) for (k, v) in result.items())
 
     for l in lines:
         # Strip off a trailing newline, if present
@@ -482,21 +485,21 @@ def parse(lines, terminate=None):
             l = l[:-1]
 
         if terminate is not None and terminate(l):
-            if len(dict) > 0: yield dict
-            dict = {}
+            if len(result) > 0: yield make_result(result)
+            result = {}
             last_key = None
             continue
 
         m = re.match(r"^([-\w]+):\s*(.*)$", l)
         if m:
-            dict[m.group(1)] = m.group(2)
+            result[m.group(1)] = [m.group(2)]
             last_key = m.group(1)
         elif len(l) > 0 and l[0].isspace() and last_key is not None:
-            dict[last_key] += l
+            result[last_key].append(l)
         else:
             last_key = None
 
-    if len(dict) > 0: yield dict
+    if len(result) > 0: yield make_result(result)
 
 def parse_full(lines):
     try:
