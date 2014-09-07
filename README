@@ -7,6 +7,8 @@ Dependencies:
   - libuuid (sometimes part of e2fsprogs)
   - sqlite3
   - Python (2.7 or later, or 3.2 or later)
+  - Python six, a Python 2/3 compatibility library
+    https://pypi.python.org/pypi/six
   - boto, the python interface to Amazon's Web Services (for S3 storage)
     http://code.google.com/p/boto
   - paramiko, SSH2 protocol for python (for sftp storage)

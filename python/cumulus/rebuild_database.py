@@ -40,6 +40,7 @@ import tarfile
 import time
 
 import cumulus
+from cumulus import util
 
 CHECKSUM_ALGORITHM = "sha224"
 CHUNKER_PROGRAM = "cumulus-chunker-standalone"
@@ -419,8 +420,8 @@ class SegmentStateRebuilder(object):
                 data_size += tarinfo.size
                 object_count += 1
 
-        return {"segment": cumulus.uri_encode(segment_name),
-                "path": cumulus.uri_encode(relative_path),
+        return {"segment": util.uri_encode_pathname(segment_name),
+                "path": util.uri_encode_pathname(relative_path),
                 "checksum": checksum,
                 "data_size": data_size,
                 "disk_size": disk_size,

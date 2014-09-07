@@ -34,6 +34,7 @@ import itertools
 import os
 import posixpath
 import re
+import six
 import sqlite3
 import subprocess
 import sys
@@ -46,11 +47,7 @@ except ImportError:
 
 import cumulus.store
 import cumulus.store.file
-
-if sys.version < "3":
-    StringTypes = (str, unicode)
-else:
-    StringTypes = (str,)
+import cumulus.util
 
 # The largest supported snapshot format that can be understood.
 FORMAT_VERSION = (0, 11)        # Cumulus Snapshot v0.11
@@ -76,19 +73,6 @@ def to_lines(data):
 
     Newline markers are retained."""
     return list(codecs.iterdecode(data.splitlines(True), "utf-8"))
-
-def uri_decode(s):
-    """Decode a URI-encoded (%xx escapes) string."""
-    def hex_decode(m): return chr(int(m.group(1), 16))
-    return re.sub(r"%([0-9a-f]{2})", hex_decode, s)
-def uri_encode(s):
-    """Encode a string to URI-encoded (%xx escapes) form."""
-    def hex_encode(c):
-        if c > '+' and c < '\x7f' and c != '@':
-            return c
-        else:
-            return "%%%02x" % (ord(c),)
-    return ''.join(hex_encode(c) for c in s)
 
 class Struct:
     """A class which merely acts as a data container.
@@ -283,7 +267,7 @@ class BackendWrapper(object):
 
         store may either be a Store object or URL.
         """
-        if type(backend) in StringTypes:
+        if isinstance(backend, six.string_types):
             self._backend = cumulus.store.open(backend)
         else:
             self._backend = backend
@@ -567,7 +551,7 @@ class MetadataItem:
     @staticmethod
     def decode_str(s):
         """Decode a URI-encoded (%xx escapes) string."""
-        return uri_decode(s)
+        return cumulus.util.uri_decode_pathname(s)
 
     @staticmethod
     def raw_str(s):
