@@ -332,22 +332,19 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
         file_info["checksum"] = file_hash->digest_str();
     }
 
-    // Sanity check: if we are rebuilding the statcache, but the file looks
-    // like it hasn't changed, then the newly-computed checksum should match
-    // the checksum in the statcache.  If not, we have possible disk corruption
-    // and report a warning.
-    if (flag_rebuild_statcache) {
-        if (found
-            && metawriter->is_unchanged(&stat_buf)
-            && file_info["checksum"] != metawriter->get_checksum()) {
-            fprintf(stderr,
-                    "Warning: Checksum for %s does not match expected value\n"
-                    "    expected: %s\n"
-                    "    actual:   %s\n",
-                    path.c_str(),
-                    metawriter->get_checksum().c_str(),
-                    file_info["checksum"].c_str());
-        }
+    // Sanity check: if the file looks like it hasn't changed, then the
+    // newly-computed checksum should match the checksum in the statcache.  If
+    // not, we have possible disk corruption and report a warning.
+    if (found
+        && metawriter->is_unchanged(&stat_buf)
+        && file_info["checksum"] != metawriter->get_checksum()) {
+        fprintf(stderr,
+                "Warning: Checksum for %s does not match expected value\n"
+                "    expected: %s\n"
+                "    actual:   %s\n",
+                path.c_str(),
+                metawriter->get_checksum().c_str(),
+                file_info["checksum"].c_str());
     }
 
     if (verbose && status != NULL)
