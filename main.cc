@@ -314,6 +314,12 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
 
             while (!refs.empty()) {
                 ref = refs.front(); refs.pop_front();
+
+                // The file-level checksum guarantees integrity of the data.
+                // To reduce the metadata log size, do not include checksums on
+                // individual objects.
+                ref.clear_checksum();
+
                 object_list.push_back(ref.to_string());
                 db->UseObject(ref);
             }
