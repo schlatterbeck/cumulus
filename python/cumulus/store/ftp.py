@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function, unicode_literals
 
-from ftplib        import FTP, all_errors, error_temp
+from ftplib        import FTP, all_errors, error_temp, error_perm
 from netrc         import netrc, NetrcParseError
 from cumulus.store import Store, type_patterns, NotFoundError
 
@@ -57,9 +57,17 @@ class FtpStore (Store):
         self.ftp    = FTP ()
         self.connect ()
 
+    def _get_dir (self, type, name):
+        # We put all files in directories starting with the first 3
+        # characters of the filename
+        # This works around limitations of some ftp servers that return
+        # only the first 10000 files when listing directories.
+        # Note that we only have files with hex characters in the first
+        # 3 charactars plus files starting with 'sna' (for snapshot)
+        return name [:3]
+
     def _get_path (self, type, name):
-        # we are in right directory
-        return name
+        return '/'.join ((self._get_dir (type, name), name))
 
     def connect (self) :
         self.ftp.connect (self.host, self.port)
@@ -69,7 +77,10 @@ class FtpStore (Store):
 
     def list (self, type):
         self.sync ()
-        files = self.ftp.nlst ()
+        dirs = self.ftp.nlst ()
+        files = []
+        for d in dirs :
+            files.extend (f.split ('/') [-1] for f in self.ftp.nlst (d))
         return (f for f in files if type_patterns[type].match (f))
 
     def get (self, type, name):
@@ -80,6 +91,11 @@ class FtpStore (Store):
         return sock.makefile ()
 
     def put (self, type, name, fp):
+        self.sync ()
+        try :
+            self.ftp.mkd (self._get_dir (type, name))
+        except error_perm :
+            pass
         self.sync ()
         self.ftp.storbinary ("STOR %s" % self._get_path (type, name), fp)
 
