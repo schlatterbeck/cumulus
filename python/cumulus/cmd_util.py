@@ -23,6 +23,7 @@ from __future__ import division, print_function, unicode_literals
 import getpass, os, stat, sys, time
 from datetime import datetime, timedelta
 from optparse import OptionParser
+from time     import strftime, localtime
 
 import cumulus
 
@@ -158,6 +159,65 @@ def cmd_read_snapshots(snapshots):
         print(d)
         print(d['Segments'].split())
     store.cleanup()
+
+def format_ls (meta):
+    """ Pretty-print meta object similar to ls -1 output
+    """
+    print(meta.items.name)
+
+def format_ls_l (meta):
+    """ Pretty-print meta object similar to ls -l output
+    """
+    type = meta.items.type
+    if type == 'f' :
+        type = '-'
+    modes = 'xwr'
+    binmode = meta.items.mode
+    mode = []
+    for i in range (9) :
+        if binmode & (1 << i) :
+            mode.append (modes [i % 3])
+        else :
+            mode.append ('-')
+    mode = ''.join (reversed (mode))
+    user  = meta.items.user  [1]
+    group = meta.items.group [1]
+    size = ''
+    if 'size' in meta.fields :
+        size = meta.items.size
+    date = strftime ('%Y-%m-%d %H:%M', localtime (meta.items.mtime))
+    name = meta.items.name
+    print("%s%s %11s %11s %10s %s %s"
+         % (type, mode, user, group, size, date, name)
+         )
+
+def ls(args, prettyprinter):
+    """ Produce a flattened metadata dump from a snapshot
+        Listing is in the format given by prettyprinter function
+    """
+    snapshot = args [0]
+    get_passphrase()
+    lowlevel = lbs.LowlevelDataStore(options.store)
+    store = lbs.ObjectStore(lowlevel)
+    d = lbs.parse_full(store.load_snapshot(snapshot))
+    check_version(d['Format'])
+    for m in lbs.iterate_metadata(store, d['Root']) :
+        prettyprinter(m)
+    store.cleanup()
+
+def cmd_ls(args):
+    """ Produce a flattened metadata dump from a snapshot
+        Format is similar to ls output (only one column)
+    """
+    ls(args, format_ls)
+
+def cmd_lsl(args):
+    """ Produce a flattened metadata dump from a snapshot
+        Format is similar to ls -l output
+    """
+    ls(args, format_ls_l)
+
+cmd_dir = cmd_lsl
 
 def cmd_read_metadata(args):
     """ Produce a flattened metadata dump from a snapshot
