@@ -43,19 +43,9 @@ def get_passphrase():
     if ENV_KEY not in os.environ:
         os.environ[ENV_KEY] = getpass.getpass()
 
-def cmd_prune_db(args):
-    """ Delete old snapshots from the local database, though do not
-        actually schedule any segment cleaning.
-        Syntax: $0 --localdb=LOCALDB prune-db
-    """
-    db = cumulus.LocalDatabase(options.localdb)
-
-    # Delete old snapshots from the local database.
-    #db.garbage_collect()
-    #db.commit()
-
 def cmd_clean(args, clean_threshold=7.0):
-    """ Run the segment cleaner.
+    """ Delete old snapshots from the local database, then
+        run the segment cleaner.
         Syntax: $0 --localdb=LOCALDB clean
     """
     db = cumulus.LocalDatabase(options.localdb)
@@ -73,6 +63,29 @@ def cmd_clean(args, clean_threshold=7.0):
             db.mark_segment_expired(s)
         else:
             break
+    db.balance_expired_objects()
+    db.commit()
+
+def cmd_expire_local_segments(args):
+    """ Remove local segments so that they are not used during next
+        backup -- useful if some segments have disappeared on remote
+        storage for whatever reason and we want new backups to be
+        consistent.
+        Syntax: $0 --localdb=LOCALDB expire-local-segments
+    """
+    db = lbs.LocalDatabase(options.localdb)
+    csr = db.cursor()
+    segs = ','.join ('"%s"' % a for a in args)
+    csr.execute('''select segmentid,segment from segments
+                   where segment in (%s)''' % segs)
+
+    segments = []
+    # first make a copy before re-using cursor object
+    for id, name in csr:
+        segments.append ((id, name))
+    for id, name in segments:
+        print "Expiring segment %s (%d)" % (name, id)
+        db.mark_segment_expired(id)
     db.balance_expired_objects()
     db.commit()
 
@@ -115,7 +128,7 @@ def cmd_list_snapshot_sizes(args):
 
 def cmd_garbage_collect(args):
     """ Search for any files which are not needed by any current
-        snapshots and offer to delete them.
+        snapshots and delete them unless dry_run (-n option) is set.
         Syntax: $0 --store=DATADIR gc
     """
     store = cumulus.CumulusStore(options.store)
