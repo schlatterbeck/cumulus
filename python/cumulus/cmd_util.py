@@ -469,8 +469,15 @@ def cmd_remove_old_snapshots(args):
         After running this command you need to do a garbage-collect run.
         We currently only remove the top-level .lbs file.
 
+        Also note that this command runs the clean command first, so
+        that snapshot in the local database are expired. So you need to
+        specify both, the local db and the remote storage.
+
         WARNING: THIS REMOVES SNAPSHOTS ON THE REMOTE STORAGE!
     """
+    if 'clean_threshold' in args:
+        del args ['clean_threshold']
+    cmd_clean (args)
     weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     opttypes = {'weekday': str, 'offset': int}
     opts = {'weekday' : 'Fri', 'offset' : -5}
