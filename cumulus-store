@@ -43,12 +43,13 @@ sys.path.append(os.path.join(script_directory, 'python'))
 
 import cumulus
 from cumulus import store
+from cumulus.util import uri_encode_pathname, uri_decode_pathname
 
 remote = store.open(sys.argv[1])
 while True:
     cmd = sys.stdin.readline()
     if cmd == "": break
-    cmd = [cumulus.uri_decode(s) for s in cmd.strip().split()]
+    cmd = [uri_decode_pathname(s) for s in cmd.strip().split()]
 
     try:
         if cmd[0] == 'PUT':
@@ -57,7 +58,7 @@ while True:
         elif cmd[0] == 'LIST':
             files = remote.list(cmd[1])
             for f in files:
-                sys.stdout.write("* " + cumulus.uri_encode(f) + "\n")
+                sys.stdout.write("* " + uri_encode_pathname(f) + "\n")
             sys.stdout.write('OK\n')
     except Exception:
         traceback.print_exc()
