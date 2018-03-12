@@ -84,7 +84,7 @@ def cmd_expire_local_segments(args):
     for id, name in csr:
         segments.append ((id, name))
     for id, name in segments:
-        print "Expiring segment %s (%d)" % (name, id)
+        print("Expiring segment %s (%d)" % (name, id))
         db.mark_segment_expired(id)
     db.balance_expired_objects()
     db.commit()
