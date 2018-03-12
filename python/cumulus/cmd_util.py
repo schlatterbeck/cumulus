@@ -98,7 +98,7 @@ def cmd_list_snapshots(args):
 
 def cmd_list_snapshot_sizes(args):
     """ List size of data needed for each snapshot.
-        Syntax: $0 --data=DATADIR list-snapshot-sizes [snapshots]
+        Syntax: $0 --data=DATADIR [--latest <n>] list-snapshot-sizes [snapshots]
     """
     store = cumulus.CumulusStore(options.store)
     backend = store.backend
@@ -110,6 +110,8 @@ def cmd_list_snapshot_sizes(args):
     snapshots = args
     if not snapshots:
         snapshots=store.list_snapshots()
+        if options.latest:
+            snapshots = (list (sorted (snapshots))) [-options.latest:]
     for s in sorted(snapshots):
         d = cumulus.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
@@ -555,8 +557,10 @@ def main(argv):
     parser = OptionParser(usage="\n".join(usage))
     parser.add_option("-v", action="store_true", dest="verbose", default=False,
                       help="increase verbosity")
-    parser.add_option("-n", action="store_true", dest="dry_run", default=False,
-                      help="dry run")
+    parser.add_option("-n", "--dry-run", action="store_true", dest="dry_run",
+                      default=False, help="dry run")
+    parser.add_option("--latest", dest="latest", type="int", default=0,
+                      help="List latest n snapshots for list-snapshot-sizes")
     parser.add_option("--store", dest="store",
                       help="specify path to backup data store")
     parser.add_option("--localdb", dest="localdb",
