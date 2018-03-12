@@ -21,6 +21,7 @@
 from __future__ import division, print_function, unicode_literals
 
 import getpass, os, stat, sys, time
+from datetime import datetime, timedelta
 from optparse import OptionParser
 
 import cumulus
@@ -83,7 +84,7 @@ def cmd_list_snapshots(args):
 
 def cmd_list_snapshot_sizes(args):
     """ List size of data needed for each snapshot.
-        Syntax: $0 --data=DATADIR list-snapshot-sizes
+        Syntax: $0 --data=DATADIR list-snapshot-sizes [snapshots]
     """
     store = cumulus.CumulusStore(options.store)
     backend = store.backend
@@ -92,7 +93,10 @@ def cmd_list_snapshot_sizes(args):
     size = 0
     def get_size(segment):
         return backend.stat_generic(segment + ".tar", "segments")["size"]
-    for s in sorted(store.list_snapshots()):
+    snapshots = args
+    if not snapshots:
+        snapshots=store.list_snapshots()
+    for s in sorted(snapshots):
         d = cumulus.parse_full(store.load_snapshot(s))
         check_version(d['Format'])
 
@@ -176,6 +180,10 @@ def cmd_read_metadata(args):
 
 def cmd_verify_snapshots(snapshots):
     """ Verify snapshot integrity
+        Syntax: $0 --store=DATADIR verify-snapshots s1 ...
+        You need to specify at least one snapshot
+        Note: This is costly, it will read the whole snapshot from
+        remote storage
     """
     get_passphrase()
     store = cumulus.CumulusStore(options.store)
@@ -213,7 +221,8 @@ def cmd_verify_snapshots(snapshots):
     store.cleanup()
 
 def cmd_restore_snapshot(args):
-    """ Restore a snapshot, or some subset of files from it
+    """ Restore a snapshot, or some subset of files from it to directory dest
+        Syntax: $0 --store=DATADIR restore-snapshot snapshot dest [files]
     """
     get_passphrase()
     store = cumulus.CumulusStore(options.store)
@@ -367,9 +376,11 @@ def cmd_restore_snapshot(args):
 def main(argv):
     usage = ["%prog [option]... command [arg]...", "", "Commands:"]
     cmd = method = None
-    for cmd, method in globals().items():
+    for cmd, method in sorted(globals().items()):
         if cmd.startswith ('cmd_'):
-            usage.append(cmd[4:].replace('_', '-') + ':' + method.__doc__)
+            cmd = cmd[4:].replace('_', '-')
+            doc = method.__doc__.replace ('$0', os.path.basename(sys.argv[0]))
+            usage.append(':'.join((cmd, doc)))
     parser = OptionParser(usage="\n".join(usage))
     parser.add_option("-v", action="store_true", dest="verbose", default=False,
                       help="increase verbosity")
