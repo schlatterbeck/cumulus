@@ -373,6 +373,97 @@ def cmd_restore_snapshot(args):
 
     store.cleanup()
 
+def cmd_remove_old_snapshots(args):
+    """ Remove snapshots:
+        - daily snapshots (all except weekly) older than a week, this is
+          done separately for each weekday (i.e. we keep latest Mon,
+          Tue, Wed, Thu, Fri, Sun backups)
+        - weekly for 1st, 2nd, 3rd and 5th week in month
+        - monthly (4th week in month) are never removed
+        Default convention is that the weekly snapshots are done on
+        Friday with an offset of -5 hours (we do Friday backups early on
+        Saturday morning, subtracting 5 hours from the backup timestamp
+        will give us Friday). You may alter this by specifying e.g.
+        weekday=Sat for weekly backups on Saturday as an argument.
+        You may also change the offset by specifying e.g., offset=0
+
+        Note: If you alter the weekday you should choose your weekly
+        backup day and stick to it -- otherwise if you change it, you
+        will remove old monthly backups when first removing old
+        snapshots for "Fri" and then for "Sat" -- the net result is that
+        after this you only have backups for the last week left!
+
+        After running this command you need to do a garbage-collect run.
+        We currently only remove the top-level .lbs file.
+
+        WARNING: THIS REMOVES SNAPSHOTS ON THE REMOTE STORAGE!
+    """
+    weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    opttypes = {'weekday': str, 'offset': int}
+    opts = {'weekday' : 'Fri', 'offset' : -5}
+    for a in args:
+        if '=' not in a:
+            print("Expected parameter=value: %s" % a, file=sys.stderr)
+            return
+        k, v = a.split('=', 1)
+        if k not in opttypes:
+            print("Unknown parameter: %s" % k, file=sys.stderr)
+            return
+        opts [k] = opttypes [k](v)
+    store = cumulus.CumulusStore(options.store)
+    td = timedelta (hours = opts['offset'])
+    datebyname = {}
+    prettybyname = {}
+    latest_daily = {}
+    latest_weekly = {}
+    to_remove = {}
+    for snapname in lowlevel.list_snapshots():
+        scheme, timestamp = snapname.rsplit('-', 1)
+        dt = datetime.strptime(timestamp, "%Y%m%dT%H%M%S")
+        dt += td
+        weekday = dt.strftime('%a')
+        weekno = (int (dt.strftime('%d')) - 1) / 7
+        datebyname[snapname] = dt
+        prettybyname[snapname] = dt.strftime('%b')
+        if weekday != opts['weekday']:
+            prettybyname[snapname] = dt.strftime('%a')
+            if (scheme, weekday) in latest_daily:
+                olddt = datebyname[latest_daily[scheme, weekday]]
+                if dt > olddt:
+                    to_remove [latest_daily[scheme, weekday]] = True
+                    latest_daily[scheme, weekday] = snapname
+                else:
+                    to_remove [snapname] = True
+            else:
+                latest_daily[(scheme, weekday)] = snapname
+        elif weekno != 4 - 1:
+            prettybyname[snapname] = 'W %s' % (weekno + 1)
+            if (scheme, weekno) in latest_weekly:
+                olddt = datebyname[latest_weekly[scheme, weekno]]
+                if dt > olddt:
+                    to_remove [latest_weekly[scheme, weekno]] = True
+                    latest_weekly[scheme, weekno] = snapname
+                else:
+                    to_remove [snapname] = True
+            else:
+                latest_weekly[scheme, weekno] = snapname
+
+    t = 'snapshots'
+    r = cumulus.store.type_patterns[t]
+    for f in sorted(lowlevel.store.list(t)):
+        m = r.match(f)
+        if m:
+            snapname = m.group(1)
+            print(snapname, prettybyname [snapname], end=' ')
+            if snapname in to_remove:
+                if options.dry_run:
+                    print("not deleted (dry-run)")
+                else:
+                    lowlevel.store.delete(t, f)
+                    print("deleted")
+            else:
+                print("kept")
+
 def main(argv):
     usage = ["%prog [option]... command [arg]...", "", "Commands:"]
     cmd = method = None
