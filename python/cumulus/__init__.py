@@ -298,7 +298,7 @@ class BackendWrapper(object):
         for typeinfo in SEARCH_PATHS.values():
             directories.update(typeinfo.directories())
         for d in directories:
-            print("Prefetch", d)
+            #print("Prefetch", d)
             self._backend.scan(d)
 
 class CumulusStore:
