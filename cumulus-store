@@ -53,7 +53,7 @@ while True:
 
     try:
         if cmd[0] == 'PUT':
-            remote.put(cmd[1], cmd[2], open(cmd[3], 'r'))
+            remote.put(cmd[2], open(cmd[3], 'r'))
             sys.stdout.write('OK\n')
         elif cmd[0] == 'LIST':
             files = remote.list(cmd[1])
