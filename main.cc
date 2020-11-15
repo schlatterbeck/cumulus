@@ -41,12 +41,12 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <string>
 #include <vector>
 
-#include "cumulus.h"
 #include "exclude.h"
 #include "hash.h"
 #include "localdb.h"
@@ -62,6 +62,7 @@ using std::map;
 using std::string;
 using std::vector;
 using std::ostream;
+using std::unique_ptr;
 
 /* Version information.  This will be filled in by the Makefile. */
 #ifndef CUMULUS_VERSION
@@ -227,7 +228,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
     /* If the file is new or changed, we must read in the contents a block at a
      * time. */
     if (!cached) {
-        scoped_ptr<Hash> file_hash(Hash::New());
+        unique_ptr<Hash> file_hash(Hash::New());
         Subfile subfile(db);
         subfile.load_old_blocks(old_blocks);
 
@@ -258,7 +259,7 @@ int64_t dumpfile(int fd, dictionary &file_info, const string &path,
             double block_age = 0.0;
             ObjectReference ref;
 
-            scoped_ptr<Hash> block_hash(Hash::New());
+            unique_ptr<Hash> block_hash(Hash::New());
             block_hash->update(block_buf, bytes);
             string block_csum = block_hash->digest_str();
 
@@ -853,7 +854,7 @@ int main(int argc, char *argv[])
         dbmeta_filename += backup_scheme + "-";
     dbmeta_filename += timestamp + ".meta" + filter_extension;
     RemoteFile *dbmeta_file = remote->alloc_file(dbmeta_filename, "meta");
-    scoped_ptr<FileFilter> dbmeta_filter(FileFilter::New(dbmeta_file->get_fd(),
+    unique_ptr<FileFilter> dbmeta_filter(FileFilter::New(dbmeta_file->get_fd(),
                                                          filter_program));
     if (dbmeta_filter == NULL) {
         fprintf(stderr, "Unable to open descriptor output file: %m\n");
@@ -902,7 +903,7 @@ int main(int argc, char *argv[])
 
     RemoteFile *descriptor_file = remote->alloc_file(desc_filename,
                                                      "snapshots");
-    scoped_ptr<FileFilter> descriptor_filter(
+    unique_ptr<FileFilter> descriptor_filter(
         FileFilter::New(descriptor_file->get_fd(), signature_filter.c_str()));
     if (descriptor_filter == NULL) {
         fprintf(stderr, "Unable to open descriptor output file: %m\n");
