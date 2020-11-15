@@ -498,6 +498,7 @@ def cmd_remove_old_snapshots(args):
     latest_daily = {}
     latest_weekly = {}
     to_remove = {}
+    lowlevel = lbs.LowlevelDataStore(options.store)
     for snapname in lowlevel.list_snapshots():
         scheme, timestamp = snapname.rsplit('-', 1)
         dt = datetime.strptime(timestamp, "%Y%m%dT%H%M%S")
