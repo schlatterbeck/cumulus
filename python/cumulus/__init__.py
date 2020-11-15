@@ -727,7 +727,7 @@ class LocalDatabase:
         first = True
         for (id, name, snap_age) in cur.fetchall():
             if not first:
-                print("Delete snapshot %d (%s)" % (id, name))
+                print("Localdb: Delete snapshot %d (%s)" % (id, name))
                 cur.execute("delete from snapshots where snapshotid = ?",
                             (id,))
             first = False
