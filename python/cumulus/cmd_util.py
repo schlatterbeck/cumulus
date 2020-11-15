@@ -478,6 +478,7 @@ def cmd_remove_old_snapshots(args):
     """
     if 'clean_threshold' in args:
         del args ['clean_threshold']
+    cmd_clean (args)
     weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     opttypes = {'weekday': str, 'offset': int}
     opts = {'weekday' : 'Fri', 'offset' : -5}
