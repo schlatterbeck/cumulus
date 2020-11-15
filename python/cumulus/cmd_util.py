@@ -142,7 +142,7 @@ def cmd_garbage_collect(args):
         referenced.add(s)
         referenced.update(d['Segments'].split())
 
-    print(referenced)
+    #print(referenced)
 
     to_delete = []
     to_preserve = []
@@ -153,8 +153,8 @@ def cmd_garbage_collect(args):
             else:
                 to_delete.append(path)
 
-    print(to_preserve)
-    print(to_delete)
+    #print(to_preserve)
+    #print(to_delete)
 
     raw_backend = backend.raw_backend
     for f in to_delete:
