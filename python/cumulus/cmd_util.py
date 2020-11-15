@@ -51,9 +51,8 @@ def cmd_clean(args, clean_threshold=7.0):
     db = cumulus.LocalDatabase(options.localdb)
 
     # Delete old snapshots from the local database.
-    intent = float(options.intent)
     for s in db.list_schemes():
-        db.prune_old_snapshots(s, intent)
+        db.prune_old_snapshots(s)
 
     # Expire segments which are poorly-utilized.
     for s in db.get_segment_cleaning_list():
@@ -565,8 +564,6 @@ def main(argv):
                       help="specify path to backup data store")
     parser.add_option("--localdb", dest="localdb",
                       help="specify path to local database")
-    parser.add_option("--intent", dest="intent", default=1.0,
-                      help="give expected next snapshot type when cleaning")
     global options
     (options, args) = parser.parse_args(argv[1:])
 
