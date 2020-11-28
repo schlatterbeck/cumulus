@@ -107,4 +107,4 @@ def open(url):
         # Fall through to error below
         pass
 
-    raise NotImplementedError("Scheme %s not implemented" % scheme)
+    raise NotImplementedError("Scheme %s not implemented" % parsed_url.scheme)
