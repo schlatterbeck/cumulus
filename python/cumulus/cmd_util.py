@@ -74,19 +74,24 @@ def cmd_expire_local_segments(args):
     """
     db = cumulus.LocalDatabase(options.localdb)
     csr = db.cursor()
-    segs = ','.join ('"%s"' % a for a in args)
+    ph   = ','.join ('?' for a in args)
     csr.execute('''select segmentid,segment from segments
-                   where segment in (%s)''' % segs)
+                   where segment in (%s)''' % ph, args)
 
     segments = []
     # first make a copy before re-using cursor object
     for id, name in csr:
         segments.append ((id, name))
     for id, name in segments:
-        print("Expiring segment %s (%d)" % (name, id))
-        db.mark_segment_expired(id)
-    db.balance_expired_objects()
-    db.commit()
+        dr = ''
+        if options.dry_run:
+            dr = ' (dry-run)'
+        print("Expiring segment %s (%d)%s" % (name, id, dr))
+        if not options.dry_run:
+            db.mark_segment_expired(id)
+    if not options.dry_run:
+        db.balance_expired_objects()
+        db.commit()
 
 def cmd_list_snapshots(args):
     """ List snapshots stored.

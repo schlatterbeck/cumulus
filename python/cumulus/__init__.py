@@ -421,7 +421,7 @@ class CumulusStore:
         (segment, object, checksum, slice) = self.parse_ref(refstr)
 
         if segment == "zero":
-            return "\0" * slice[1]
+            return b"\0" * slice[1]
 
         data = self.load_object(segment, object)
 
