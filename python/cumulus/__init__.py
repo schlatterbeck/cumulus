@@ -784,9 +784,10 @@ class LocalDatabase:
 
         cur = self.cursor()
         segments = []
-        cur.execute("""select segmentid, used, size, mtime,
-                       julianday('now') - mtime as age from segment_info
-                       where expire_time is null""")
+        cur.execute("""select segmentid, bytes_referenced, data_size,
+                       timestamp, julianday('now') - timestamp as age
+                       from segments join segment_utilization using (segmentid)
+                    """)
         for row in cur:
             info = self.SegmentInfo()
             info.id = row[0]
@@ -821,7 +822,7 @@ class LocalDatabase:
 
             segments.append(info)
 
-        segments.sort(cmp, key=lambda s: s.cleaning_benefit, reverse=True)
+        segments.sort(key=lambda s: s.cleaning_benefit, reverse=True)
         return segments
 
     def mark_segment_expired(self, segment):
@@ -842,10 +843,6 @@ class LocalDatabase:
             raise TypeError("Invalid segment: %s, must be of type int or SegmentInfo, not %s" % (segment, type(segment)))
 
         cur = self.cursor()
-        cur.execute("select max(snapshotid) from snapshots")
-        last_snapshotid = cur.fetchone()[0]
-        cur.execute("update segments set expire_time = ? where segmentid = ?",
-                    (last_snapshotid, id))
         cur.execute("update block_index set expired = 0 where segmentid = ?",
                     (id,))
 
@@ -892,7 +889,7 @@ class LocalDatabase:
         # segments, but for now don't worry too much about that.)  If we can't
         # compute an average, it's probably because there are no expired
         # segments, so we have no more work to do.
-        cur.execute("""select avg(size) from segments
+        cur.execute("""select avg(disk_size) from segments
                        where segmentid in
                            (select distinct segmentid from block_index
                             where expired is not null)""")
