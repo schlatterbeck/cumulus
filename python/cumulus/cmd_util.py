@@ -196,6 +196,10 @@ def format_ls (meta):
 
 def format_ls_l (meta):
     """ Pretty-print meta object similar to ls -l output
+        Note that python encodes non-unicode chars with
+        a surrogate encoding. This cannot be printed.
+        We replace such surrogates with '?' like normal
+        ls would do, too.
     """
     type = meta.items.type
     if type == 'f' :
@@ -216,9 +220,17 @@ def format_ls_l (meta):
         size = meta.items.size
     date = strftime ('%Y-%m-%d %H:%M', localtime (meta.items.mtime))
     name = meta.items.name
-    print("%s%s %11s %11s %10s %s %s"
-         % (type, mode, user, group, size, date, name)
-         )
+    try :
+        print("%s%s %11s %11s %10s %s %s"
+             % (type, mode, user, group, size, date, name)
+             )
+    except UnicodeEncodeError as err:
+        if err.reason != 'surrogates not allowed':
+            raise
+        name = name.encode('utf-8', 'replace').decode()
+        print("%s%s %11s %11s %10s %s %s"
+             % (type, mode, user, group, size, date, name)
+             )
 
 def ls(args, prettyprinter):
     """ Produce a flattened metadata dump from a snapshot
