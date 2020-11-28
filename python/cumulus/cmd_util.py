@@ -72,7 +72,7 @@ def cmd_expire_local_segments(args):
         consistent.
         Syntax: $0 --localdb=LOCALDB expire-local-segments
     """
-    db = lbs.LocalDatabase(options.localdb)
+    db = cumulus.LocalDatabase(options.localdb)
     csr = db.cursor()
     segs = ','.join ('"%s"' % a for a in args)
     csr.execute('''select segmentid,segment from segments
@@ -176,8 +176,18 @@ def cmd_read_snapshots(snapshots):
 
 def format_ls (meta):
     """ Pretty-print meta object similar to ls -1 output
+        Note that python encodes non-unicode chars with
+        a surrogate encoding. This cannot be printed.
+        We replace such surrogates with '?' like normal
+        ls would do, too.
     """
-    print(meta.items.name)
+    try :
+        print(meta.items.name)
+    except UnicodeEncodeError as err:
+        if err.reason != 'surrogates not allowed':
+            raise
+        n = meta.items.name.encode('utf-8', 'replace').decode()
+        print (n)
 
 def format_ls_l (meta):
     """ Pretty-print meta object similar to ls -l output
@@ -211,11 +221,11 @@ def ls(args, prettyprinter):
     """
     snapshot = args [0]
     get_passphrase()
-    lowlevel = lbs.LowlevelDataStore(options.store)
-    store = lbs.ObjectStore(lowlevel)
-    d = lbs.parse_full(store.load_snapshot(snapshot))
+    lowlevel = cumulus.BackendWrapper(options.store)
+    store = cumulus.CumulusStore(lowlevel)
+    d = cumulus.parse_full(store.load_snapshot(snapshot))
     check_version(d['Format'])
-    for m in lbs.iterate_metadata(store, d['Root']) :
+    for m in cumulus.iterate_metadata(store, d['Root']) :
         prettyprinter(m)
     store.cleanup()
 
@@ -498,13 +508,13 @@ def cmd_remove_old_snapshots(args):
     latest_daily = {}
     latest_weekly = {}
     to_remove = {}
-    lowlevel = lbs.LowlevelDataStore(options.store)
-    for snapname in lowlevel.list_snapshots():
+    lowlevel = cumulus.BackendWrapper(options.store)
+    for snapname in store.list_snapshots():
         scheme, timestamp = snapname.rsplit('-', 1)
         dt = datetime.strptime(timestamp, "%Y%m%dT%H%M%S")
         dt += td
         weekday = dt.strftime('%a')
-        weekno = (int (dt.strftime('%d')) - 1) / 7
+        weekno = (int (dt.strftime('%d')) - 1) // 7
         datebyname[snapname] = dt
         prettybyname[snapname] = dt.strftime('%b')
         if weekday != opts['weekday']:
@@ -532,8 +542,9 @@ def cmd_remove_old_snapshots(args):
 
     t = 'snapshots'
     r = cumulus.store.type_patterns[t]
-    for f in sorted(lowlevel.store.list(t)):
-        m = r.match(f)
+    for f in sorted(lowlevel.list_generic(t)):
+        assert f[1].startswith('snapshots/')
+        m = r.match(f[1][10:])
         if m:
             snapname = m.group(1)
             print(snapname, prettybyname [snapname], end=' ')
