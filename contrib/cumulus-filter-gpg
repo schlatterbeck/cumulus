@@ -27,7 +27,7 @@ run_gpg () {
     if [ -n "$LBS_GPG_PASSPHRASE" ]; then
         exec 4<&0
         echo "$LBS_GPG_PASSPHRASE" |
-            gpg "${gpg_options[@]}" --passphrase-fd=3 "$@" 3<&0 <&4
+            gpg "${gpg_options[@]}" --pinentry-mode=loopback --passphrase-fd=3 "$@" 3<&0 <&4
     else
         gpg "${gpg_options[@]}" "$@"
     fi
