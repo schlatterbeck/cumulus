@@ -495,7 +495,7 @@ def cmd_remove_old_snapshots(args):
         after this you only have backups for the last week left!
 
         After running this command you need to do a garbage-collect run.
-        We currently only remove the top-level .lbs file.
+        We currently only remove the top-level snapshot file.
 
         Also note that this command runs the clean command first, so
         that snapshot in the local database are expired. So you need to
@@ -525,7 +525,7 @@ def cmd_remove_old_snapshots(args):
     latest_daily = {}
     latest_weekly = {}
     to_remove = {}
-    lowlevel = cumulus.BackendWrapper(options.store)
+    backend = store.backend
     for snapname in store.list_snapshots():
         scheme, timestamp = snapname.rsplit('-', 1)
         dt = datetime.strptime(timestamp, "%Y%m%dT%H%M%S")
@@ -559,7 +559,7 @@ def cmd_remove_old_snapshots(args):
 
     t = 'snapshots'
     r = cumulus.store.type_patterns[t]
-    for f in sorted(lowlevel.list_generic(t)):
+    for f in sorted(backend.list_generic(t)):
         assert f[1].startswith('snapshots/')
         m = r.match(f[1][10:])
         if m:
@@ -569,7 +569,7 @@ def cmd_remove_old_snapshots(args):
                 if options.dry_run:
                     print("not deleted (dry-run)")
                 else:
-                    lowlevel.store.delete(t, f)
+                    backend.raw_backend.delete(f[1])
                     print("deleted")
             else:
                 print("kept")
