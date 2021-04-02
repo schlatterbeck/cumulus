@@ -124,6 +124,12 @@ int safe_open(const string& path, struct stat *stat_buf)
     long flags = fcntl(fd, F_GETFL);
     fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
+    /* Advise the kernel that we won't need the content of the file in the
+     * cache */
+    #ifdef POSIX_FADV_NOREUSE
+    posix_fadvise(fd, 0, 0, POSIX_FADV_NOREUSE);
+    #endif
+
     /* Re-check file attributes, storing them into stat_buf if that is
      * non-NULL. */
     struct stat internal_stat_buf;
