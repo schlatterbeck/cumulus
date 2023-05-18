@@ -13,7 +13,7 @@ def throw_notfound(method):
         try:
             return method(*args, **kwargs)
         except error_perm as e:
-	    raise cumulus.store.NotFoundError(e)
+            raise cumulus.store.NotFoundError(e)
     return f
 
 class Store (cumulus.store.Store):
@@ -93,12 +93,12 @@ class Store (cumulus.store.Store):
         files = []
         for d in dirs:
             files.extend (f.split ('/') [-1] for f in self.ftp.nlst (d))
-	#print ("Files:", files, file=sys.stderr)
+        #print ("Files:", files, file=sys.stderr)
         return files
 
     @throw_notfound
     def get (self, path):
-	#print ("GET:", path, file=sys.stderr)
+        #print ("GET:", path, file=sys.stderr)
         self.sync ()
         self.ftp.sendcmd ('TYPE I')
         sock = self.ftp.transfercmd ('RETR %s' % self._get_path (path))
@@ -128,15 +128,15 @@ class Store (cumulus.store.Store):
         self.sync ()
         fn = self._get_path (path)
         size = None
-	#print ("STAT:", path, file=sys.stderr)
+        #print ("STAT:", path, file=sys.stderr)
         try:
             # my server doesn't accept size in ascii-mode
             self.ftp.sendcmd ('TYPE I')
             size = self.ftp.size (fn)
             self.ftp.sendcmd ('TYPE A')
-	except error_perm as err:
-	    #print (dir(err), err.args, file=sys.stderr)
-	    raise cumulus.store.NotFoundError(err.message)
+        except error_perm as err:
+            #print (dir(err), err.args, file=sys.stderr)
+            raise cumulus.store.NotFoundError(err.message)
         except all_errors as err:
             print ("ERROR:", err, file=sys.stderr)
             raise
