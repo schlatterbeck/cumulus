@@ -14,6 +14,10 @@ def throw_notfound(method):
             return method(*args, **kwargs)
         except error_perm as e:
             raise cumulus.store.NotFoundError(e)
+        except error_temp as e:
+            if getmsg (e).startswith ('450'):
+                raise cumulus.store.NotFoundError(e)
+            raise
     return f
 
 def getmsg (exc):
