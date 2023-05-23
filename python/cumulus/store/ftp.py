@@ -16,6 +16,16 @@ def throw_notfound(method):
             raise cumulus.store.NotFoundError(e)
     return f
 
+def getmsg (exc):
+    """ Helper to get arguments of exception
+    """
+    if getattr (exc, 'message', None):
+        return exc.message
+    elif getattr (exc, 'args', None):
+        return exc.args [0]
+    else:
+        return ''
+
 class Store (cumulus.store.Store):
     """ Storage backend that accesses a remote FTP server."""
     def __init__ (self, url, **kw):
@@ -103,7 +113,7 @@ class Store (cumulus.store.Store):
         self.ftp.sendcmd ('TYPE I')
         sock = self.ftp.transfercmd ('RETR %s' % self._get_path (path))
         self.synced = False
-        return sock.makefile ()
+        return sock.makefile (mode = 'rb')
 
     @throw_notfound
     def put (self, path, fp):
@@ -136,7 +146,7 @@ class Store (cumulus.store.Store):
             self.ftp.sendcmd ('TYPE A')
         except error_perm as err:
             #print (dir(err), err.args, file=sys.stderr)
-            raise cumulus.store.NotFoundError(err.message)
+            raise cumulus.store.NotFoundError(getmsg (err))
         except all_errors as err:
             print ("ERROR:", err, file=sys.stderr)
             raise
@@ -160,7 +170,7 @@ class Store (cumulus.store.Store):
                 self.ftp.voidresp()
             self.ftp.sendcmd ('TYPE A')
         except error_temp as err:
-            if not err.message.startswith ('421'):
+            if not getmsg (err).startswith ('421'):
                 raise
             self.connect ()
         self.synced = True
